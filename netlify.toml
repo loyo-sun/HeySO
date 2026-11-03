@@ -15,7 +15,4 @@
   status = 200
 
 [template.environment]
-  HEYSO_PASSWORD = "设置至少 16 位的工作空间访问密码"
-  HEYSO_MCP_TOKEN = "设置独立的至少 32 位 MCP 密钥"
-  UPSTASH_REDIS_REST_URL = "Upstash Redis REST HTTPS 地址"
-  UPSTASH_REDIS_REST_TOKEN = "Upstash Redis REST 读写密钥"
+  HEYSO_SETUP_KEY = "设置至少 32 位的部署初始化密钥，首次打开页面时使用"

@@ -9,7 +9,7 @@ import { authenticated, configured, safeEqual, sessionCookie } from './hosted-au
 const fail = (message, status = 400) => { throw Object.assign(Error(message), { status }); };
 const json = (value, status = 200, headers = {}) => Response.json(value, { status, headers: { 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff', ...headers } });
 const limit = 4 * 1024 * 1024;
-async function body(request) {
+export async function readBody(request) {
   if (Number(request.headers.get('content-length')) > limit) fail('上传内容不能超过 4 MB', 413);
   const reader = request.body?.getReader();
   if (!reader) return {};
@@ -24,6 +24,7 @@ async function body(request) {
   for (const part of parts) { bytes.set(part, offset); offset += part.length; }
   try { return JSON.parse(new TextDecoder().decode(bytes)); } catch { fail('请求必须是有效 JSON'); }
 }
+const body = readBody;
 
 // Web-standard Request/Response API shared by all three hosting platforms.
 export async function handleHosted(request, env, storage) {

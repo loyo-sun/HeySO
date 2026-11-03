@@ -58,22 +58,29 @@ HeySO 是一款面向个人与小型项目的敏捷项目管理工具。把想�
 ## 一键部署到你的账号
 
 [![Deploy to Netlify](https://www.netlify.com/img/deploy/button.svg)](https://app.netlify.com/start/deploy?repository=https://github.com/loyo-sun/HeySO)
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Floyo-sun%2FHeySO&env=HEYSO_PASSWORD,HEYSO_MCP_TOKEN,UPSTASH_REDIS_REST_URL,UPSTASH_REDIS_REST_TOKEN&envDescription=HeySO%20private%20workspace%20and%20persistent%20Redis%20storage&envLink=https%3A%2F%2Fgithub.com%2Floyo-sun%2FHeySO%2Fblob%2Fmain%2Fdocs%2FDEPLOYMENT.md)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Floyo-sun%2FHeySO&env=HEYSO_SETUP_KEY&envDescription=Set%20a%20random%20owner%20initialization%20key%20of%20at%20least%2032%20characters.%20Choose%20cloud%20storage%20in%20the%20first-run%20wizard.&envLink=https%3A%2F%2Fgithub.com%2Floyo-sun%2FHeySO%2Fblob%2Fmain%2Fdocs%2FDEPLOYMENT.md)
 [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https%3A%2F%2Fgithub.com%2Floyo-sun%2FHeySO)
 
-点击按钮后，在对应平台账号中创建应用，并填写自己的密码与存储配置。部署完成后打开生成的网址，输入访问密码即可使用。三个入口都会复制代码到你的仓库，方便后续更新。
+**页面部署与云端数据存储分别选择。** Netlify、Vercel 和 Cloudflare 都可以连接 LoyoCloud、Upstash 或 Cloudflare 存储。
 
-| 平台 | 项目数据存在哪里 | 部署前准备 |
-| --- | --- | --- |
-| Netlify | Upstash Redis | 平台账号、Redis REST 地址与读写密钥 |
-| Vercel | Upstash Redis | 平台账号、Redis REST 地址与读写密钥 |
-| Cloudflare Workers | Durable Objects 的 SQLite 存储 | 平台账号；部署流程创建存储，无需外部 Redis |
+| 页面托管平台 | LoyoCloud 云空间 | Upstash Redis | Cloudflare 存储 |
+| --- | --- | --- | --- |
+| Netlify | 支持 | 支持 | 连接独立存储服务 |
+| Vercel | 支持 | 支持 | 连接独立存储服务 |
+| Cloudflare Workers | 支持 | 支持 | 使用本实例存储，或连接独立存储服务 |
 
-三个平台均需设置 `HEYSO_PASSWORD`（至少 16 位访问密码）和独立的 `HEYSO_MCP_TOKEN`（至少 32 位 AI 连接密钥）。Netlify、Vercel 还需填写 `UPSTASH_REDIS_REST_URL` 和 `UPSTASH_REDIS_REST_TOKEN`；可先在 [Upstash](https://console.upstash.com/) 创建 Redis 数据库并复制 REST 配置。平台可能根据套餐、资源和使用量计费。
+### 首次使用，跟着配置向导完成连接
 
-在线版是一个由部署者管理的私人工作空间，登录后可访问该实例的全部项目。数据使用持久化存储，重新部署或函数重启后保留；它与本机 `.data/` 目录独立。需要迁移时，通过备份导出与恢复转入。
+1. 点击部署按钮，在平台中设置自己的 `HEYSO_SETUP_KEY`：至少 32 位随机初始化密钥。
+2. 打开部署完成的网址，在向导中输入初始化密钥，确认部署者身份。
+3. 选择 **LoyoCloud / Upstash / Cloudflare**，登录账号或填写连接信息，检查连接。
+4. 设置工作空间访问密码，进入工作空间。已有项目会继续保留。
 
-详细步骤、自定义域名、AI 连接和故障排查见 [部署指南](docs/DEPLOYMENT.md)。
+选择 LoyoCloud 时，项目直接保存在云空间，不需要额外数据库。选择 Upstash 时，填写数据库的 REST 地址和读写密钥。选择 Cloudflare 时，可使用本实例的 Durable Objects，或连接单独部署的 Cloudflare 存储服务。
+
+连接设置加密保存在当前浏览器的 HttpOnly Cookie 中，数据库凭据不会写入网页存储或项目备份。换设备、清除 Cookie 或连接过期后，可以重新连接同一份云端数据。进入后可通过顶栏的「云端存储」重新打开向导；切换后端不会自动迁移项目。
+
+详细步骤、独立 Cloudflare 存储服务、数据迁移和故障排查见 [部署指南](docs/DEPLOYMENT.md)。托管与存储服务可能根据账号套餐和使用量计费。
 
 ## 开始使用
 

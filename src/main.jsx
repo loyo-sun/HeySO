@@ -289,6 +289,7 @@ function App() {
         },
         body: JSON.stringify({
           action: { type, payload },
+          requestId: crypto.randomUUID(),
           revision: dataRef.current.revision,
           projectId,
         }),
@@ -318,7 +319,7 @@ function App() {
   async function getConnection() {
     const r = await fetch("/api/connection");
     const c = await r.json();
-    if (!r.ok || !c.url || !c.token) throw Error(c.error || "无法读取连接配置，请确认本地服务正常。");
+    if (!r.ok || !c.url || (!c.token && !c.oauth)) throw Error(c.error || "无法读取连接配置，请确认服务正常。");
     setConnection(c);
     return c;
   }
@@ -395,7 +396,7 @@ function App() {
           </button>
         </section>
         <CloudPanel busy={busy} onState={receiveCloudState} setToast={setToast}/>
-        <footer>{hosting.hosted ? "在线保存" : "本地保存"} · alpha_0.1</footer>
+        <footer>{hosting.hosted ? "在线保存" : "本地保存"} · alpha_0.1 {hosting.hosted && <><button className="text-btn" onClick={hosting.configure}>云端存储</button><button className="text-btn" onClick={hosting.logout}>退出工作空间</button></>}</footer>
         <Presence
           present={modal?.type === "project"}
           onClose={() => setModal(null)}
@@ -1153,6 +1154,7 @@ function App() {
             </b>
           </div>
           <div>
+            {hosting.hosted && hosting.configure && <button className="text-btn" onClick={hosting.configure}>云端存储</button>}
             {hosting.hosted && <button className="text-btn" onClick={hosting.logout}>退出工作空间</button>}
             <button
               className="icon-btn"
@@ -2722,8 +2724,7 @@ function EditorModal({
         {m.type === "connection" ? (
           <div className="modal-body">
             <p className="muted">
-              在支持 Streamable HTTP MCP 和自定义请求头的 AI
-              工具中添加以下连接。首次配置后，可在故事中复制执行指令。
+              {connection?.oauth ? 'LoyoCloud 使用独立的 OAuth 授权。将下方地址添加到支持 OAuth 的 AI 工具，登录云账号并选择允许访问的项目。' : '在支持 Streamable HTTP MCP 和自定义请求头的 AI 工具中添加以下连接。首次配置后，可在故事中复制执行指令。'}
             </p>
             <Field label="MCP 地址">
               <div className="copy-row">
@@ -2733,7 +2734,7 @@ function EditorModal({
                 </button>
               </div>
             </Field>
-            <Field label="Authorization 请求头">
+            {!connection?.oauth && <><Field label="Authorization 请求头">
               <div className="copy-row">
                 <code>
                   {showToken
@@ -2750,12 +2751,12 @@ function EditorModal({
               onClick={() => setShowToken(!showToken)}
             >
               {showToken ? "隐藏密钥" : "显示密钥"}
-            </button>
+            </button></>}
             <div className="instruction-box">
               <h4>可直接复制的连接配置</h4>
               <p>
                 各 AI 客户端的配置格式可能不同，请按对应工具要求填写 URL
-                与请求头。
+                {connection?.oauth ? '并完成 OAuth 授权。' : '与请求头。'}
               </p>
               <button
                 onClick={() =>
@@ -2765,9 +2766,9 @@ function EditorModal({
                         mcpServers: {
                           heyso: {
                             url: connection.url,
-                            headers: {
+                            ...(!connection.oauth ? { headers: {
                               Authorization: "Bearer " + connection.token,
-                            },
+                            } } : {}),
                           },
                         },
                       },

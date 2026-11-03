@@ -20,7 +20,7 @@ export function cloudWorkspace({store,dataDir,persistence,base=process.env.HEYSO
     if(!credential.token)throw failure('请先登录 LoyoCloud',401);
     await persistence?.flush();
     let response;
-    try{response=await fetch(base+route,{method:body===undefined?'GET':'POST',headers:{Origin:credential.origin,Authorization:'Bearer '+credential.token,'Content-Type':'application/json'},body:body===undefined?undefined:JSON.stringify(body),signal:AbortSignal.timeout(20000),redirect:'error'});}catch{throw failure('无法连接 LoyoCloud，请检查网络后重试；项目未覆盖',503);}
+    try{response=await fetch(base+route,{method:body===undefined?'GET':'POST',headers:{Origin:credential.origin,Authorization:'Bearer '+credential.token,'Content-Type':'application/json'},body:body===undefined?undefined:JSON.stringify(body),signal:AbortSignal.timeout(20000),redirect:'manual'});}catch{throw failure('无法连接 LoyoCloud，请检查网络后重试；项目未覆盖',503);}
     const result=await response.json();
     if(!response.ok)throw failure(result.error_description||result.error||'云操作失败',response.status);
     return result;
@@ -106,7 +106,7 @@ export function cloudWorkspace({store,dataDir,persistence,base=process.env.HEYSO
       app.post('/api/cloud/exchange',async(req,res)=>{
         if(!pending||pending.expires<Date.now()||req.body.state!==pending.state)throw failure('云登录请求已失效，请重新连接');
         const flow=pending;pending=null;persist();await persistence?.flush();
-        const response=await fetch(base+'/api/v1/editor/exchange',{method:'POST',headers:{Origin:flow.origin,'Content-Type':'application/json'},body:JSON.stringify({code:req.body.code,code_verifier:flow.verifier}),signal:AbortSignal.timeout(20000),redirect:'error'});
+        const response=await fetch(base+'/api/v1/editor/exchange',{method:'POST',headers:{Origin:flow.origin,'Content-Type':'application/json'},body:JSON.stringify({code:req.body.code,code_verifier:flow.verifier}),signal:AbortSignal.timeout(20000),redirect:'manual'});
         const session=await response.json();if(!response.ok)throw failure(session.error_description||'登录失败',response.status);
         if(session.app!=='heyso')throw failure('云登录应用不匹配',403);
         saved={...saved,...session,origin:flow.origin};persist();res.json(status());

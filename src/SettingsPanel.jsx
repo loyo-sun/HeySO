@@ -1,5 +1,6 @@
 import { memberRole, rolesForMembers, defaultMemberRole } from "../shared/member-roles.mjs";
 import React, { useState, useEffect, useRef } from "react";
+import { useHosting } from './AccessGate.jsx';
 import { Settings, Users, ListChecks, Plug, Database, Download, Upload, Plus, X, ArrowUpRight, Trash2, RefreshCw, CheckCircle2, AlertCircle, Layers, GitBranch, Rows3 } from "lucide-react";
 import { DateFields } from "./Schedule.jsx";
 import Select from "./Select.jsx";
@@ -51,6 +52,7 @@ function Field({ label, children, hint }) {
 export default function SettingsPanel({
   project, section, action, data, setData, setToast, busy, onConnect, onDelete, onDirtyChange, cloudPanel,
 }) {
+  const hosting = useHosting();
   const [form, setForm] = useState(project);
   const [workDraft, setWorkDraft] = useState(() => structuredClone(configFor(project)));
   const [statusMigration, setStatusMigration] = useState({});
@@ -302,7 +304,7 @@ export default function SettingsPanel({
     </>}
     {section === "data" && <>
       <section className="settings-section"><h3>导出备份</h3><p className="section-description">当前工作空间：{data.projects.length} 个项目、{data.items.length} 个需求与任务、{data.runs.length} 条执行与交付。</p><a className="button" href="/api/export" download><Download size={15}/>导出工作空间备份</a></section>
-      <section className="settings-section"><h3 className="heading-with-info">从备份恢复<InfoTip label="从备份恢复">先检查文件，再核对项目与记录数量。恢复会替换整个工作空间，请先导出当前数据。</InfoTip></h3>
+      {hosting.provider === 'loyocloud' ? <section className="settings-section"><h3>恢复云端项目</h3><p>在 LoyoCloud 云空间中恢复项目文件的历史版本。也可以通过「AI 与 MCP」中的导入入口打开 .heyso 项目备份。</p></section> : <section className="settings-section"><h3 className="heading-with-info">从备份恢复<InfoTip label="从备份恢复">先检查文件，再核对项目与记录数量。恢复会替换整个工作空间，请先导出当前数据。</InfoTip></h3>
         <label className={"button" + (checkingFile || restoring ? " backup-disabled" : "")}><Upload size={15}/>{checkingFile ? "正在检查备份…" : "选择 JSON 备份文件"}<input type="file" accept=".json,application/json" hidden disabled={checkingFile || restoring} onChange={selectBackup}/></label>
         {restore && <div className="backup-preview">
           <h4>备份检查通过</h4><p className="backup-filename">{restore.filename}</p>
@@ -313,7 +315,7 @@ export default function SettingsPanel({
           <Field label="输入“恢复”以确认替换"><input value={confirmation} onChange={(e) => setConfirmation(e.target.value)} autoComplete="off" disabled={restoring}/></Field>
           <div className="inline"><button className="danger-button" disabled={busy || restoring || dirty || confirmation !== "恢复"} onClick={restoreBackup}>{restoring ? "正在恢复…" : "确认恢复工作空间"}</button><button disabled={restoring} onClick={() => { setRestore(null); setConfirmation(""); setError(""); }}>取消</button></div>
         </div>}
-      </section>
+      </section>}
     </>}
   </div>;
 }

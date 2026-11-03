@@ -10,7 +10,7 @@ export function redisStorage(env, fetcher = fetch) {
   if (parsed.protocol !== 'https:' || parsed.username || parsed.password || parsed.pathname !== '/') throw failure('Redis REST 地址必须是 HTTPS 根地址');
   const key = env.HEYSO_STORAGE_KEY || 'heyso:workspace:v1';
   async function command(args) {
-    const res = await fetcher(parsed.origin, { method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify(args), signal: AbortSignal.timeout(15000), redirect: 'error' });
+    const res = await fetcher(parsed.origin, { method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify(args), signal: AbortSignal.timeout(15000), redirect: 'manual' });
     if (!res.ok) throw failure('持久化存储暂时不可用，请稍后重试');
     const data = await res.json();
     if (data.error) throw failure('持久化存储操作失败，请检查 Redis 配置和容量');

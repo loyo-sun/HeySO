@@ -1,3 +1,3 @@
-# Cloudflare 部署时填写自己的值；请勿把真实密码提交到仓库。
-HEYSO_PASSWORD=
-HEYSO_MCP_TOKEN=
+# 三个平台均只需先填写至少 32 位的初始化密钥，再通过页面向导选择存储。
+# 请勿把真实密钥提交到仓库。Cloudflare 存储服务的默认连接密钥也是此值。
+HEYSO_SETUP_KEY=
