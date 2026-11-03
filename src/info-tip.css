@@ -1,0 +1,6 @@
+.info-tip-trigger { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; padding: 0; flex: 0 0 22px; border-radius: 50%; color: #9a9fa9; cursor: help; vertical-align: middle; line-height: 1; }
+.info-tip-trigger:hover, .info-tip-trigger:focus-visible, .info-tip-trigger[aria-expanded="true"] { background: #fff2e9; color: #bc673c; }
+.info-tip-trigger:focus-visible { outline: 2px solid var(--accent-border, #f1c3a7); outline-offset: 2px; }
+.info-tip-bubble { position: fixed; z-index: 15000; display: block; width: 300px; max-width: calc(100vw - 24px); padding: 12px 14px; border: 1px solid #e3e5e9; border-radius: 8px; background: #fff; color: #555d68; box-shadow: 0 5px 24px #18233420; font-size: 12px; font-weight: 400; line-height: 1.8; white-space: pre-line; overflow-wrap: anywhere; }
+.heading-with-info { display: flex; align-items: center; gap: 5px; }
+.field > .field-title { display: flex; align-items: center; gap: 4px; }
