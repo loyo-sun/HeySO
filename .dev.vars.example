@@ -1,0 +1,3 @@
+# Cloudflare 部署时填写自己的值；请勿把真实密码提交到仓库。
+HEYSO_PASSWORD=
+HEYSO_MCP_TOKEN=

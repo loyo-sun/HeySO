@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import AccessGate, { useHosting } from './AccessGate.jsx';
 import { createRoot } from "react-dom/client";
 import {
   LayoutDashboard,
@@ -164,6 +165,7 @@ function Progress({ value }) {
   );
 }
 function App() {
+  const hosting = useHosting();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     try {
       return localStorage.getItem("heyso-sidebar-collapsed") === "true";
@@ -238,6 +240,7 @@ function App() {
   async function refresh() {
     try {
       const r = await fetch("/api/state");
+      if (hosting.hosted && r.status === 401) window.dispatchEvent(new Event('heyso-session-expired'));
       if (!r.ok) throw Error();
       const d = await r.json();
       if (d.revision !== dataRef.current?.revision) setData(d);
@@ -248,7 +251,7 @@ function App() {
   }
   useEffect(() => {
     refresh();
-    const t = setInterval(refresh, 3500);
+    const t = setInterval(() => { if (!document.hidden) refresh(); }, hosting.hosted ? 30000 : 3500);
     return () => clearInterval(t);
   }, []);
   useEffect(() => {
@@ -362,7 +365,7 @@ function App() {
         <p>
           {online
             ? "正在打开你的工作空间…"
-            : "本地服务暂时不可用，请重新启动服务。"}
+            : "服务暂时不可用，请稍后重试。"}
         </p>
         <button onClick={refresh}>重新连接</button>
       </div>
@@ -392,7 +395,7 @@ function App() {
           </button>
         </section>
         <CloudPanel busy={busy} onState={receiveCloudState} setToast={setToast}/>
-        <footer>本地保存 · alpha_0.1</footer>
+        <footer>{hosting.hosted ? "在线保存" : "本地保存"} · alpha_0.1</footer>
         <Presence
           present={modal?.type === "project"}
           onClose={() => setModal(null)}
@@ -649,7 +652,7 @@ function App() {
             新建工作项
           </button>,
         )}
-        <div className="inline" style={{marginBottom:16,gap:12}}><span>{project.cloud ? '在线项目 · LoyoCloud' : '本地项目'}</span><button onClick={()=>{go('settings');setSettingsSection('integrations');}}>{project.cloud ? '云空间与 AI 连接' : '转为在线项目'}</button></div>
+        <div className="inline" style={{marginBottom:16,gap:12}}><span>{project.cloud ? '在线项目 · LoyoCloud' : hosting.hosted ? '工作空间项目' : '本地项目'}</span><button onClick={()=>{go('settings');setSettingsSection('integrations');}}>{project.cloud ? '云空间与 AI 连接' : hosting.hosted ? '保存至 LoyoCloud' : '转为在线项目'}</button></div>
         {project.cloud?.error&&<div className="settings-error" role="alert">{project.cloud.error}。当前显示最近读取的内容，联网后刷新。</div>}
         <div className="project-goal-strip">
           <Target size={18} />
@@ -1150,6 +1153,7 @@ function App() {
             </b>
           </div>
           <div>
+            {hosting.hosted && <button className="text-btn" onClick={hosting.logout}>退出工作空间</button>}
             <button
               className="icon-btn"
               title="刷新数据"
@@ -1164,7 +1168,7 @@ function App() {
         </header>
         {!online && (
           <div className="offline-banner">
-            本地服务连接已断开，恢复连接后可继续保存。
+            服务连接已断开，恢复连接后可继续保存。
           </div>
         )}
         <div className={"content view-" + view} key={project.id + view} onContextMenu={handleContextMenu} onKeyDown={handleContextMenu}>
@@ -1577,7 +1581,7 @@ function App() {
           <footer className="page-footer">
             <span>合序 HeySO</span>
             <span>Hey, Shared Outcomes.</span>
-            <span>{project.cloud ? "LoyoCloud 在线项目" : "本地保存"} · alpha_0.1</span>
+            <span>{project.cloud ? "LoyoCloud 在线项目" : hosting.hosted ? "在线保存" : "本地保存"} · alpha_0.1</span>
           </footer>
         </div>
       </main>
@@ -2718,7 +2722,7 @@ function EditorModal({
         {m.type === "connection" ? (
           <div className="modal-body">
             <p className="muted">
-              在支持本地 Streamable HTTP MCP 和自定义请求头的 AI
+              在支持 Streamable HTTP MCP 和自定义请求头的 AI
               工具中添加以下连接。首次配置后，可在故事中复制执行指令。
             </p>
             <Field label="MCP 地址">
@@ -2785,8 +2789,8 @@ function EditorModal({
               </div>
             ))}
             <p className="muted">
-              当前连接访问本地工作空间；写入还需故事启用
-              AI。此版本为单用户环境，不含云端账号和 OAuth。
+              当前连接访问此工作空间；写入还需故事启用
+              AI。此连接属于单工作空间模式；LoyoCloud 项目可另行使用云端授权。
             </p>
           </div>
         ) : (
@@ -3200,4 +3204,4 @@ function EditorModal({
     </div>
   );
 }
-createRoot(document.getElementById("root")).render(<App />);
+createRoot(document.getElementById("root")).render(<AccessGate><App /></AccessGate>);

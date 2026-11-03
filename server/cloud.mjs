@@ -7,17 +7,18 @@ const canonical = value => JSON.stringify(value, function(key,item){
   if(item && typeof item==='object' && !Array.isArray(item)) return Object.fromEntries(Object.keys(item).sort().map(k=>[k,item[k]]));
   return item;
 });
-export function cloudWorkspace({store,dataDir,base=process.env.HEYSO_CLOUD_URL||'https://cloud.loyo.work'}) {
+export function cloudWorkspace({store,dataDir,persistence,base=process.env.HEYSO_CLOUD_URL||'https://cloud.loyo.work'}) {
   const url=new URL(base);
   if(url.origin!==base||url.username||url.password||!(url.protocol==='https:'||(url.protocol==='http:'&&['localhost','127.0.0.1'].includes(url.hostname))))throw Error('HEYSO_CLOUD_URL 必须是 HTTPS 地址或本机开发地址');
-  const file=path.join(dataDir,'cloud.json');
-  let saved=fs.existsSync(file)?JSON.parse(fs.readFileSync(file,'utf8')):{bindings:{}};
+  const file=persistence ? null : path.join(dataDir,'cloud.json');
+  let saved=persistence ? structuredClone(persistence.read() || {bindings:{}}) : fs.existsSync(file)?JSON.parse(fs.readFileSync(file,'utf8')):{bindings:{}};
   if(saved.base&&saved.base!==base)saved={bindings:{}};
-  let pending=null,sequence=Math.max(store.read().revision,Date.now()*1000),current=null,tail=Promise.resolve();
-  const persist=()=>{fs.writeFileSync(file+'.tmp',JSON.stringify({...saved,base}),{mode:0o600});fs.renameSync(file+'.tmp',file);};
+  let pending=saved.pendingFlow || null,sequence=persistence ? (saved.revisionClock?.sequence || store.read().revision) : Math.max(store.read().revision,Date.now()*1000),current=persistence ? saved.revisionClock?.current || null : null,tail=Promise.resolve();
+  const persist=()=>{const value={...saved,base,...(persistence ? {pendingFlow:pending,revisionClock:{sequence,current}} : {})};if(persistence){persistence.write(value);return;}fs.writeFileSync(file+'.tmp',JSON.stringify(value),{mode:0o600});fs.renameSync(file+'.tmp',file);};
   const serial=fn=>{const next=tail.then(fn);tail=next.catch(()=>{});return next;};
   async function api(route,body,credential=saved) {
     if(!credential.token)throw failure('请先登录 LoyoCloud',401);
+    await persistence?.flush();
     let response;
     try{response=await fetch(base+route,{method:body===undefined?'GET':'POST',headers:{Origin:credential.origin,Authorization:'Bearer '+credential.token,'Content-Type':'application/json'},body:body===undefined?undefined:JSON.stringify(body),signal:AbortSignal.timeout(20000),redirect:'error'});}catch{throw failure('无法连接 LoyoCloud，请检查网络后重试；项目未覆盖',503);}
     const result=await response.json();
@@ -35,7 +36,7 @@ export function cloudWorkspace({store,dataDir,base=process.env.HEYSO_CLOUD_URL||
     }
     const compare=canonical({...state,revision:0});
     if(compare!==current){sequence++;current=compare;}
-    state.revision=sequence;return state;
+    state.revision=sequence;if(persistence)persist();return state;
   }
   async function refresh(){
     const before=canonical(saved.bindings);
@@ -61,8 +62,8 @@ export function cloudWorkspace({store,dataDir,base=process.env.HEYSO_CLOUD_URL||
     const ids=new Set([content.workspace.projects[0],...collections.filter(k=>k!=='events').flatMap(k=>content.workspace[k])].map(x=>x.id));
     const records=[...other.projects,...collections.filter(k=>k!=='events').flatMap(k=>other[k])];
     if(records.some(x=>(x.projectId||x.id)!==projectId&&ids.has(x.id)))throw failure('项目记录标识与现有项目冲突，请使用独立工作空间');
-    fs.mkdirSync(path.join(dataDir,'backups'),{recursive:true});
-    fs.writeFileSync(path.join(dataDir,'backups','before-cloud-'+Date.now()+'-'+randomUUID()+'.json'),JSON.stringify(local),{mode:0o600,flag:'wx'});
+    if(persistence)persistence.backup(local);else {fs.mkdirSync(path.join(dataDir,'backups'),{recursive:true});
+    fs.writeFileSync(path.join(dataDir,'backups','before-cloud-'+Date.now()+'-'+randomUUID()+'.json'),JSON.stringify(local),{mode:0o600,flag:'wx'});}
     saved.bindings[content.id]={id:content.id,projectId,content,headId:result.headId,userId:saved.user.id,username:saved.user.username,error:''};persist();
     return projectId;
   }
@@ -98,13 +99,13 @@ export function cloudWorkspace({store,dataDir,base=process.env.HEYSO_CLOUD_URL||
       app.post('/api/cloud/connect',(req,res)=>{
         const origin=req.get('origin')||'http://'+req.get('host');
         const verifier=randomBytes(32).toString('base64url'),state=randomBytes(32).toString('base64url');
-        pending={verifier,state,origin,expires:Date.now()+300000};
+        pending={verifier,state,origin,expires:Date.now()+300000};persist();
         const connect=new URL('/connect/heyso',base);connect.search=new URLSearchParams({origin,state,code_challenge:createHash('sha256').update(verifier).digest('base64url'),session_days:'30'}).toString();
         res.json({url:connect.href,state,base});
       });
       app.post('/api/cloud/exchange',async(req,res)=>{
         if(!pending||pending.expires<Date.now()||req.body.state!==pending.state)throw failure('云登录请求已失效，请重新连接');
-        const flow=pending;pending=null;
+        const flow=pending;pending=null;persist();await persistence?.flush();
         const response=await fetch(base+'/api/v1/editor/exchange',{method:'POST',headers:{Origin:flow.origin,'Content-Type':'application/json'},body:JSON.stringify({code:req.body.code,code_verifier:flow.verifier}),signal:AbortSignal.timeout(20000),redirect:'error'});
         const session=await response.json();if(!response.ok)throw failure(session.error_description||'登录失败',response.status);
         if(session.app!=='heyso')throw failure('云登录应用不匹配',403);

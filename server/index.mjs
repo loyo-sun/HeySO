@@ -34,6 +34,7 @@ app.use((req, res, next) => {
   next();
 });
 app.use(express.json({ limit: "10mb" }));
+app.get('/api/session', (_, res) => res.json({ hosted: false, authenticated: true }));
 app.get("/api/state", async (_, res) => res.json(await workspace.read()));
 app.get("/api/health", (_, res) => res.json({ status: "ok", version: "alpha_0.1", tools: toolDefinitions.length }));
 app.get("/api/connection", (_, res) =>

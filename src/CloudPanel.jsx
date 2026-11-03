@@ -31,7 +31,7 @@ export default function CloudPanel({project,busy,onState,setToast}){
   }
   async function run(fn){setWorking(true);setError('');try{await fn();}catch(e){setError(e.message);}finally{setWorking(false);}}
   return <section className="settings-section heyso-cloud-panel" aria-label="LoyoCloud 云空间">
-    <div className="integration-heading"><span className="integration-icon"><Cloud size={24}/></span><div><h3>LoyoCloud 云空间</h3><p>{project?.cloud?'在线项目 · '+project.cloud.account:'本地项目可一键转为在线项目，按 .heyso 文件保存。'}</p></div></div>
+    <div className="integration-heading"><span className="integration-icon"><Cloud size={24}/></span><div><h3>LoyoCloud 云空间</h3><p>{project?.cloud?'在线项目 · '+project.cloud.account:'工作空间中的项目可转存至 LoyoCloud，按 .heyso 文件保存。'}</p></div></div>
     <p role="status">{status?.connected?'已登录 · '+status.user.username:'尚未连接 LoyoCloud'}{working?' · 正在处理…':''}</p>
     {(error||status?.error||project?.cloud?.error)&&<p role="alert" className="settings-error">{error||status?.error||project.cloud.error}</p>}
     <div className="inline" style={{flexWrap:'wrap',gap:8}}>
@@ -40,7 +40,7 @@ export default function CloudPanel({project,busy,onState,setToast}){
       {status?.connected&&<><button disabled={busy||working} onClick={()=>run(async()=>setFiles((await api('/api/cloud/files')).files))}>打开云端项目</button><a className="button" href={status.base+'/console#apps'} target="_blank" rel="noreferrer">管理应用与授权 ↗</a><button disabled={busy||working} onClick={()=>run(async()=>{setStatus(await api('/api/cloud/logout',{}));setFiles(null);onStateRef.current({state:await api('/api/state')});})}>退出 HeySO 云登录</button></>}
       <button aria-label="刷新云连接" disabled={working} onClick={()=>run(refresh)}><RefreshCw size={14}/></button>
       {project&&<a className="button" href={'/api/projects/'+encodeURIComponent(project.id)+'/export'} download><Download size={14}/>导出 .heyso</a>}
-      <label className="button"><Upload size={14}/>导入 .heyso<input type="file" accept=".heyso,application/json" hidden disabled={busy||working} onChange={e=>{const f=e.target.files?.[0];e.target.value='';if(!f)return;run(async()=>{if(f.size>10*1024*1024)throw Error('项目文件不能超过 10 MB');const content=JSON.parse(await f.text());const state=await api('/api/state');onStateRef.current(await api('/api/projects/import',{content,revision:state.revision}));setToast('已导入本地项目');});}}/></label>
+      <label className="button"><Upload size={14}/>导入 .heyso<input type="file" accept=".heyso,application/json" hidden disabled={busy||working} onChange={e=>{const f=e.target.files?.[0];e.target.value='';if(!f)return;run(async()=>{if(f.size>10*1024*1024)throw Error('项目文件不能超过 10 MB');const content=JSON.parse(await f.text());const state=await api('/api/state');onStateRef.current(await api('/api/projects/import',{content,revision:state.revision}));setToast('已导入工作空间');});}}/></label>
     </div>
     {project?.cloud&&<><p>项目操作成功后自动保存到云空间；云端版本冲突时请刷新后重试。</p><label className="field"><span>HeySO 远程 MCP 地址</span><input readOnly value={(status?.base||project.cloud.base)+'/mcp/heyso'}/></label><p>AI 工具通过 OAuth 单独授权，可读取项目、回报进展和提交成果。人工验收仍在 HeySO 中完成。</p></>}
     {files&&<div className="member-list"><h4>云空间中的 HeySO 项目</h4>{files.length?files.map(f=><button key={f.id} disabled={working||busy} onClick={()=>run(async()=>{onStateRef.current(await api('/api/cloud/open',{fileId:f.id}));setFiles(null);setToast('已打开在线项目');})}>{f.name}.heyso</button>):<p>云空间中还没有 HeySO 项目。</p>}</div>}

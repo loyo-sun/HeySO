@@ -22,8 +22,8 @@ export const settingsDescriptions = {
   hierarchy: "确定每种类型可以归属哪些父级。",
   states: "自定义流程、复用状态，并按工作类型绑定。",
   workflow: "明确协作方式与所有故事共同遵循的交付标准。",
-  integrations: "检查本地服务，配置外部 AI 工具的连接。",
-  data: "导出、检查和恢复本地工作空间数据。",
+  integrations: "检查服务，配置外部 AI 工具的连接。",
+  data: "导出、检查和恢复工作空间数据。",
 };
 const settingsHelp = {
   general: "项目目标与背景会提供给 AI。所有工作项日期须在项目周期内；缩短周期前需处理超出范围的工作项。",
@@ -33,8 +33,8 @@ const settingsHelp = {
   hierarchy: "将工作类型放入层级分组，同层类型并列。默认结构是 Epic、标准工作项、子任务；故事、任务和缺陷在标准层并列。具体工作项的父子关系在工作项详情或工作项层级中设置。\n拖入归档区仅收起类型创建入口，不改变已有工作项。恢复默认和智能推荐只生成草稿，保存后生效。历史数据需要的扩展层会保留；有冲突时禁止保存。",
   states: "状态库中的状态归入待办、进行中或完成三种类别。每个工作流独立配置初始状态和单向转换，通过工作流方案映射到工作类型。可新建或复制流程，拖动节点调整图示位置。双击工作流列表进入全屏编辑，保存后应用；如新流程不包含现有状态，须先选择迁移目标。人工验收是 HeySO 的可选扩展规则。",
   workflow: "协作约定和完成定义随工作项上下文提供给 AI，与工作项自身的验收标准共同约束交付。",
-  integrations: "AI 通过 MCP 读取上下文、报告进展和提交成果。服务正常表示 HeySO 已就绪，外部 AI 工具仍需单独配置。密钥作用于整个本地工作空间，只交给信任的工具。",
-  data: "备份与恢复覆盖整个本地工作空间，包含所有项目。备份不包含 MCP 密钥及交付链接对应的外部文件。",
+  integrations: "AI 通过 MCP 读取上下文、报告进展和提交成果。服务正常表示 HeySO 已就绪，外部 AI 工具仍需单独配置。密钥作用于整个工作空间，只交给信任的工具。",
+  data: "备份与恢复覆盖整个工作空间，包含所有项目。备份不包含 MCP 密钥及交付链接对应的外部文件。",
 };
 const groups = {
   general: ["name", "description", "goal", "startDate", "endDate"],
@@ -172,7 +172,7 @@ export default function SettingsPanel({
       if (!response.ok) throw Error(result.error || "备份检查失败");
       if (seq === request.current) setRestore({ state, preview: result, filename: file.name });
     } catch (e) {
-      if (seq === request.current) setError(e.name === "TimeoutError" ? "检查超时，请确认本地服务正常后重试。" : e.message);
+      if (seq === request.current) setError(e.name === "TimeoutError" ? "检查超时，请确认服务正常后重试。" : e.message);
     } finally {
       if (seq === request.current) setCheckingFile(false);
     }
@@ -286,13 +286,13 @@ export default function SettingsPanel({
     {section === "integrations" && <>
       {cloudPanel}
       <section className="settings-section integration-settings">
-        <div className="integration-heading"><span className="integration-icon"><Plug size={24}/></span><div><h3 className="heading-with-info">MCP 连接<InfoTip label="MCP 连接">AI 通过 MCP 读取上下文、报告进展并提交成果。外部 AI 工具需要单独配置连接；检测成功只代表本地服务正常。</InfoTip></h3></div></div>
+        <div className="integration-heading"><span className="integration-icon"><Plug size={24}/></span><div><h3 className="heading-with-info">MCP 连接<InfoTip label="MCP 连接">AI 通过 MCP 读取上下文、报告进展并提交成果。外部 AI 工具需要单独配置连接；检测成功只代表服务正常。</InfoTip></h3></div></div>
         <div className={"settings-service " + service.state} role="status">
           {service.state === "ready" ? <CheckCircle2 size={18}/> : service.state === "error" ? <AlertCircle size={18}/> : <Plug size={18}/>}
-          <div><strong>{({ idle: "尚未检测", checking: "正在检测本地服务…", ready: "本地服务正常", error: "无法连接本地服务" })[service.state]}</strong><small>{service.state === "ready" ? `${service.version} · ${service.tools} 个 MCP 工具 · ${service.checkedAt} 检测` : service.state === "error" ? "请确认 HeySO 服务正在运行，然后重试。" : "检测服务可用性，不读取或显示访问密钥。"}</small></div>
+          <div><strong>{({ idle: "尚未检测", checking: "正在检测服务…", ready: "服务正常", error: "无法连接服务" })[service.state]}</strong><small>{service.state === "ready" ? `${service.version} · ${service.tools} 个 MCP 工具 · ${service.checkedAt} 检测` : service.state === "error" ? "请确认 HeySO 服务正在运行，然后重试。" : "检测服务可用性，不读取或显示访问密钥。"}</small></div>
           <button disabled={service.state === "checking"} onClick={checkService}><RefreshCw size={14}/>重新检测</button>
         </div>
-        <div className="config-facts"><div><span>连接范围</span><b>当前本地工作空间中的项目</b></div><div><span>写入授权</span><b>逐故事启用 AI 执行</b></div><div><span>成果确认</span><b>人工验收</b></div></div>
+        <div className="config-facts"><div><span>连接范围</span><b>当前工作空间中的项目</b></div><div><span>写入授权</span><b>逐故事启用 AI 执行</b></div><div><span>成果确认</span><b>人工验收</b></div></div>
         <button className="primary" disabled={connecting || service.state !== "ready"} onClick={async () => {
           setConnecting(true); setError("");
           try { await onConnect(); } catch (e) { setError(e.message || "无法读取连接配置，请重试。"); }
