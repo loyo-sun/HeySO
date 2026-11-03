@@ -50,7 +50,7 @@ Cloudflare 使用 Workers + Static Assets，不是 Pages 纯静态上传。若�
 
 项目直接以 `.heyso` 文件保存在云空间。已存在的项目会显示在工作空间中；新建项目、修改工作项等操作由 LoyoCloud 服务保存并校验版本。此模式无需 Upstash 数据库，也不会将项目写入 Cloudflare 存储。
 
-LoyoCloud 服务需要允许实际页面来源。在其 `EDITOR_ORIGINS` 中追加你的 HeySO 完整来源，例如 `https://heyso.example.com`，并部署包含 HeySO 接口的版本。修改 HeySO 页面不会自动修改云服务白名单。
+新版 LoyoCloud 支持任意合法 HTTPS 自部署来源，无需逐个登记域名。登录时会明确展示当前站点地址，由用户确认授权；一次性连接码和后续凭据精确绑定该地址与 HeySO 应用。HTTP 仅支持 localhost/回环地址开发。若云服务仍报“连接来源或 PKCE 参数无效”，请升级 LoyoCloud 的自部署登录支持，不要关闭来源校验或改用通配名单。
 
 此模式使用 LoyoCloud 的文件历史版本恢复项目，支持 `.heyso` 导入和导出；不支持用工作空间 JSON 一次替换整个云账号的数据。删除云项目请在 LoyoCloud 云空间中移至回收站。云账号登录失效时，重新通过向导授权即可。
 
