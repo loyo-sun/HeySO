@@ -1,0 +1,11 @@
+.activity-change-list { display: grid; gap: 10px; margin: 9px 0; min-width: 0; }
+.activity-field-change { display: grid; gap: 5px; min-width: 0; }
+.activity-field-change > b { font-size: 11px; font-weight: 500; color: #737e89; }
+.activity-value-change { display: grid; grid-template-columns: minmax(0,1fr) 13px minmax(0,1fr); align-items: start; gap: 8px; font-size: 12px; line-height: 1.65; }
+.activity-value-change > span { min-width: 0; white-space: pre-wrap; overflow-wrap: anywhere; padding: 7px 9px; border-radius: 5px; }
+.activity-value-before { color: #76818b; background: #f3f5f7; }
+.activity-value-after { color: #394c5d; background: #eef5f8; }
+.activity-value-change small { display: block; color: #9aa3ac; font-size: 9px; margin-bottom: 3px; }
+.activity-value-change > svg { color: #9aa3ac; margin-top: 24px; }
+.activity-note { white-space: pre-wrap; overflow-wrap: anywhere; }
+@media (max-width: 480px) { .activity-value-change { grid-template-columns: minmax(0,1fr); gap: 4px; } .activity-value-change > svg { transform: rotate(90deg); margin: 0 0 0 9px; } }

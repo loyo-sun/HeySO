@@ -1,3 +1,5 @@
+import { captureItemActivity, itemActivityChanges, activityDetail } from './item-activity.mjs';
+import { fitChildSchedules } from '../shared/schedule.mjs';
 import { availableProjectCode, allocateItemNumber, checkIdentifiers, migrateIdentifiers } from "../shared/identifiers.mjs";
 import { rolesForMembers, checkMemberRoles, defaultRoles, defaultMemberRole } from "../shared/member-roles.mjs";
 import { randomUUID } from "node:crypto";
@@ -516,6 +518,7 @@ export function validate(s) {
 }
 export function act(s, a) {
   const { type, payload: p = {} } = a;
+  const activityBefore = captureItemActivity(s), previousEventIds = new Set(s.events.map(e => e.id));
   let out;
   if (type === "project.create") {
     out = emptyProject(p.name, p.description || "");
@@ -704,6 +707,19 @@ export function act(s, a) {
     if (p.parentId !== undefined || p.startDate !== undefined || p.endDate !== undefined || p.dueDate !== undefined) {
       delete i.legacyParentDates;
       parentDates(i, s.items.find((x) => x.id === i.parentId));
+      if (p.scheduleMode !== undefined) {
+        if (!['move','start','end'].includes(p.scheduleMode) || !p.startDate || !p.endDate || p.parentId !== undefined || p.kind !== undefined) fail("无效的时间轴调整");
+        itemDates(i, project, true);
+        const elapsed = (a,b) => Date.parse(b) - Date.parse(a);
+        if ((p.scheduleMode === 'start' && i.endDate !== old.endDate) || (p.scheduleMode === 'end' && i.startDate !== old.startDate) || (p.scheduleMode === 'move' && elapsed(i.startDate,i.endDate) !== elapsed(old.startDate,old.endDate))) fail("时间轴调整方式与日期不匹配");
+        for (const patch of fitChildSchedules(s.items, old, i, p.scheduleMode)) {
+          const child = getItem(s, patch.id);
+          Object.assign(child, patch, { dueDate: patch.endDate, contentVersion: (child.contentVersion || 1) + 1, updatedAt: now() });
+          delete child.legacyParentDates;
+          itemDates(child, project, true);
+          addEvent(s, child.projectId, 'item', '随父级调整计划周期', `随父级「${i.title}」同步调整`, child.id);
+        }
+      }
       if (p.startDate !== undefined || p.endDate !== undefined || p.dueDate !== undefined)
         for (const child of s.items.filter((x) => x.parentId === i.id)) parentDates(child, i);
     }
@@ -771,7 +787,7 @@ export function act(s, a) {
       i.projectId,
       "item",
       `更新${typeNames(project)[i.kind]}`,
-      `${i.title}${p.reason ? " · " + p.reason : ""}`,
+      p.reason ? `原因：${p.reason}` : "",
       i.id,
     );
     out = i;
@@ -1156,6 +1172,21 @@ export function act(s, a) {
     out = review;
   } else fail("未知操作");
   validate(s);
+  for (const item of s.items) {
+    const changes = itemActivityChanges(activityBefore, s, item);
+    let event = s.events.find(e => !previousEventIds.has(e.id) && e.itemId === item.id);
+    if (!changes.length) {
+      if (event && ['item.update','item.move'].includes(type) && item.id === p.id) s.events = s.events.filter(e => e.id !== event.id);
+      continue;
+    }
+    if (!event) {
+      addEvent(s, item.projectId, 'item', `更新${typeNames(projectOf(s,item))[item.kind]}`, '', item.id);
+      event = s.events[0];
+    }
+    event.changes = changes;
+    if (event.detail) event.note = event.detail;
+    event.detail = activityDetail(changes, event.note);
+  }
   return out;
 }
 function scope(s, i, oldId, newId, reason) {

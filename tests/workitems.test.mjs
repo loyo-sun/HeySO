@@ -309,3 +309,80 @@ test("V2 hierarchy migration removes type parent rules and retains every work it
   assert.deepEqual(createStore(file).read(),next);
   assert.equal(fs.readdirSync(path.join(dir,"backups")).length,1);
 });
+
+test('linked roadmap dates keep descendants inside their parent, preserve unaffected dates and persist atomically', (t) => {
+  const { store: s, file } = fresh(t), p = project(s);
+  const day = n => new Date(Date.parse(p.startDate + 'T00:00:00Z') + n * 86400000).toISOString().slice(0,10);
+  const epic = make(s, 'epic', { startDate: day(0), endDate: day(60) });
+  const bug = make(s, 'bug', { parentId: epic.id, startDate: day(0), endDate: day(30) });
+  const child = make(s, 'subtask', { parentId: bug.id, startDate: day(0), endDate: day(30) });
+  const untouched = make(s, 'subtask', { parentId: bug.id, startDate: day(12), endDate: day(14) });
+  const before = s.read();
+  assert.throws(() => act(s,'item.update',{ id:bug.id,startDate:day(5),endDate:day(30) }), /超出父级/);
+  assert.deepEqual(s.read(),before);
+  act(s,'item.update',{ id:bug.id,startDate:day(5),endDate:day(30),scheduleMode:'start' });
+  assert.equal(s.read().items.find(i=>i.id===child.id).startDate,day(5));
+  assert.deepEqual(s.read().items.find(i=>i.id===untouched.id),untouched);
+  assert.equal(s.read().items.find(i=>i.id===epic.id).startDate,day(0));
+  act(s,'item.update',{ id:bug.id,startDate:day(8),endDate:day(33),scheduleMode:'move' });
+  assert.equal(s.read().items.find(i=>i.id===child.id).startDate,day(8));
+  assert.equal(s.read().items.find(i=>i.id===untouched.id).startDate,day(15));
+  const beforeGrow = s.read().items.filter(i=>i.parentId===bug.id);
+  act(s,'item.update',{ id:bug.id,startDate:day(8),endDate:day(40),scheduleMode:'end' });
+  assert.deepEqual(s.read().items.filter(i=>i.parentId===bug.id),beforeGrow);
+  // Nested planning/execution/subtask ranges all fit, including a one-day parent.
+  act(s,'item.update',{ id:epic.id,startDate:day(20),endDate:day(60),scheduleMode:'start' });
+  for (const id of [bug.id,child.id,untouched.id]) assert.ok(s.read().items.find(i=>i.id===id).startDate>=day(20));
+  act(s,'item.update',{ id:bug.id,startDate:day(20),endDate:day(20),scheduleMode:'end' });
+  for (const i of s.read().items.filter(i=>i.parentId===bug.id)) assert.equal(i.endDate,day(20));
+  const saved=s.read();
+  assert.throws(()=>act(s,'item.update',{id:bug.id,startDate:day(19),endDate:day(20),scheduleMode:'start'}),/超出父级/);
+  assert.deepEqual(s.read(),saved);
+  assert.throws(()=>act(s,'item.update',{id:bug.id,startDate:day(20),endDate:day(22),scheduleMode:'move'}),/不匹配/);
+  assert.deepEqual(s.read(),saved);
+  assert.deepEqual(createStore(file).read(),saved);
+});
+
+test('activity stores exact before/after values, readable associations, empty text and zero without duplicate no-op logs', (t) => {
+  const { store: s, file } = fresh(t), p = project(s);
+  const item = make(s,'task',{ description:'第一行\n原描述', acceptance:'原验收', points:0, priority:'low' });
+  const epic = make(s,'epic',{ title:'归属史诗' });
+  const saved = act(s,'item.update',{ id:item.id,title:'新的标题',description:'修改后的\n完整描述',acceptance:'',priority:'high',points:3,parentId:epic.id,aiEnabled:true,reason:'规划调整' });
+  const event = s.read().events.find(e=>e.itemId===item.id);
+  const changes = Object.fromEntries(event.changes.map(c=>[c.field,c]));
+  assert.equal(changes.title.before,item.title); assert.equal(changes.title.after,'新的标题');
+  assert.equal(changes.description.before,'第一行\n原描述'); assert.equal(changes.description.after,'修改后的\n完整描述');
+  assert.equal(changes.acceptance.beforeText,'原验收'); assert.equal(changes.acceptance.afterText,'未设置');
+  assert.equal(changes.points.beforeText,'0'); assert.equal(changes.points.afterText,'3');
+  assert.equal(changes.priority.beforeText,'低'); assert.equal(changes.priority.afterText,'高');
+  assert.equal(changes.parentId.beforeText,'根层级 / 未归类');
+  assert.equal(changes.parentId.afterText,`${p.code}-${epic.number} · 归属史诗`);
+  assert.equal(changes.aiEnabled.beforeText,'关闭'); assert.equal(changes.aiEnabled.afterText,'开启');
+  assert.equal(event.note,'原因：规划调整');
+  assert.ok(event.detail.includes('优先级：低 → 高'));
+  const count=s.read().events.length;
+  act(s,'item.update',{id:item.id,title:saved.title,description:saved.description,points:3});
+  assert.equal(s.read().events.length,count);
+  act(s,'item.update',{id:epic.id,title:'后来改名的史诗'});
+  assert.equal(s.read().events.find(e=>e.id===event.id).changes.find(c=>c.field==='parentId').afterText,`${p.code}-${epic.number} · 归属史诗`);
+  assert.deepEqual(createStore(file).read().events.find(e=>e.id===event.id),event);
+  const before=s.read();
+  assert.throws(()=>act(s,'item.update',{id:item.id,title:''}),/标题/);
+  assert.deepEqual(s.read(),before);
+});
+
+test('linked date changes write each affected item activity with precise dates and retain old events', (t) => {
+  const { store:s }=fresh(t), p=project(s);
+  const day=n=>new Date(Date.parse(p.startDate+'T00:00:00Z')+n*86400000).toISOString().slice(0,10);
+  const parent=make(s,'task',{startDate:day(0),endDate:day(30)});
+  const child=make(s,'subtask',{parentId:parent.id,startDate:day(0),endDate:day(30)});
+  const oldEvents=s.read().events;
+  act(s,'item.update',{id:parent.id,startDate:day(3),endDate:day(30),scheduleMode:'start'});
+  for(const id of [parent.id,child.id]){
+    const event=s.read().events.find(e=>e.itemId===id);
+    assert.equal(event.changes.length,1);
+    assert.equal(event.changes[0].field,'startDate');
+    assert.equal(event.changes[0].before,day(0)); assert.equal(event.changes[0].after,day(3));
+  }
+  for(const event of oldEvents)assert.deepEqual(s.read().events.find(e=>e.id===event.id),event);
+});

@@ -1,3 +1,4 @@
+import ActivityDetails from './ActivityDetails.jsx';
 import React, { useState, useEffect, useRef } from "react";
 import AccessGate, { useHosting } from './AccessGate.jsx';
 import { createRoot } from "react-dom/client";
@@ -77,6 +78,7 @@ const statusNames = {
   done: "已完成",
   cancelled: "已取消",
 };
+const Roadmap = React.lazy(() => import('./Roadmap.jsx'));
 const kinds = {
   theme: "战略主题",
   epic: "史诗",
@@ -98,6 +100,7 @@ const kindIcons = {
 const priorities = { high: "高", medium: "中", low: "低" };
 const navs = [
   ["overview", "项目概览", LayoutDashboard, "查看项目目标、进度和待验收成果。"],
+  ["roadmap", "Roadmap 路线图", Calendar, "在时间轴上查看工作项、进度和版本里程碑，调整计划日期。"],
   ["hierarchy", "工作项层级", Layers, "管理具体工作项的父子关系，支持拖拽归类。"],
   ["backlog", "产品待办池", Rows3, "整理故事优先级，安排版本与冲刺。"],
   ["board", "工作看板", Kanban, "按状态查看故事，拖动卡片推进工作。"],
@@ -194,7 +197,10 @@ function App() {
     [projectId, setProjectId] = useState(
       localStorage.getItem("heyso-project") || "p_heyso",
     ),
-    [view, setView] = useState("overview"),
+    [view, setView] = useState(() => {
+      const requested = new URLSearchParams(window.location.search).get('view');
+      return navs.some(([id]) => id === requested) ? requested : 'overview';
+    }),
     [settingsSection, setSettingsSection] = useState("general"),
     [draggedItem, setDraggedItem] = useState(null),
     [dragOverItem, setDragOverItem] = useState(null),
@@ -904,7 +910,7 @@ function App() {
                   <i />
                   <section>
                     <strong>{e.title}</strong>
-                    <p>{e.detail}</p>
+                    <ActivityDetails event={e}/>
                     <small>{time(e.at)}</small>
                   </section>
                 </div>
@@ -1175,6 +1181,7 @@ function App() {
         )}
         <div className={"content view-" + view} key={project.id + view} onContextMenu={handleContextMenu} onKeyDown={handleContextMenu}>
           {view === "overview" && renderOverview()}
+          {view === 'roadmap' && <React.Suspense fallback={<p className="muted" role="status">正在打开路线图…</p>}><Roadmap onSchedule={(item, dates) => action("item.update", { id: item.id, ...dates })} key={project.id} project={project} items={items} releases={releases} busy={busy} onOpen={open} onEdit={item => setModal({ type: 'workEdit', item })} onCreate={() => create()} onReleases={() => go('releases')} onProjectSettings={openProjectSettings}/></React.Suspense>}
           {view === "hierarchy" && (
             <>
               {header(
@@ -2274,7 +2281,6 @@ function Detail({
                   </>
                 )}
               </div>
-              {i.legacyParentDates && <p className="legacy-parent-warning">此条目的原有日期超出父级周期，已保留原始数据。修改日期或父级前，请先调整至允许范围。</p>}
               <ItemSchedule
                 item={i}
                 project={project}
@@ -2511,7 +2517,7 @@ function Detail({
                   <i />
                   <section>
                     <strong>{e.title}</strong>
-                    <p>{e.detail}</p>
+                    <ActivityDetails event={e}/>
                     <small>{time(e.at)}</small>
                   </section>
                 </div>
