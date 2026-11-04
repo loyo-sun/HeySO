@@ -5,6 +5,7 @@ import { configFor, typeColor, typeFor, terminal, statusNamesFor } from '../shar
 import { dayNumber, localDay, itemRange, roadmapTimeline, shiftRoadmap, roadmapBar, roadmapPoint, roadmapRows, roadmapProgress } from './roadmap-model.mjs';
 import './roadmap.css';
 import RoadmapBar from './RoadmapBar.jsx';
+import InfoTip from './InfoTip.jsx';
 
 export default function Roadmap({ project, items, releases, onOpen, onCreate, onReleases, onProjectSettings, onSchedule, busy }) {
   const today = localDay();
@@ -48,7 +49,7 @@ export default function Roadmap({ project, items, releases, onOpen, onCreate, on
   const grid = <div className="roadmap-grid" aria-hidden="true">{window.ticks.map(t => <span key={t.date} style={{ left: `${t.left}%` }}/>)}</div>;
   const nowLine = todayX !== null && <span className="roadmap-today-line" style={{ left: `${todayX}%` }} aria-hidden="true"/>;
   return <>
-    <div className="page-heading"><div><h1>Roadmap <span className="roadmap-heading-subtitle">产品路线图</span></h1><p className="roadmap-description">把目标、工作与版本放在同一条时间线上。</p></div><button className="primary" onClick={onCreate}><Plus size={16}/>新建工作项</button></div>
+    <div className="page-heading"><div><h1 className="heading-with-info">路线图<InfoTip label="路线图">把目标、工作与版本放在同一条时间线上。</InfoTip></h1></div><button className="primary" onClick={onCreate}><Plus size={16}/>新建工作项</button></div>
     <section className="panel roadmap-panel" ref={panel} aria-label="产品路线图" style={{ '--roadmap-axis-width': `${axisWidth}px` }}>
       <div className="roadmap-sticky-header">
       <div className="roadmap-controls">
@@ -58,7 +59,7 @@ export default function Roadmap({ project, items, releases, onOpen, onCreate, on
       <div className="roadmap-filters">
         <div className="roadmap-search"><Search size={15}/><input aria-label="搜索路线图工作项" placeholder="搜索工作项、编号或类型…" value={query} onChange={e => setQuery(e.target.value)}/>{query && <button className="icon-btn" aria-label="清除路线图搜索" onClick={() => setQuery('')}><X size={13}/></button>}</div>
         <MultiFilter label="状态" value={status} onChange={setStatus} options={configFor(project).statuses.filter(s=>s.enabled||items.some(i=>i.status===s.id)).map(s=>({value:s.id,label:s.name}))}/>
-        <MultiFilter label="负责人" value={owner} onChange={setOwner} options={[...new Set([...project.members,...items.map(i=>i.owner||'')])].map(m=>({value:m,label:m||'未分配'}))}/>
+        <MultiFilter label="负责人" searchable value={owner} onChange={setOwner} options={[...new Set([...project.members,...items.map(i=>i.owner||'')])].map(m=>({value:m,label:m||'未分配'}))}/>
         <label className="roadmap-subtasks"><input type="checkbox" checked={subtask} onChange={e => setSubtask(e.target.checked)}/>显示子任务</label>
         <button className="icon-btn" aria-label="展开全部路线图工作项" title="全部展开" disabled={filtered} onClick={() => setCollapsed(new Set())}><ChevronsUpDown size={16}/></button><button className="icon-btn" aria-label="收起全部路线图工作项" title="全部收起" disabled={filtered} onClick={() => setCollapsed(new Set(items.map(i => i.id)))}><ChevronsDownUp size={16}/></button>
       </div>
@@ -95,9 +96,11 @@ export default function Roadmap({ project, items, releases, onOpen, onCreate, on
   </>;
 }
 
-function MultiFilter({label,value,onChange,options}) {
+function MultiFilter({label,value,onChange,options,searchable=false}) {
+  const [search,setSearch]=useState(''),searchRef=useRef(null);
+  const shown=options.filter(o=>o.label.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase()));
   const ref=useRef(null),all=value==='all',selected=all?options.map(o=>o.value):value;
   useEffect(()=>{const close=e=>{if((e.type==='keydown'&&e.key==='Escape')||(e.type==='pointerdown'&&!ref.current?.contains(e.target)))ref.current?.removeAttribute('open');};document.addEventListener('pointerdown',close);document.addEventListener('keydown',close);return()=>{document.removeEventListener('pointerdown',close);document.removeEventListener('keydown',close);};},[]);
   const toggle=(option,checked)=>{const next=checked?[...selected,option]:selected.filter(x=>x!==option);onChange(next.length===options.length?'all':next);};
-  return <details className="roadmap-multi-filter" ref={ref}><summary aria-label={'路线图'+label+'筛选'}>{all?'所有'+label:label+' ('+selected.length+')'}<ChevronDown size={13}/></summary><div className="roadmap-multi-options" role="group" aria-label={label+'多选'}><label><input type="checkbox" checked={all} onChange={e=>onChange(e.target.checked?'all':[])}/>全选{label}</label>{options.map(option=><label key={option.value}><input type="checkbox" checked={selected.includes(option.value)} onChange={e=>toggle(option.value,e.target.checked)}/>{option.label}</label>)}</div></details>;
+  return <details className="roadmap-multi-filter" ref={ref} onToggle={e=>{if(e.currentTarget.open)searchRef.current?.focus();else setSearch('');}}><summary aria-label={'路线图'+label+'筛选'}>{all?'所有'+label:label+' ('+selected.length+')'}<ChevronDown size={13}/></summary><div className="roadmap-multi-options" role="group" aria-label={label+'多选'}>{searchable&&<div className="roadmap-filter-search"><Search size={14}/><input ref={searchRef} type="search" aria-label="搜索负责人" placeholder="搜索负责人…" value={search} onChange={e=>setSearch(e.target.value)}/></div>}<label><input type="checkbox" checked={all} onChange={e=>onChange(e.target.checked?'all':[])}/>全选{label}</label>{shown.map(option=><label key={option.value}><input type="checkbox" checked={selected.includes(option.value)} onChange={e=>toggle(option.value,e.target.checked)}/>{option.label}</label>)}{!shown.length&&<p className="roadmap-filter-empty" role="status">没有匹配的{label}</p>}</div></details>;
 }
