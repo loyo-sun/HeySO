@@ -65,6 +65,8 @@ import Kind from "./WorkType.jsx";
 import InfoTip from "./InfoTip.jsx";
 import HelpCenter from "./HelpCenter.jsx";
 import ContextMenu from "./ContextMenu.jsx";
+import Dashboard from "./Dashboard.jsx";
+import "./dashboard.css";
 import WorkItemDialog from "./WorkItemDialog.jsx";
 import { workItemEntries, executionInstruction } from "./work-item-actions.mjs";
 import { configFor, typeFor, typeNames, statusNamesFor, isWorkItem, isSubtask, categoryOf, hasStatus, terminal, statusFor, allowedTransition, parentCandidates, childTypes, canParent, statusCategories, workflowFor, workflowStatuses, progressCategory, boardStatuses, aiReady } from "../shared/work-config.mjs";
@@ -169,6 +171,11 @@ function Progress({ value }) {
 }
 function App() {
   const hosting = useHosting();
+  const [page, setPage] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.has("view") || params.has("cloudFile") || params.get("tab") === "projects" ? "projects" : "dashboard";
+  });
+  useEffect(() => { window.scrollTo(0, 0); }, [page]);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     try {
       return localStorage.getItem("heyso-sidebar-collapsed") === "true";
@@ -336,6 +343,7 @@ function App() {
   const go = (v) => {
     const navigate = () => {
     if (v !== "settings") settingsDirtyRef.current = false;
+    setPage("projects");
     setFilter("all");
     setOwnerFilter("all");
     setQuery("");
@@ -363,6 +371,18 @@ function App() {
     setModal(null);
     setSettingsSection("general");
     go("settings");
+  };
+  const switchPage = (next) => {
+    if (next === page) return;
+    requestSettingsNavigation(() => {
+      if (view === "settings") {
+        settingsDirtyRef.current = false;
+        setView("overview");
+      }
+      setSelected(null);
+      setContextMenu(null);
+      setPage(next);
+    });
   };
   if (!data)
     return (
@@ -962,13 +982,26 @@ function App() {
       <header className="appbar">
         <button
           className="app-brand"
-          onClick={() => go("overview")}
+          onClick={() => switchPage("dashboard")}
           aria-label="HeySO 首页"
         >
           <img className="mark" src={heysoIcon} alt="" />
           <b>HeySO</b>
           <span>合序</span>
         </button>
+        <div className="appbar-tabs" role="tablist" aria-label="工作空间页面">
+          {[["dashboard", "仪表盘", LayoutDashboard], ["projects", "项目", FolderKanban]].map(([id, label, Icon]) => (
+            <button key={id} id={`tab-${id}`} role="tab" aria-selected={page === id} aria-controls={`panel-${id}`} tabIndex={page === id ? 0 : -1}
+              className={page === id ? "active" : ""} onClick={() => switchPage(id)}
+              onKeyDown={(event) => {
+                if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+                event.preventDefault();
+                const next = event.key === "Home" ? "dashboard" : event.key === "End" ? "projects" : id === "dashboard" ? "projects" : "dashboard";
+                document.getElementById(`tab-${next}`)?.focus();
+                switchPage(next);
+              }}><Icon size={15}/><span>{label}</span></button>
+          ))}
+        </div>
         <div className="appbar-actions"><button className="help-entry" aria-label="帮助中心" title="帮助中心" onClick={() => setHelpOpen(true)}><CircleHelp size={19}/></button>
         <button
           className="global-search"
@@ -984,6 +1017,13 @@ function App() {
           <Search size={18} />
         </button></div>
       </header>
+      {page === "dashboard" && <main className="dashboard-main" id="panel-dashboard" role="tabpanel" aria-labelledby="tab-dashboard">
+        {!online && <div className="offline-banner">服务连接已断开，恢复连接后可继续保存。</div>}
+        <Dashboard data={data} onRefresh={refresh} onProject={(id) => { switchProject(id); go("overview"); }}
+          onOpen={(item) => { switchProject(item.projectId); go("backlog"); open(item); }}
+          onCreateProject={() => setModal({ type: "project" })}/>
+      </main>}
+      {page === "projects" && <>
       <Sidebar
         id="project-sidebar"
         className="sidebar"
@@ -1119,7 +1159,7 @@ function App() {
           )}
         </button>
       </Sidebar>
-      <main>
+      <main id="panel-projects" role="tabpanel" aria-labelledby="tab-projects">
         <header className="topbar">
           <div>
             <Select
@@ -1594,6 +1634,7 @@ function App() {
           </footer>
         </div>
       </main>
+      </>}
       <Presence present={!!selectedItem} onClose={() => setSelected(null)}>
         {selectedItem && (
           <Detail
