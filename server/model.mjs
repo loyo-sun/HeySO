@@ -3,7 +3,7 @@ import { fitChildSchedules } from '../shared/schedule.mjs';
 import { availableProjectCode, allocateItemNumber, checkIdentifiers, migrateIdentifiers } from "../shared/identifiers.mjs";
 import { rolesForMembers, checkMemberRoles, defaultRoles, defaultMemberRole } from "../shared/member-roles.mjs";
 import { randomUUID } from "node:crypto";
-import { isExecutionItem, runTargetId, defaultWorkConfig, configFor, typeFor, isWorkItem, isSubtask, typeNames, categoryOf, hasStatus, terminal, statusFor, allowedTransition, canParent, checkWorkConfig, workflowFor, workflowStatuses, workflowMigrationGroups, aiReady } from "../shared/work-config.mjs";
+import { aiExecutionEnabled, isExecutionItem, runTargetId, defaultWorkConfig, configFor, typeFor, isWorkItem, isSubtask, typeNames, categoryOf, hasStatus, terminal, statusFor, allowedTransition, canParent, checkWorkConfig, workflowFor, workflowStatuses, workflowMigrationGroups, aiReady } from "../shared/work-config.mjs";
 export const statuses = [
   "backlog",
   "todo",
@@ -451,6 +451,7 @@ export function validate(s) {
     const project = projectOf(s, i);
     if (!typeFor(project, i.kind)?.enabled || !workflowStatuses(project, i.kind).some((st) => st.id === i.status))
       fail("条目类型或状态不属于绑定的工作流");
+    if (i.aiDisabled!==undefined && typeof i.aiDisabled!=="boolean") fail("AI 权限设置无效");
     if (i.aiEnabled && !aiReady(workflowFor(project,i.kind))) fail("启用 AI 的工作类型需要配置执行、验收和完成节点");
     if (
       i.points != null &&
@@ -681,6 +682,7 @@ export function act(s, a) {
     if (type === "item.move" && p.projectId !== i.projectId) fail("只能在当前项目内调整父级");
     const old = structuredClone(i);
     const project = projectOf(s, i);
+    if(p.aiEnabled!==undefined&&p.aiDisabled===undefined)i.aiDisabled=isSubtask(i,project)?!p.aiEnabled:false;
     const allowed = [
       "kind",
       "title",
@@ -697,6 +699,7 @@ export function act(s, a) {
       "startDate",
       "endDate",
       "aiEnabled",
+      "aiDisabled",
       "goal",
     ];
     for (const k of allowed)
@@ -1019,7 +1022,7 @@ export function act(s, a) {
   } else if (type === "run.progress" || type === "run.submit") {
     const i = getItem(s, p.itemId),
       story = storyOf(s, i);
-    if (!i.aiEnabled && !story.aiEnabled) fail("该工作项及其所属任务未启用 AI 更新", 403);
+    if (!aiExecutionEnabled(i,s.items)) fail("该工作项及其所属任务未启用 AI 更新", 403);
     if (p.requestId) {
       const prior = s.runs.find((r) => r.requestId === p.requestId || r.progress?.some(entry => entry.requestId === p.requestId));
       if (prior) {
@@ -1202,6 +1205,7 @@ export function act(s, a) {
     if (event.detail) event.note = event.detail;
     event.detail = activityDetail(changes, event.note);
   }
+  for(const event of s.events)if(!previousEventIds.has(event.id))event.actor=String((type.startsWith('run.')?p.agent:a.actor)||'我').slice(0,120);
   return out;
 }
 function scope(s, i, oldId, newId, reason) {

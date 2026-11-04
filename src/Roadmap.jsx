@@ -1,13 +1,12 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Calendar, ChevronLeft, ChevronRight, ChevronDown, Search, Flag, Plus, X, ChevronsDownUp, ChevronsUpDown } from 'lucide-react';
 import { TypeIcon } from './WorkType.jsx';
-import Select from './Select.jsx';
 import { configFor, typeColor, typeFor, terminal, statusNamesFor } from '../shared/work-config.mjs';
 import { dayNumber, localDay, itemRange, roadmapTimeline, shiftRoadmap, roadmapBar, roadmapPoint, roadmapRows, roadmapProgress } from './roadmap-model.mjs';
 import './roadmap.css';
 import RoadmapBar from './RoadmapBar.jsx';
 
-export default function Roadmap({ project, items, releases, onOpen, onEdit, onCreate, onReleases, onProjectSettings, onSchedule, busy }) {
+export default function Roadmap({ project, items, releases, onOpen, onCreate, onReleases, onProjectSettings, onSchedule, busy }) {
   const today = localDay();
   const [anchor, setAnchor] = useState(() => today < project.startDate || today > project.endDate ? project.startDate || today : today);
   const [scale, setScale] = useState('quarter'), [query, setQuery] = useState(''), [status, setStatus] = useState('all'), [owner, setOwner] = useState('all');
@@ -58,8 +57,8 @@ export default function Roadmap({ project, items, releases, onOpen, onEdit, onCr
       </div>
       <div className="roadmap-filters">
         <div className="roadmap-search"><Search size={15}/><input aria-label="搜索路线图工作项" placeholder="搜索工作项、编号或类型…" value={query} onChange={e => setQuery(e.target.value)}/>{query && <button className="icon-btn" aria-label="清除路线图搜索" onClick={() => setQuery('')}><X size={13}/></button>}</div>
-        <Select aria-label="路线图状态筛选" value={status} onChange={e => setStatus(e.target.value)}><option value="all">所有状态</option>{configFor(project).statuses.filter(s => s.enabled).map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</Select>
-        <Select aria-label="路线图负责人筛选" value={owner} onChange={e => setOwner(e.target.value)}><option value="all">所有负责人</option>{project.members.map(m => <option key={m}>{m}</option>)}</Select>
+        <MultiFilter label="状态" value={status} onChange={setStatus} options={configFor(project).statuses.filter(s=>s.enabled||items.some(i=>i.status===s.id)).map(s=>({value:s.id,label:s.name}))}/>
+        <MultiFilter label="负责人" value={owner} onChange={setOwner} options={[...new Set([...project.members,...items.map(i=>i.owner||'')])].map(m=>({value:m,label:m||'未分配'}))}/>
         <label className="roadmap-subtasks"><input type="checkbox" checked={subtask} onChange={e => setSubtask(e.target.checked)}/>显示子任务</label>
         <button className="icon-btn" aria-label="展开全部路线图工作项" title="全部展开" disabled={filtered} onClick={() => setCollapsed(new Set())}><ChevronsUpDown size={16}/></button><button className="icon-btn" aria-label="收起全部路线图工作项" title="全部收起" disabled={filtered} onClick={() => setCollapsed(new Set(items.map(i => i.id)))}><ChevronsDownUp size={16}/></button>
       </div>
@@ -78,9 +77,9 @@ export default function Roadmap({ project, items, releases, onOpen, onEdit, onCr
               <div className="roadmap-label" style={{ paddingLeft: 12 + Math.min(depth, 6) * 16 }}>
                 {hasChildren ? <button className="roadmap-fold icon-btn" aria-label={(folded ? '展开' : '收起') + item.title} aria-expanded={!folded} onClick={() => toggle(item.id)} disabled={filtered}>{folded ? <ChevronRight size={14}/> : <ChevronDown size={14}/>}</button> : <span className="roadmap-fold-placeholder"/>}
                 <TypeIcon kind={item.kind}/><button className="roadmap-item-name" onClick={() => onOpen(item)} title={title}><span>{item.title}</span><small>{project.code}-{item.number} · {item.owner || '未分配'}</small></button>
-                <button className="roadmap-edit icon-btn" aria-label={'调整日期：' + item.title} title="调整计划日期" disabled={busy} onClick={() => onEdit(item)}><Calendar size={14}/></button>
+                <button className="roadmap-edit icon-btn" aria-label={'调整日期：' + item.title} title="调整计划日期" disabled={busy} onClick={() => onOpen(item)}><Calendar size={14}/></button>
               </div>
-              <div className="roadmap-track">{grid}{nowLine}{bar ? <RoadmapBar item={item} items={items} project={project} window={window} progress={progress} color={typeColor(type)} overdue={overdue} title={title} status={names[item.status]} busy={busy} onEdit={onEdit} onSchedule={onSchedule}/> : <div className="roadmap-outside">{range ? <><span>当前时间段外 · {range.startDate} — {range.endDate}</span><button className="text-btn" onClick={() => setAnchor(range.startDate)}>定位</button></> : <button className="roadmap-unscheduled" disabled={busy} onClick={() => onEdit(item)}>待排期 · 设置日期</button>}</div>}</div>
+              <div className="roadmap-track" onClick={e=>{if(!e.target.closest("button"))onOpen(item);}}>{grid}{nowLine}{bar ? <RoadmapBar item={item} items={items} project={project} window={window} progress={progress} color={typeColor(type)} overdue={overdue} title={title} status={names[item.status]} busy={busy} onOpen={onOpen} onSchedule={onSchedule}/> : <div className="roadmap-outside">{range ? <><span>当前时间段外 · {range.startDate} — {range.endDate}</span><button className="text-btn" onClick={() => setAnchor(range.startDate)}>定位</button></> : <button className="roadmap-unscheduled" disabled={busy} onClick={() => onOpen(item)}>待排期 · 设置日期</button>}</div>}</div>
             </div>;
           })}
           {releases.length > 0 && <><div className="roadmap-section-heading"><Flag size={14}/>版本里程碑<span>计划发布日期</span><button className="text-btn" onClick={onReleases}>管理版本</button></div>{releases.map(r => {
@@ -89,9 +88,16 @@ export default function Roadmap({ project, items, releases, onOpen, onEdit, onCr
           })}</>}
         </div>
       </div>
-      <div className="roadmap-interaction-help" id="roadmap-drag-help">拖动时间条调整周期 · 拖动两端调整起止日期 · 点击时间条编辑 · 移动时子项跟随，收缩时越界子项同步收拢 · Esc 取消拖动</div>
+      <div className="roadmap-interaction-help" id="roadmap-drag-help">拖动时间条调整周期 · 拖动两端调整起止日期 · 点击时间条查看详情 · 移动时子项跟随，收缩时越界子项同步收拢 · Esc 取消拖动</div>
       <div className="roadmap-footer"><span><i className="roadmap-legend-progress"/>条内深色区域表示已完成比例</span><span><i className="roadmap-legend-overdue"/>逾期未完成</span><span><i className="roadmap-legend-release"/>版本里程碑</span><small>{visible} 项位于当前时间段 · {undated} 项待排期</small></div>
       <div ref={dock} className="roadmap-scroll-dock" style={{ left: dockBounds.left, width: dockBounds.width, visibility: dockBounds.visible ? 'visible' : 'hidden' }} onScroll={e => syncScroll(e.currentTarget)} tabIndex={0} role="region" aria-label="横向滚动时间轴"><div style={{ width: `calc(var(--roadmap-label-width) + ${axisWidth}px)` }}/></div>
     </section>
   </>;
+}
+
+function MultiFilter({label,value,onChange,options}) {
+  const ref=useRef(null),all=value==='all',selected=all?options.map(o=>o.value):value;
+  useEffect(()=>{const close=e=>{if((e.type==='keydown'&&e.key==='Escape')||(e.type==='pointerdown'&&!ref.current?.contains(e.target)))ref.current?.removeAttribute('open');};document.addEventListener('pointerdown',close);document.addEventListener('keydown',close);return()=>{document.removeEventListener('pointerdown',close);document.removeEventListener('keydown',close);};},[]);
+  const toggle=(option,checked)=>{const next=checked?[...selected,option]:selected.filter(x=>x!==option);onChange(next.length===options.length?'all':next);};
+  return <details className="roadmap-multi-filter" ref={ref}><summary aria-label={'路线图'+label+'筛选'}>{all?'所有'+label:label+' ('+selected.length+')'}<ChevronDown size={13}/></summary><div className="roadmap-multi-options" role="group" aria-label={label+'多选'}><label><input type="checkbox" checked={all} onChange={e=>onChange(e.target.checked?'all':[])}/>全选{label}</label>{options.map(option=><label key={option.value}><input type="checkbox" checked={selected.includes(option.value)} onChange={e=>toggle(option.value,e.target.checked)}/>{option.label}</label>)}</div></details>;
 }

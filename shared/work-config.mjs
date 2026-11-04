@@ -9,6 +9,12 @@ export const typePalette = [
   ["#379282", "青色"], ["#579451", "绿色"], ["#B48730", "金色"],
   ["#CD5966", "红色"], ["#A76398", "粉紫"], ["#67758A", "灰蓝"],
 ];
+export function aiExecutionEnabled(item,items=[]) {
+  if(!item||item.aiDisabled)return false;
+  if(item.aiEnabled)return true;
+  const parent=items.find(i=>i.id===item.parentId);
+  return !!(parent?.aiEnabled&&!parent.aiDisabled);
+}
 export const typeIcons = {
   target: "目标", layers: "层叠", box: "方块", book: "故事", checklist: "任务",
   bug: "缺陷", branch: "分支", flag: "旗帜", sparkles: "灵感", code: "代码",

@@ -9,9 +9,10 @@ export function TypeIcon({ kind, type, size = 14 }) {
   const Icon = icons[typeIcon(resolved)] || Box;
   return <Icon size={size} style={{ color: typeColor(resolved), flexShrink: 0 }} aria-hidden="true"/>;
 }
-export default function WorkType({ kind, type }) {
+export default function WorkType({ kind, type, iconOnly=false }) {
   const project = useWorkProject();
   const resolved = type || typeFor(project, kind);
   const color = typeColor(resolved);
+  if(iconOnly)return <span className="work-type-icon" role="img" aria-label={resolved?.name||kind} title={resolved?.name||kind}><TypeIcon kind={kind} type={resolved}/></span>;
   return <span className="kind work-type" style={{ color, backgroundColor: color + "12" }}><TypeIcon kind={kind} type={resolved}/>{resolved?.name || kind}</span>;
 }

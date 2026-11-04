@@ -2,8 +2,15 @@ import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 
 export default function WorkItemTitle({ value, save }) {
   const [title, setTitle] = useState(value || "");
+  const saved=useRef(value||''),draft=useRef(value||''),pending=useRef(new Set());
+  const [conflict,setConflict]=useState(false);
   const input = useRef(null);
-  useEffect(() => setTitle(value || ""), [value]);
+  useEffect(() => {
+    const next=value||'';
+    if(draft.current===saved.current||draft.current===next){draft.current=next;setTitle(next);setConflict(false);}
+    else if(next!==saved.current&&!pending.current.has(next))setConflict(true);
+    saved.current=next;
+  }, [value]);
 
   const resize = () => {
     const element = input.current;
@@ -28,15 +35,15 @@ export default function WorkItemTitle({ value, save }) {
   }, []);
 
   return (
-    <textarea
+    <div className="detail-title-editor"><textarea
       ref={input}
       className="detail-title"
       aria-label="工作项标题"
       rows={1}
       value={title}
-      onChange={(event) => setTitle(event.target.value)}
-      onBlur={() => {
-        if (title !== (value || "")) save(title);
+      onChange={(event) => {draft.current=event.target.value;setTitle(event.target.value);}}
+      onBlur={async () => {
+        if (!conflict&&title !== saved.current&&!pending.current.has(title)) {pending.current.add(title);try{await save(title);}finally{pending.current.delete(title);}}
       }}
       onKeyDown={(event) => {
         if (event.key === "Enter" && !event.nativeEvent.isComposing) {
@@ -44,6 +51,6 @@ export default function WorkItemTitle({ value, save }) {
           event.currentTarget.blur();
         }
       }}
-    />
+    />{conflict&&<p role="alert" className="error">标题已有更新。请复制草稿，刷新后核对再保存。</p>}</div>
   );
 }

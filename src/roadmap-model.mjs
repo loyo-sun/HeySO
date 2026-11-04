@@ -98,7 +98,7 @@ export function roadmapPoint(value, window) {
 export function roadmapRows(items, project, { query = '', status = 'all', owner = 'all', subtask = false, collapsed = new Set() } = {}) {
   const byId = new Map(items.map(i => [i.id, i])), children = new Map();
   for (const i of items) { const parent = byId.has(i.parentId) ? i.parentId : null; if (!children.has(parent)) children.set(parent, []); children.get(parent).push(i); }
-  const matches = new Set(items.filter(i => (subtask || !isSubtask(i, project)) && (status === 'all' || i.status === status) && (owner === 'all' || i.owner === owner) && (!query.trim() || `${i.title} ${project.code}-${i.number} ${typeFor(project, i.kind)?.name || ''}`.toLowerCase().includes(query.trim().toLowerCase()))).map(i => i.id));
+  const matches = new Set(items.filter(i => (subtask || !isSubtask(i, project)) && (status === 'all' || (Array.isArray(status)?status.includes(i.status):i.status===status)) && (owner === 'all' || (Array.isArray(owner)?owner.includes(i.owner||''):i.owner===owner)) && (!query.trim() || `${i.title} ${project.code}-${i.number} ${typeFor(project, i.kind)?.name || ''}`.toLowerCase().includes(query.trim().toLowerCase()))).map(i => i.id));
   const included = new Set(matches);
   for (const id of matches) { let parent = byId.get(id)?.parentId; const visited = new Set([id]); while (parent && byId.has(parent) && !visited.has(parent)) { visited.add(parent); included.add(parent); parent = byId.get(parent).parentId; } }
   const filtered = !!query.trim() || status !== 'all' || owner !== 'all', rows = [];

@@ -57,7 +57,7 @@ function services() {
           const content = readProjectFile(data.content); assert.ok(!files.has(content.id));
           const file = { content, headId: 'head-' + headCounter++ }; files.set(content.id, file); return Response.json(file);
         }
-        return Response.json({ files: [...files.values()].map(f => ({ id: f.content.id, name: f.content.name })) });
+        return Response.json({ files: [...files.values()].map(f => ({ id: f.content.id, name: f.content.name, head_id:f.headId })) });
       }
       const file = files.get(parsed.pathname.split('/')[5]); assert.ok(file);
       if (parsed.pathname.endsWith('/action')) {
@@ -128,7 +128,11 @@ for (const platform of ['netlify', 'vercel', 'cloudflare']) for (const provider 
       const connection = await (await c.call('/api/connection')).json(); assert.equal(connection.oauth, true); assert.equal(connection.token, undefined);
       const project = latest.projects[0];
       const changed = await c.call('/api/action', { revision: latest.revision, action: { type: 'project.update', payload: { id: project.id, goal: '更改后保留' } } });
-      assert.equal(changed.status, 200); assert.equal((await changed.json()).state.projects[0].goal, '更改后保留');
+      assert.equal(changed.status, 200);const after=(await changed.json()).state;assert.equal(after.projects[0].goal, '更改后保留');
+      const cloud=after.projects[0].cloud;
+      const fast=await c.call('/api/action',{revision:after.revision,projectId:project.id,fileId:cloud.fileId,headId:cloud.headId,heads:[{fileId:cloud.fileId,headId:cloud.headId}],requestId:randomUUID(),action:{type:'item.create',payload:{projectId:project.id,kind:'task',title:'增量保存验证',startDate:project.startDate,endDate:project.endDate}}});
+      assert.equal(fast.status,200);const patch=await fast.json();assert.equal(patch.delta,true);assert.equal(patch.state.items[0].title,'增量保存验证');
+      const polled=await c.call('/api/state',{heads:patch.state.projects.map(p=>({fileId:p.cloud.fileId,headId:p.cloud.headId}))});assert.equal(polled.status,200);const delta=await polled.json();assert.equal(delta.delta,true);assert.equal(delta.state.projects.length,0);
       mock.expire(); assert.equal((await c.call('/api/state')).status, 401); assert.equal(c.jar.has('heyso_config'), false);
     } else {
       const connection = await (await c.call('/api/connection')).json(); assert.match(connection.token, /^hs1\./);

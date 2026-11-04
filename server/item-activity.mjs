@@ -1,4 +1,4 @@
-import { typeNames, statusNamesFor } from '../shared/work-config.mjs';
+import { aiExecutionEnabled, typeNames, statusNamesFor } from '../shared/work-config.mjs';
 
 const fields = [
   ['title','标题'], ['description','描述'], ['acceptance','验收标准'],
@@ -25,7 +25,7 @@ function display(state, item, field, raw) {
 }
 export function captureItemActivity(state) {
   return new Map(state.items.map(item => [item.id, fields.map(([field,label]) => {
-    const raw = value(item,field);
+    const raw = field==='aiEnabled'?aiExecutionEnabled(item,state.items):value(item,field);
     return { field, label, value: raw, text: display(state,item,field,raw) };
   })]));
 }
@@ -33,7 +33,7 @@ export function itemActivityChanges(before, state, item) {
   const previous = before.get(item.id);
   if (!previous) return [];
   return previous.flatMap(old => {
-    const raw = value(item,old.field);
+    const raw = old.field==='aiEnabled'?aiExecutionEnabled(item,state.items):value(item,old.field);
     if (old.value === raw || ((old.value === null || old.value === '') && (raw === null || raw === ''))) return [];
     return [{ field: old.field, label: old.label, before: old.value, after: raw, beforeText: old.text, afterText: display(state,item,old.field,raw) }];
   });

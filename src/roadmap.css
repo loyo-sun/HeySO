@@ -34,12 +34,21 @@
 .roadmap-minor .is-weekend { color: #c6a28d; }
 .roadmap-today-marker { position: absolute; bottom: 1px; z-index: 2; padding: 3px 6px; border-radius: 4px; background: var(--accent); color: #fff; font-size: 10px; transform: translateX(-50%); }
 .roadmap-row { min-height: 49px; border-bottom: 1px solid #eef0f2; }
-.roadmap-row:hover > .roadmap-label { background: #fafbfc; }
+.roadmap-row:hover > .roadmap-label { background: #fff; }
 .roadmap-fold.icon-btn { width: 18px; height: 24px; flex: 0 0 18px; padding: 0; }
 .roadmap-fold-placeholder { width: 18px; flex: 0 0 18px; }
 .roadmap-item-name { min-width: 0; flex: 1; padding: 0; border: 0; background: transparent; align-items: flex-start; flex-direction: column; gap: 2px; text-align: left; }
 .roadmap-item-name > span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; font-size: 12px; }
 .roadmap-item-name small { font-size: 9px; color: #a1a6ad; font-weight: 400; }
+.roadmap-item-name:hover,.roadmap-item-name:active,.roadmap-item-name:focus { background: transparent; box-shadow: none; }
+.roadmap-item-name:focus-visible { outline: 2px solid #c8b5ab; outline-offset: 3px; }
+.roadmap-multi-filter { position: relative; min-width: 120px; }
+.roadmap-multi-filter summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 10px; border: 1px solid #e4e6ea; border-radius: 6px; background: #fff; font-size: 12px; cursor: pointer; list-style: none; }
+.roadmap-multi-filter summary::-webkit-details-marker { display: none; }
+.roadmap-multi-options { position: absolute; top: calc(100% + 5px); left: 0; z-index: 80; min-width: 200px; max-height: 300px; overflow: auto; padding: 7px; background: #fff; border: 1px solid #e4e6ea; border-radius: 8px; box-shadow: 0 8px 22px #26334418; }
+.roadmap-multi-options label { display: flex; align-items: center; gap: 8px; padding: 7px 8px; cursor: pointer; font-size: 12px; }
+.roadmap-multi-options label:first-child { border-bottom: 1px solid #eee; margin-bottom: 3px; }
+.roadmap-multi-options input { width: auto; margin: 0; }
 .roadmap-edit.icon-btn { padding: 3px; flex-shrink: 0; color: #9ca3aa; }
 .roadmap-track { position: relative; min-width: 0; overflow: hidden; background: #fff; }
 .roadmap-grid { position: absolute; inset: 0; pointer-events: none; }
