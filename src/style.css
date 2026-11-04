@@ -2187,3 +2187,15 @@ main {
     flex-wrap: wrap;
   }
 }
+.work-item-code {
+  border: 0;
+  background: transparent;
+  padding: 4px 7px;
+  border-radius: 6px;
+  color: var(--muted);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.work-item-code:hover { background: #f5f6f8; color: #27333d; }
+.work-item-code:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }

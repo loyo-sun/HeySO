@@ -3,7 +3,7 @@ import { fitChildSchedules } from '../shared/schedule.mjs';
 import { availableProjectCode, allocateItemNumber, checkIdentifiers, migrateIdentifiers } from "../shared/identifiers.mjs";
 import { rolesForMembers, checkMemberRoles, defaultRoles, defaultMemberRole } from "../shared/member-roles.mjs";
 import { randomUUID } from "node:crypto";
-import { defaultWorkConfig, configFor, typeFor, isWorkItem, isSubtask, typeNames, categoryOf, hasStatus, terminal, statusFor, allowedTransition, canParent, checkWorkConfig, workflowFor, workflowStatuses, workflowMigrationGroups, aiReady } from "../shared/work-config.mjs";
+import { isExecutionItem, runTargetId, defaultWorkConfig, configFor, typeFor, isWorkItem, isSubtask, typeNames, categoryOf, hasStatus, terminal, statusFor, allowedTransition, canParent, checkWorkConfig, workflowFor, workflowStatuses, workflowMigrationGroups, aiReady } from "../shared/work-config.mjs";
 export const statuses = [
   "backlog",
   "todo",
@@ -394,11 +394,12 @@ export function context(s, id) {
     release: s.releases.find((r) => r.id === story.releaseId) || null,
     sprint: s.sprints.find((sp) => sp.id === story.sprintId) || null,
     memory: s.notes.filter((n) => n.projectId === item.projectId),
-    executions: s.runs.filter((r) => r.storyId === story.id),
+    executions: s.runs.filter((r) => runTargetId(r) === item.id),
     rules: [
-      "只更新已启用 AI 的故事或其任务。",
-      "不修改故事目标、负责人或验收标准。",
-      "提交成果后等待人工验收，不自行标记故事完成。",
+      "只更新已启用 AI 的工作项或获所属任务授权的子任务。",
+      "执行记录、交付、状态和验收只归属目标 itemId；子任务不更新父级或其他子任务。",
+      "不修改工作项目标、负责人或验收标准。",
+      "提交成果后等待目标工作项的人工验收，不自行标记工作项完成。",
       "文件、Git、环境和发布操作由你的执行工具在用户授权范围内完成。",
     ],
   };
@@ -496,6 +497,7 @@ export function validate(s) {
       fail("版本状态无效");
   for (const r of s.runs) {
     if (
+      !s.items.some(x => x.id === runTargetId(r) && x.projectId === r.projectId && isExecutionItem(x, projectOf(s, x))) ||
       !s.items.some(
         (x) =>
           x.id === r.storyId &&
@@ -744,7 +746,7 @@ export function act(s, a) {
       s.releases.find((r) => r.id === i.releaseId)?.status === "released"
     )
       fail("不能向已发布版本添加故事");
-    if (work(s, i) && workflowFor(project,i.kind).rules?.requireReview && cat(s, i) === "done" && categoryOf(project, old.status, old.kind) !== "done")
+    if (isExecutionItem(i, project) && workflowFor(project,i.kind).rules?.requireReview && cat(s, i) === "done" && categoryOf(project, old.status, old.kind) !== "done")
       fail("请通过人工验收确认工作项完成");
     if (
       i.sprintId &&
@@ -795,7 +797,7 @@ export function act(s, a) {
     const i = getItem(s, p.id);
     if (
       s.items.some((x) => x.parentId === i.id) ||
-      s.runs.some((r) => r.storyId === i.id) ||
+      s.runs.some((r) => r.storyId === i.id || runTargetId(r) === i.id) ||
       s.sprints.some((sp) => sp.baseline.some((x) => x.id === i.id))
     )
       fail("条目已有子项、执行或冲刺基线，请取消该条目以保留历史");
@@ -1017,7 +1019,7 @@ export function act(s, a) {
   } else if (type === "run.progress" || type === "run.submit") {
     const i = getItem(s, p.itemId),
       story = storyOf(s, i);
-    if (!story.aiEnabled) fail("该故事未启用 AI 更新", 403);
+    if (!i.aiEnabled && !story.aiEnabled) fail("该工作项及其所属任务未启用 AI 更新", 403);
     if (p.requestId) {
       const prior = s.runs.find((r) => r.requestId === p.requestId || r.progress?.some(entry => entry.requestId === p.requestId));
       if (prior) {
@@ -1026,10 +1028,10 @@ export function act(s, a) {
         return prior;
       }
     }
-    if (terminal(story, projectOf(s, story)))
-      fail("该故事已结束，不能继续执行");
-    if (i.id !== story.id && terminal(i, projectOf(s, i)))
-      fail("该子任务已结束，不能继续执行");
+    if (terminal(i, projectOf(s, i)))
+      fail("该工作项已结束，不能继续执行");
+    if (p.itemVersion !== undefined && p.itemVersion !== i.contentVersion)
+      fail("工作项要求已更新，请重新读取上下文", 409);
     if (p.storyVersion !== story.contentVersion)
       fail(
         `故事要求已更新（当前 v${story.contentVersion}），请重新读取上下文`,
@@ -1040,7 +1042,8 @@ export function act(s, a) {
         ? s.runs.find((x) => x.id === p.runId && x.storyId === story.id)
         : null;
       if (p.runId && !run) fail("执行记录不存在");
-      if (run && (run.itemId || run.storyId) !== i.id) fail("执行记录不属于当前工作项");
+      if (run && runTargetId(run) !== i.id) fail("执行记录不属于当前工作项");
+      if (run?.itemVersion !== undefined && run.itemVersion !== i.contentVersion) fail("工作项要求已更新，请重新读取上下文并创建新执行", 409);
       if (run && !["active", "blocked"].includes(run.status))
         fail("此执行已提交或结束，请创建新的执行");
       if (!run) {
@@ -1050,6 +1053,8 @@ export function act(s, a) {
           storyId: story.id,
           itemId: i.id,
           storyVersion: p.storyVersion,
+          itemVersion: i.contentVersion,
+          deliveryOwnershipVersion: 1,
           agent: required(p.agent, "Agent 名称"),
           status: "active",
           createdAt: now(),
@@ -1065,12 +1070,8 @@ export function act(s, a) {
         message: required(p.message, "进展说明"),
         ...(p.requestId ? {requestId:p.requestId} : {}),
       });
-      transition(s, story, run.status);
-      story.updatedAt = now();
-      if (i.id !== story.id) {
-        transition(s, i, run.status);
-        i.updatedAt = now();
-      }
+      transition(s, i, run.status);
+      i.updatedAt = now();
       out = run;
       addEvent(
         s,
@@ -1078,14 +1079,15 @@ export function act(s, a) {
         "ai",
         `${run.agent} 更新进展`,
         p.message,
-        story.id,
+        i.id,
       );
     } else {
       let run = p.runId
         ? s.runs.find((x) => x.id === p.runId && x.storyId === story.id)
         : null;
       if (p.runId && !run) fail("执行记录不存在");
-      if (run && (run.itemId || run.storyId) !== i.id) fail("执行记录不属于当前工作项");
+      if (run && runTargetId(run) !== i.id) fail("执行记录不属于当前工作项");
+      if (run?.itemVersion !== undefined && run.itemVersion !== i.contentVersion) fail("工作项要求已更新，请重新读取上下文并创建新执行", 409);
       if (run && !["active", "blocked"].includes(run.status))
         fail("此执行已提交，请使用相同 requestId 重试或创建新执行");
       if (!run) {
@@ -1095,6 +1097,8 @@ export function act(s, a) {
           storyId: story.id,
           itemId: i.id,
           storyVersion: p.storyVersion,
+          itemVersion: i.contentVersion,
+          deliveryOwnershipVersion: 1,
           agent: required(p.agent, "Agent 名称"),
           createdAt: now(),
           reviews: [],
@@ -1109,12 +1113,8 @@ export function act(s, a) {
         requestId: required(p.requestId, "提交唯一标识"),
         submittedAt: now(),
       });
-      transition(s, story, "review");
-      story.updatedAt = now();
-      if (i.id !== story.id) {
-        transition(s, i, "review");
-        i.updatedAt = now();
-      }
+      transition(s, i, "review");
+      i.updatedAt = now();
       out = run;
       addEvent(
         s,
@@ -1122,7 +1122,7 @@ export function act(s, a) {
         "ai",
         `${run.agent} 提交成果`,
         run.summary,
-        story.id,
+        i.id,
       );
     }
     snapshot(s, story.sprintId);
@@ -1131,27 +1131,23 @@ export function act(s, a) {
     if (!r || !["active", "blocked"].includes(r.status))
       fail("只能取消正在执行的记录");
     r.status = "cancelled";
-    const st = getItem(s, r.storyId);
+    const st = getItem(s, runTargetId(r));
     transition(s, st, "todo");
-    if (r.itemId && r.itemId !== st.id) {
-      const target = getItem(s, r.itemId);
-      transition(s, target, "todo");
-      target.updatedAt = now();
-    }
+    st.updatedAt = now();
     addEvent(s, r.projectId, "ai", "取消执行", r.agent, st.id);
     out = r;
   } else if (type === "review") {
     const st = getItem(s, p.storyId);
-    if (!work(s, st)) fail("只能验收执行层工作项");
+    if (!isExecutionItem(st, projectOf(s, st))) fail("只能验收执行层工作项及子任务");
     if (terminal(st, projectOf(s, st)))
       fail("故事已结束，不能重复验收");
     if (
       !p.runId &&
-      s.runs.some((r) => r.storyId === st.id && r.status === "review")
+      s.runs.some((r) => runTargetId(r) === st.id && r.status === "review")
     )
       fail("请审核待验收的具体交付记录");
     const run = p.runId
-      ? s.runs.find((x) => x.id === p.runId && x.storyId === st.id)
+      ? s.runs.find((x) => x.id === p.runId && runTargetId(x) === st.id)
       : null;
     if (p.runId && (!run || run.status !== "review"))
       fail("交付不存在或已经审核");
@@ -1160,7 +1156,7 @@ export function act(s, a) {
     if (
       p.decision === "accept" &&
       run &&
-      run.storyVersion !== st.contentVersion &&
+      (run.storyVersion !== storyOf(s, st).contentVersion || (run.itemVersion !== undefined && run.itemVersion !== st.contentVersion)) &&
       !p.acknowledgeVersion
     )
       fail("交付基于旧版故事，请明确确认版本差异");
@@ -1176,16 +1172,9 @@ export function act(s, a) {
       run.reviews.push(review);
       run.status = p.decision === "accept" ? "accepted" : "changes";
     }
-    const target = run?.itemId && run.itemId !== st.id ? getItem(s, run.itemId) : st;
-    if (target.id !== st.id) {
-      transition(s, target, p.decision === "accept" ? "done" : "active");
-      target.updatedAt = now();
-      if (p.decision === "accept") target.completedAt = now();
-    }
-    const otherPending = s.runs.some(r => r.storyId === st.id && r.id !== run?.id && r.status === "review");
-    transition(s, st, target.id !== st.id ? (otherPending ? "review" : "active") : p.decision === "accept" ? "done" : "active");
+    transition(s, st, p.decision === "accept" ? "done" : "active");
     st.updatedAt = now();
-    if (p.decision === "accept" && target.id === st.id) st.completedAt = now();
+    if (p.decision === "accept") st.completedAt = now();
     addEvent(
       s,
       st.projectId,
@@ -1194,7 +1183,7 @@ export function act(s, a) {
       review.comment,
       st.id,
     );
-    snapshot(s, st.sprintId);
+    snapshot(s, storyOf(s, st).sprintId);
     out = review;
   } else fail("未知操作");
   validate(s);

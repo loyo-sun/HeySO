@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { createStore } from '../server/store.mjs';
 import { context } from '../server/model.mjs';
+import { migrateState } from '../server/migrate.mjs';
 
 function setup(t) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'heyso-ai-target-'));
@@ -34,15 +35,17 @@ test('subtask progress, blocking, delivery and human acceptance update the targe
   c.act('run.submit', delivery);
   const ctx = context(c.store.read(), c.child.id);
   assert.equal(ctx.targetTask.status, 'review');
-  assert.equal(ctx.story.status, 'review');
+  assert.equal(ctx.story.status, 'todo');
+  assert.equal(ctx.executions.length, 1);
+  assert.equal(context(c.store.read(), c.parent.id).executions.length, 0);
   assert.equal(c.act('run.submit', delivery).id, run.id);
-  c.act('review', {storyId:c.parent.id, runId:run.id, decision:'changes', comment:'需要修改'});
+  c.act('review', {storyId:c.child.id, runId:run.id, decision:'changes', comment:'需要修改'});
   assert.equal(c.status(c.child.id), 'active');
   run = c.act('run.progress', {...c.args, message:'返工'});
   c.act('run.submit', {...delivery, runId:run.id, requestId:'child-delivery-2'});
-  c.act('review', {storyId:c.parent.id, runId:run.id, decision:'accept', comment:'通过'});
+  c.act('review', {storyId:c.child.id, runId:run.id, decision:'accept', comment:'通过'});
   assert.equal(c.status(c.child.id), 'done');
-  assert.equal(c.status(c.parent.id), 'active');
+  assert.equal(c.status(c.parent.id), 'todo');
   assert.equal(c.status(c.sibling.id), 'todo');
 });
 
@@ -92,16 +95,74 @@ test('progress retries reuse the run without duplicating progress or changing an
   assert.throws(() => c.act('run.submit', {...payload, summary:'完成', verification:'通过'}), /其他操作/);
 });
 
-test('accepting one child keeps another pending child available for review', t => {
+test('each child has independent acceptance while its parent status is unchanged', t => {
   const c = setup(t);
   const deliver = (itemId, requestId) => c.act('run.submit', {...c.args, itemId, summary:'完成', verification:'通过', requestId});
   const first = deliver(c.child.id, 'first');
   const second = deliver(c.sibling.id, 'second');
-  c.act('review', {storyId:c.parent.id, runId:first.id, decision:'accept', comment:'通过第一个'});
+  c.act('review', {storyId:c.child.id, runId:first.id, decision:'accept', comment:'通过第一个'});
   assert.equal(c.status(c.child.id), 'done');
   assert.equal(c.status(c.sibling.id), 'review');
-  assert.equal(c.status(c.parent.id), 'review');
-  c.act('review', {storyId:c.parent.id, runId:second.id, decision:'accept', comment:'通过第二个'});
+  assert.equal(c.status(c.parent.id), 'todo');
+  c.act('review', {storyId:c.sibling.id, runId:second.id, decision:'accept', comment:'通过第二个'});
   assert.equal(c.status(c.sibling.id), 'done');
-  assert.equal(c.status(c.parent.id), 'active');
+  assert.equal(c.status(c.parent.id), 'todo');
+});
+
+test('child acceptance cannot be performed on the parent and direct completion cannot bypass review', t => {
+  const c = setup(t);
+  const run = c.act('run.submit', {...c.args, summary:'完成', verification:'通过', requestId:'own-delivery'});
+  assert.throws(() => c.act('review', {storyId:c.parent.id, runId:run.id, decision:'accept', comment:'错误归属'}), /交付不存在/);
+  assert.throws(() => c.act('item.update', {id:c.child.id, status:'done'}), /人工验收/);
+  assert.equal(c.status(c.child.id), 'review');
+  assert.equal(c.status(c.parent.id), 'todo');
+});
+
+test('child requirement edits invalidate a run even when the parent version is unchanged', t => {
+  const c = setup(t);
+  const run = c.act('run.progress', {...c.args, message:'开始'});
+  c.act('item.update', {id:c.child.id, description:'新的子任务要求'});
+  assert.throws(() => c.act('run.submit', {...c.args, runId:run.id, summary:'旧结果', verification:'通过', requestId:'stale-child'}), /要求已更新/);
+  assert.equal(c.status(c.child.id), 'active');
+});
+
+test('subtasks with execution history cannot be deleted through the action API', t => {
+  const c = setup(t);
+  c.act('run.progress', {...c.args, message:'开始'});
+  const before = c.store.read();
+  assert.throws(() => c.act('item.delete', {id:c.child.id}), /执行|历史|关联/);
+  assert.deepEqual(c.store.read(), before);
+});
+
+test('legacy accepted subtask deliveries retain their IDs and reviews and restore only the target state', t => {
+  const c = setup(t);
+  const state = c.store.read();
+  const parent = state.items.find(i => i.id === c.parent.id);
+  const child = state.items.find(i => i.id === c.child.id);
+  const at = '2030-01-01T00:00:00.000Z';
+  parent.completedAt = at;
+  const run = {id:'legacy-delivery', projectId:parent.projectId, storyId:parent.id, itemId:child.id, storyVersion:parent.contentVersion, status:'accepted', agent:'Codex', createdAt:at, submittedAt:at, summary:'原成果', reviews:[{id:'original-review', decision:'accept', author:'我', comment:'已完成', at}]};
+  state.runs.push(run);
+  state.events.unshift({id:'legacy-event', projectId:parent.projectId, itemId:parent.id, type:'review', title:'人工验收通过', at});
+  const migrated = migrateState(state);
+  assert.equal(migrated.runs.find(r => r.id === run.id).storyId, parent.id);
+  assert.deepEqual(migrated.runs.find(r => r.id === run.id).reviews, run.reviews);
+  assert.equal(context(migrated, child.id).executions[0].id, run.id);
+  assert.equal(context(migrated, parent.id).executions.length, 0);
+  assert.equal(migrated.items.find(i => i.id === child.id).status, 'done');
+  assert.equal(migrated.items.find(i => i.id === c.sibling.id).status, 'todo');
+  assert.equal(migrated.items.find(i => i.id === parent.id).status, 'todo');
+  assert.equal(migrated.events.find(e => e.id === 'legacy-event').itemId, child.id);
+  assert.deepEqual(migrateState(migrated), migrated);
+  assert.equal(state.items.find(i => i.id === child.id).status, 'todo');
+});
+
+test('migration preserves a status the user changed after the original acceptance', t => {
+  const c = setup(t);
+  const state = c.store.read();
+  const child = state.items.find(i => i.id === c.child.id);
+  child.status = 'active';
+  child.updatedAt = '2030-01-02T00:00:00.000Z';
+  state.runs.push({id:'legacy-reopened', projectId:c.parent.projectId, storyId:c.parent.id, itemId:child.id, storyVersion:1, status:'accepted', createdAt:'2030-01-01T00:00:00.000Z', reviews:[]});
+  assert.equal(migrateState(state).items.find(i => i.id === child.id).status, 'active');
 });

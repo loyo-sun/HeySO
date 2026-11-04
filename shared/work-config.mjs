@@ -63,6 +63,8 @@ export const levelName = (project, rank) => levelFor(configFor(project), rank)?.
 export const configFor = (project) => project?.workConfig || defaultWorkConfig();
 export const typeFor = (project, kind) => configFor(project).types.find((t) => t.id === kind);
 export const isWorkItem = (item, project) => typeFor(project, item?.kind)?.level === 0;
+export const isExecutionItem = (item, project) => isWorkItem(item, project) || isSubtask(item, project);
+export const runTargetId = (run) => run.itemId || run.storyId;
 export const isSubtask = (item, project) => typeFor(project, item?.kind)?.level === -1;
 export const typeNames = (project) => Object.fromEntries(configFor(project).types.map((t) => [t.id, t.name]));
 export const statusNamesFor = (project) => Object.fromEntries(configFor(project).statuses.map((s) => [s.id, s.name]));

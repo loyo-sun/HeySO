@@ -70,7 +70,7 @@ import useWorkspaceRoute from "./useWorkspaceRoute.jsx";
 import "./dashboard.css";
 import WorkItemDialog from "./WorkItemDialog.jsx";
 import { workItemEntries, executionInstruction } from "./work-item-actions.mjs";
-import { configFor, typeFor, typeNames, statusNamesFor, isWorkItem, isSubtask, categoryOf, hasStatus, terminal, statusFor, allowedTransition, parentCandidates, childTypes, canParent, statusCategories, workflowFor, workflowStatuses, progressCategory, boardStatuses, aiReady } from "../shared/work-config.mjs";
+import { isExecutionItem, runTargetId, configFor, typeFor, typeNames, statusNamesFor, isWorkItem, isSubtask, categoryOf, hasStatus, terminal, statusFor, allowedTransition, parentCandidates, childTypes, canParent, statusCategories, workflowFor, workflowStatuses, progressCategory, boardStatuses, aiReady } from "../shared/work-config.mjs";
 
 const statusNames = {
   backlog: "待规划",
@@ -323,10 +323,10 @@ function App() {
       setBusy(false);
     }
   }
-  async function copy(text) {
+  async function copy(text, successMessage = "已复制") {
     try {
       await navigator.clipboard.writeText(text);
-      setToast("已复制");
+      setToast(successMessage);
     } catch {
       setToast("复制失败，请手动复制");
     }
@@ -514,7 +514,7 @@ function App() {
       snapshot:(item) => setModal({type:"workSnapshot",item}),
       deliveries:(item) => { open(item); setTab("runs"); },
       instruction:(item) => copy(executionInstruction(project,item)),
-      review:(item) => setModal({type:"review",story:item,run:runs.find((r) => r.storyId === item.id && r.status === "review")}),
+      review:(item) => setModal({type:"review",story:item,run:runs.find((r) => runTargetId(r) === item.id && r.status === "review")}),
       remove:(item) => setModal({type:"delete",item}),
       collapsed:collapsedItems.has(i.id),
       toggleBranch:view === "hierarchy" ? (id) => setCollapsedItems((old) => { const next = new Set(old); next.has(id) ? next.delete(id) : next.add(id); return next; }) : null,
@@ -1554,12 +1554,12 @@ function App() {
               <div className="stats three">
                 {[
                   [
-                    stories.filter((x) => x.aiEnabled).length,
-                    "已启用 AI 的故事",
+                    items.filter((x) => isExecutionItem(x, project) && (x.aiEnabled || (isSubtask(x, project) && items.find(p => p.id === x.parentId)?.aiEnabled))).length,
+                    "已启用 AI 的工作项",
                   ],
                   [runs.length, "累计执行记录"],
                   [
-                    runs.filter((x) => hasStatus(x, project, "review")).length,
+                    runs.filter((x) => x.status === "review").length,
                     "等待审核的交付",
                   ],
                 ].map(([n, l]) => (
@@ -1579,7 +1579,7 @@ function App() {
                     .slice()
                     .reverse()
                     .map((r) => {
-                      const i = stories.find((x) => x.id === r.storyId);
+                      const i = items.find((x) => x.id === runTargetId(r));
                       return (
                         <button
                           className="run-row" data-work-item-id={i?.id} data-work-run-id={r.id}
@@ -1606,7 +1606,7 @@ function App() {
                 ) : (
                   <Empty
                     title="等待你的第一次 AI 交付"
-                    text="在故事中启用 AI，然后复制执行指令到已连接的 AI 工具。"
+                    text="在工作项中启用 AI，然后复制执行指令到已连接的 AI 工具。"
                   />
                 )}
               </section>
@@ -2143,7 +2143,7 @@ function Detail({
       ? i
       : items.find((x) => x.id === i.parentId && isWorkItem(x, project));
   const runs = data.runs
-    .filter((r) => r.storyId === i.id)
+    .filter((r) => runTargetId(r) === i.id)
     .slice()
     .reverse();
   const events = data.events.filter((x) => x.itemId === i.id);
@@ -2160,7 +2160,7 @@ function Detail({
         <header>
           <div>
             <Kind kind={i.kind} />
-            <small>{i.number ? project.code + "-" + i.number : i.id}</small>
+            <button className="work-item-code" aria-label="复制工作项 ID" title="点击复制工作项 ID" onClick={() => { const code = i.number ? project.code + "-" + i.number : i.id; copy(code, "已复制工作项 ID：" + code); }}>{i.number ? project.code + "-" + i.number : i.id}</button>
           </div>
           <div>
             <span className="muted">v{i.contentVersion}</span>
@@ -2196,7 +2196,7 @@ function Detail({
             {[
               ["detail", "详情"],
               ["children", isWorkItem(i, project) ? "子任务" : "子项"],
-              ...(isWorkItem(i, project) ? [["runs", "交付与验收"]] : []),
+              ...(isExecutionItem(i, project) ? [["runs", "交付与验收"]] : []),
               ["history", "活动记录"],
             ].map(([k, v]) => (
               <button
@@ -2233,7 +2233,7 @@ function Detail({
                       .filter(([key]) => key === i.status || (configFor(project).statuses.some((s) => s.id === key && s.enabled) && allowedTransition(project, i.status, key, i.kind)))
                       .filter(
                         ([k]) =>
-                          !isWorkItem(i, project) || !workflowFor(project,i.kind).rules?.requireReview ||
+                          !isExecutionItem(i, project) || !workflowFor(project,i.kind).rules?.requireReview ||
                           categoryOf(project, k, i.kind) !== "done" ||
                           hasStatus(i, project, "done"),
                       )
@@ -2344,7 +2344,7 @@ function Detail({
                   placeholder="描述背景、目标与需要提供的材料…"
                 />
               </Field>
-              {isWorkItem(i, project) && (
+              {isExecutionItem(i, project) && (
                 <Field label="验收标准">
                   <TextEdit
                     key={i.id + "ac"}
@@ -2375,19 +2375,19 @@ function Detail({
                     会读取最新上下文，并将成果交回这里。
                   </p>
                   <button
-                    disabled={!story?.aiEnabled}
+                    disabled={!i.aiEnabled && !story?.aiEnabled}
                     onClick={() => copy(prompt)}
                   >
                     <Copy size={15} />
                     复制执行指令
                   </button>
-                  {!story?.aiEnabled && (
+                  {!i.aiEnabled && !story?.aiEnabled && (
                     <small>请先为所属工作项启用 AI 执行</small>
                   )}
                 </div>
               )}
               <div className="detail-actions">
-                {isWorkItem(i, project) && hasStatus(i, project, "review") && (
+                {isExecutionItem(i, project) && hasStatus(i, project, "review") && (
                   <button
                     className="primary"
                     onClick={() =>
@@ -2401,7 +2401,7 @@ function Detail({
                     人工验收
                   </button>
                 )}
-                {isWorkItem(i, project) &&
+                {isExecutionItem(i, project) &&
                   !terminal(i, project) && statusFor(project,"review",i.kind) && allowedTransition(project,i.status,statusFor(project,"review",i.kind),i.kind) && (
                     <button onClick={() => update({ status: statusFor(project, "review", i.kind) })}>
                       提交人工交付
@@ -2462,7 +2462,7 @@ function Detail({
             <>
               <div className="panel-title">
                 <h3>交付与人工验收</h3>
-                {i.aiEnabled && (
+                {!terminal(i, project) && (i.aiEnabled || story?.aiEnabled) && (
                   <button
                     onClick={() => setModal({ type: "delivery", story: i })}
                   >
@@ -2481,15 +2481,14 @@ function Detail({
                       <div>
                         <b>{r.agent}</b>
                         <small>
-                          {time(r.createdAt)} · 故事 v{r.storyVersion}
+                          {time(r.createdAt)} · {r.itemVersion !== undefined ? "工作项 v" + r.itemVersion : "原父级上下文 v" + r.storyVersion}
                         </small>
                       </div>
                       <Badge status={r.status} workflow={false} />
                     </div>
-                    {r.storyVersion !== i.contentVersion && (
+                    {((r.itemVersion !== undefined && r.itemVersion !== i.contentVersion) || r.storyVersion !== story?.contentVersion) && (
                       <div className="warning">
-                        此交付依据 v{r.storyVersion}；故事当前为 v
-                        {i.contentVersion}，请核对要求变化。
+                        此交付依据的要求已变化，请核对当前工作项及所属任务的要求。
                       </div>
                     )}
                     <p>{r.summary || "正在执行…"}</p>
@@ -2689,7 +2688,8 @@ function EditorModal({
       type = "run.submit";
       p = {
         itemId: m.story.id,
-        storyVersion: m.story.contentVersion,
+        storyVersion: (isSubtask(m.story, project) ? items.find(i => i.id === m.story.parentId) : m.story).contentVersion,
+        itemVersion: m.story.contentVersion,
         agent: get(f, "agent"),
         summary: get(f, "summary"),
         verification: get(f, "verification"),
@@ -2937,7 +2937,7 @@ function EditorModal({
                       </Select>
                     </Field>
                   </div>
-                  {isWorkItem({ kind: itemKind }, project) && (
+                  {isExecutionItem({ kind: itemKind }, project) && (
                     <>
                       <Field label="验收标准">
                         <textarea
@@ -2945,7 +2945,7 @@ function EditorModal({
                           placeholder="达到什么条件，才能确认完成？"
                         />
                       </Field>
-                      <Field label="故事点">
+                      {isWorkItem({kind:itemKind}, project) && <Field label="故事点">
                         <input
                           name="points"
                           type="number"
@@ -2953,7 +2953,7 @@ function EditorModal({
                           max="1000"
                           defaultValue="0"
                         />
-                      </Field>
+                      </Field>}
                     </>
                   )}
                 </>
@@ -3064,7 +3064,7 @@ function EditorModal({
                   </div>
                   <Field label="审核决定">
                     <Select name="decision">
-                      <option value="accept">通过，确认故事完成</option>
+                      <option value="accept">通过，确认工作项完成</option>
                       <option value="changes">要求修改，继续执行</option>
                     </Select>
                   </Field>
@@ -3075,10 +3075,10 @@ function EditorModal({
                       placeholder="说明结果是否满足标准，或明确需要修改的地方。"
                     />
                   </Field>
-                  {m.run && m.run.storyVersion !== m.story.contentVersion && (
+                  {m.run && ((m.run.itemVersion !== undefined && m.run.itemVersion !== m.story.contentVersion) || m.run.storyVersion !== (isSubtask(m.story, project) ? items.find(i => i.id === m.story.parentId) : m.story).contentVersion) && (
                     <label className="check-label">
                       <input type="checkbox" name="acknowledge" />
-                      我已核对旧版交付与当前故事要求的差异
+                      我已核对旧版交付与当前工作项要求的差异
                     </label>
                   )}
                 </>

@@ -93,3 +93,15 @@ test("execution instructions require target status updates and read-back before 
     assert.ok(prompt.includes('不得宣称状态已更新'));
   }
 });
+
+test("subtasks expose their own delivery, review and inherited AI instruction actions", () => {
+  const c = setup();
+  c.item.kind = 'subtask';
+  c.item.parentId = 's1';
+  c.item.status = 'review';
+  c.data.items.find(i => i.id === 's1').aiEnabled = true;
+  const calls = [];
+  const entries = workItemEntries({item:c.item,project:c.project,data:c.data,handlers:{deliveries:i=>calls.push(['delivery',i.id]),instruction:i=>calls.push(['instruction',i.id]),review:i=>calls.push(['review',i.id])}});
+  for (const label of ['查看交付与验收','复制 AI 执行指令','进入人工验收…']) find(entries,label).run();
+  assert.deepEqual(calls,[['delivery',c.item.id],['instruction',c.item.id],['review',c.item.id]]);
+});

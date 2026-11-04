@@ -45,6 +45,7 @@ export const toolDefinitions = [
     z.object({
       itemId: z.string(),
       storyVersion: z.number().int(),
+      itemVersion: z.number().int().optional(),
       agent: z.string().min(1),
       message: z.string().min(1),
       status: z.enum(["active", "blocked"]).default("active"),
@@ -60,6 +61,7 @@ export const toolDefinitions = [
     z.object({
       itemId: z.string(),
       storyVersion: z.number().int(),
+      itemVersion: z.number().int().optional(),
       agent: z.string().min(1),
       summary: z.string().min(1),
       verification: z.string().min(1),
