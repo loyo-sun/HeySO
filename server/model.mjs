@@ -1019,14 +1019,17 @@ export function act(s, a) {
       story = storyOf(s, i);
     if (!story.aiEnabled) fail("该故事未启用 AI 更新", 403);
     if (p.requestId) {
-      const prior = s.runs.find((r) => r.requestId === p.requestId);
+      const prior = s.runs.find((r) => r.requestId === p.requestId || r.progress?.some(entry => entry.requestId === p.requestId));
       if (prior) {
-        if (prior.storyId !== story.id) fail("requestId 已用于其他故事");
+        if (prior.storyId !== story.id || (prior.itemId || prior.storyId) !== i.id) fail("requestId 已用于其他工作项");
+        if ((prior.requestId === p.requestId) !== (type === "run.submit")) fail("requestId 已用于其他操作");
         return prior;
       }
     }
     if (terminal(story, projectOf(s, story)))
       fail("该故事已结束，不能继续执行");
+    if (i.id !== story.id && terminal(i, projectOf(s, i)))
+      fail("该子任务已结束，不能继续执行");
     if (p.storyVersion !== story.contentVersion)
       fail(
         `故事要求已更新（当前 v${story.contentVersion}），请重新读取上下文`,
@@ -1037,6 +1040,7 @@ export function act(s, a) {
         ? s.runs.find((x) => x.id === p.runId && x.storyId === story.id)
         : null;
       if (p.runId && !run) fail("执行记录不存在");
+      if (run && (run.itemId || run.storyId) !== i.id) fail("执行记录不属于当前工作项");
       if (run && !["active", "blocked"].includes(run.status))
         fail("此执行已提交或结束，请创建新的执行");
       if (!run) {
@@ -1059,9 +1063,14 @@ export function act(s, a) {
       run.progress.push({
         at: now(),
         message: required(p.message, "进展说明"),
+        ...(p.requestId ? {requestId:p.requestId} : {}),
       });
       transition(s, story, run.status);
       story.updatedAt = now();
+      if (i.id !== story.id) {
+        transition(s, i, run.status);
+        i.updatedAt = now();
+      }
       out = run;
       addEvent(
         s,
@@ -1076,6 +1085,7 @@ export function act(s, a) {
         ? s.runs.find((x) => x.id === p.runId && x.storyId === story.id)
         : null;
       if (p.runId && !run) fail("执行记录不存在");
+      if (run && (run.itemId || run.storyId) !== i.id) fail("执行记录不属于当前工作项");
       if (run && !["active", "blocked"].includes(run.status))
         fail("此执行已提交，请使用相同 requestId 重试或创建新执行");
       if (!run) {
@@ -1101,6 +1111,10 @@ export function act(s, a) {
       });
       transition(s, story, "review");
       story.updatedAt = now();
+      if (i.id !== story.id) {
+        transition(s, i, "review");
+        i.updatedAt = now();
+      }
       out = run;
       addEvent(
         s,
@@ -1119,6 +1133,11 @@ export function act(s, a) {
     r.status = "cancelled";
     const st = getItem(s, r.storyId);
     transition(s, st, "todo");
+    if (r.itemId && r.itemId !== st.id) {
+      const target = getItem(s, r.itemId);
+      transition(s, target, "todo");
+      target.updatedAt = now();
+    }
     addEvent(s, r.projectId, "ai", "取消执行", r.agent, st.id);
     out = r;
   } else if (type === "review") {
@@ -1157,9 +1176,16 @@ export function act(s, a) {
       run.reviews.push(review);
       run.status = p.decision === "accept" ? "accepted" : "changes";
     }
-    transition(s, st, p.decision === "accept" ? "done" : "active");
+    const target = run?.itemId && run.itemId !== st.id ? getItem(s, run.itemId) : st;
+    if (target.id !== st.id) {
+      transition(s, target, p.decision === "accept" ? "done" : "active");
+      target.updatedAt = now();
+      if (p.decision === "accept") target.completedAt = now();
+    }
+    const otherPending = s.runs.some(r => r.storyId === st.id && r.id !== run?.id && r.status === "review");
+    transition(s, st, target.id !== st.id ? (otherPending ? "review" : "active") : p.decision === "accept" ? "done" : "active");
     st.updatedAt = now();
-    if (p.decision === "accept") st.completedAt = now();
+    if (p.decision === "accept" && target.id === st.id) st.completedAt = now();
     addEvent(
       s,
       st.projectId,

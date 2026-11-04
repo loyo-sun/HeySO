@@ -41,7 +41,7 @@ export const toolDefinitions = [
   ],
   [
     "update_progress",
-    "仅限已启用 AI 的执行层工作项（故事、任务、缺陷或自定义类型）。报告进展或阻塞，不能验收完成。重用返回的 run.id 继续同一次执行。",
+    "仅限已启用 AI 的执行层工作项及其子任务。使用目标 itemId 同步工作项和执行记录为执行中或阻塞，不能验收完成。重用返回的 run.id 继续同一次执行。",
     z.object({
       itemId: z.string(),
       storyVersion: z.number().int(),
@@ -49,13 +49,14 @@ export const toolDefinitions = [
       message: z.string().min(1),
       status: z.enum(["active", "blocked"]).default("active"),
       runId: z.string().optional(),
+      requestId: z.string().min(1).optional(),
     }),
     null,
     "run.progress",
   ],
   [
     "submit_result",
-    "提交成果并进入待人工验收，不能标记已完成。requestId 为每次交付的唯一标识；重试时复用。文件链接不等于上传文件，请提供用户能访问的地址。",
+    "使用目标 itemId 提交成果，将工作项（包括目标子任务）及执行记录更新为待人工验收，不能标记已完成。提交后回读上下文核对状态。requestId 为每次交付的唯一标识；重试时复用。文件链接不等于上传文件，请提供用户能访问的地址。",
     z.object({
       itemId: z.string(),
       storyVersion: z.number().int(),

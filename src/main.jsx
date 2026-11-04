@@ -102,15 +102,15 @@ const kindIcons = {
 };
 const priorities = { high: "高", medium: "中", low: "低" };
 const navs = [
-  ["overview", "项目概览", LayoutDashboard, "查看项目目标、进度和待验收成果。"],
-  ["roadmap", "Roadmap 路线图", Calendar, "在时间轴上查看工作项、进度和版本里程碑，调整计划日期。"],
-  ["hierarchy", "工作项层级", Layers, "管理具体工作项的父子关系，支持拖拽归类。"],
-  ["backlog", "产品待办池", Rows3, "整理故事优先级，安排版本与冲刺。"],
-  ["board", "工作看板", Kanban, "按状态查看故事，拖动卡片推进工作。"],
-  ["sprints", "Sprint 冲刺", Timer, "规划冲刺、跟踪执行、完成评审与复盘。"],
-  ["releases", "版本发布", Flag, "规划版本范围，管理发布与交付记录。"],
-  ["memory", "项目记忆", BookOpen, "保存项目背景、关键决定和共享知识。"],
-  ["ai", "AI 交付", Bot, "跟踪 AI 执行，审核成果并完成验收。"],
+  ["overview", "概览", LayoutDashboard, "查看项目目标、进度和待验收成果。"],
+  ["roadmap", "路线图", Calendar, "在时间轴上查看工作项、进度和版本里程碑，调整计划日期。"],
+  ["hierarchy", "工作项", Layers, "管理具体工作项的父子关系，支持拖拽归类。"],
+  ["backlog", "待办池", Rows3, "整理故事优先级，安排版本与冲刺。"],
+  ["board", "看板", Kanban, "按状态查看故事，拖动卡片推进工作。"],
+  ["sprints", "冲刺", Timer, "规划冲刺、跟踪执行、完成评审与复盘。"],
+  ["releases", "版本", Flag, "规划版本范围，管理发布与交付记录。"],
+  ["memory", "记忆", BookOpen, "保存项目背景、关键决定和共享知识。"],
+  ["ai", "智能", Bot, "跟踪 AI 执行，审核成果并完成验收。"],
 ];
 const fmt = (d) =>
   d

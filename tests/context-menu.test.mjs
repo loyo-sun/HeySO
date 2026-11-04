@@ -83,3 +83,13 @@ test("menus omit hierarchy/type/child creation and always offer scope and owner 
   for (const label of ["设置负责人","安排到 Sprint","安排到版本"]) assert.equal(find(entries,label).searchable,true);
   assert(executionInstruction(c.project,c.item).includes(c.item.title));
 });
+
+test("execution instructions require target status updates and read-back before claiming delivery", () => {
+  const c = setup();
+  for (const kind of ["story", "subtask"]) {
+    const prompt = executionInstruction({...c.project, cloud:{base:"https://cloud.example",fileId:"file-1"}}, {...c.item,kind});
+    for (const text of ['itemId', 'status="active"', 'status="blocked"', 'submit_result', 'get_story_context', 'targetTask.status', 'story.status', '待验收', '人工验收', 'file-1', 'requestId']) assert.ok(prompt.includes(text), text);
+    assert.ok(prompt.includes('不要替换为父级 ID'));
+    assert.ok(prompt.includes('不得宣称状态已更新'));
+  }
+});
