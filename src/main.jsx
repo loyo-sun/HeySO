@@ -1,5 +1,7 @@
 import {aiExecutionEnabled} from '../shared/work-config.mjs';
 import ActivityDetails from './ActivityDetails.jsx';
+import BacklogTable from './BacklogTable.jsx';
+import {WorkspaceLinksProvider,WorkspaceLink} from './WorkspaceLinks.jsx';
 import {WorkspaceSync,watchWorkspaceUpdates} from './workspace-sync.mjs';
 import React, { useState, useEffect, useRef } from "react";
 import AccessGate, { useHosting } from './AccessGate.jsx';
@@ -17,6 +19,8 @@ import {
   Plus,
   Search,
   ChevronDown,
+  ChevronsUpDown,
+  ChevronsDownUp,
   ChevronLeft,
   ChevronRight,
   ArrowUpRight,
@@ -625,13 +629,12 @@ function App() {
             onDragEnd={() => { setDraggedItem(null); setDragOverItem(null); }}
             onDragOver={(e) => { if (draggedItem) { e.preventDefault(); e.stopPropagation(); setDragOverItem(i.id); e.dataTransfer.dropEffect = validTarget ? "move" : "none"; } }}
             onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) setDragOverItem(null); }} onDrop={(e) => moveWorkItem(e, i.id)}>
-            <span aria-hidden="true" className="tree-drag-handle" title="拖动以更改父级">⠿</span>
             {draggedItem && dragOverItem === i.id && !validTarget && <span className="tree-drop-invalid-icon" role="img" aria-label="无法放入" title="无法放入：类型或层级不匹配"><X size={18} strokeWidth={3} aria-hidden="true"/></span>}
             {nested.length ? <button className="tree-fold icon-btn" aria-label={(collapsed ? "展开" : "收起") + i.title} aria-expanded={!collapsed} onClick={() => setCollapsedItems((old) => { const next = new Set(old); next.has(i.id) ? next.delete(i.id) : next.add(i.id); return next; })}>{collapsed ? <ChevronRight size={14}/> : <ChevronDown size={14}/>}</button> : <span className="tree-fold-placeholder"/>}
             <button className="tree-title" onClick={() => open(i)}><Kind kind={i.kind} iconOnly/><span>{i.title}</span>{i.number && <small>{project.code}-{i.number}</small>}</button>
             {collapsed && <span className="muted tree-child-count">{nested.length} 个子项</span>}
             {children.length > 0 && <span className="muted">{children.filter((x) => hasStatus(x, project, "done")).length}/{children.length} 工作项</span>}
-            <Badge status={i.status}/>
+            <Badge status={i.status}/><span className="person tree-owner" title={i.owner||"未分配"}><span className="avatar">{i.owner?.slice(0,1)||"?"}</span><span>{i.owner||"未分配"}</span></span>
             {draggedItem && dragOverItem === i.id && <span className="tree-drop-label">{validTarget ? "松开归入此项" : "无法放入：类型或层级不匹配"}</span>}
             {next && <button className="icon-btn" title={"添加子项到" + i.title} onClick={() => create(next, i.id)}><Plus size={16}/></button>}
           </div>
@@ -951,7 +954,7 @@ function App() {
     );
   }
   return (
-    <WorkConfigContext.Provider value={project}>
+    <WorkConfigContext.Provider value={project}><WorkspaceLinksProvider project={project} items={items} onOpen={item=>{if(modal){const url=new URL(window.location.href);url.searchParams.set("item",item.id);url.searchParams.set("project",project.id);window.open(url.href,"_blank","noopener,noreferrer");}else open(item);}}>
     <>
     <div inert={helpOpen ? true : undefined} className={`app${sidebarCompact ? " sidebar-compact" : ""}`}>
       <header className="appbar">
@@ -1243,8 +1246,7 @@ function App() {
                     onDragLeave={() => setDragOverItem(null)} onDrop={(e) => moveWorkItem(e, null)}>
                     {draggedItem ? `正在移动「${items.find((i) => i.id === draggedItem)?.title}」 · 松开移至未归类，或拖到允许的父级行` : "拖到这里移至根层级 / 未归类 · 子任务须保留父级，也可在详情中选择父级"}
                   </div>
-                  <button onClick={() => setCollapsedItems(new Set())}>全部展开</button>
-                  <button onClick={() => setCollapsedItems(new Set(items.filter((i) => items.some((x) => x.parentId === i.id)).map((i) => i.id)))}>全部收起</button>
+                  <div className="tree-icon-actions"><button className="icon-btn" aria-label="全部展开工作项" title="全部展开" onClick={() => setCollapsedItems(new Set())}><ChevronsUpDown size={16}/></button><button className="icon-btn" aria-label="全部收起工作项" title="全部收起" onClick={() => setCollapsedItems(new Set(items.filter((i) => items.some((x) => x.parentId === i.id)).map((i) => i.id)))}><ChevronsDownUp size={16}/></button></div>
                 </div>
                 </div>
                 {renderItemTree()}
@@ -1252,30 +1254,7 @@ function App() {
               </section>
             </>
           )}
-          {view === "backlog" && (
-            <>
-              <div className="backlog-sticky-heading">
-              {header(
-                "产品待办池",
-                "梳理故事、明确优先级，再安排到合适的版本和冲刺。",
-                <button className="primary" onClick={() => create()}>
-                  <Plus size={16} />
-                  新建工作项
-                </button>,
-              )}
-              <div className="backlog-toolbar-panel">{toolbar}</div>
-              </div>
-              <section className="panel backlog-list" data-work-scope="backlog" tabIndex={0}>
-                {storyRows(
-                  [...filtered].sort(
-                    (a, b) =>
-                      ({ high: 0, medium: 1, low: 2 })[a.priority] -
-                      { high: 0, medium: 1, low: 2 }[b.priority],
-                  ),
-                )}
-              </section>
-            </>
-          )}
+          {view === "backlog" && <BacklogTable key={project.id} rows={filtered} project={project} items={items} sprints={sprints} releases={releases} onOpen={open} toolbar={toolbar} kind={kind=><Kind kind={kind} iconOnly/>} status={status=><Badge status={status}/>} priority={value=><span className={'priority '+value}><PriorityIcon value={value}/>{priorities[value]}</span>} heading={header('待办池','梳理工作项、设置可见字段与列顺序，点击列标题按升序或降序排列。',<button className="primary" onClick={()=>create()}><Plus size={16}/>新建工作项</button>)}/>}
           {view === "board" && (
             <>
               {header(
@@ -1450,7 +1429,7 @@ function App() {
                     {r.status === "released" && (
                       <div className="release-notes">
                         <h4>发布记录 · {time(r.publishedAt)}</h4>
-                        <p>{r.notes}</p>
+                        <MarkdownPreview value={r.notes}/>
                         <p className="muted">
                           延期 {r.deferredStories?.length || 0}{" "}
                           个工作项，已记录去向。
@@ -1498,7 +1477,7 @@ function App() {
                       }
                     </span>
                     <h3>{n.title}</h3>
-                    <p>{n.body}</p>
+                    <MarkdownPreview value={n.body}/>
                     <footer>
                       <span className="avatar">我</span>
                       <span>
@@ -1709,7 +1688,7 @@ function App() {
     </div>
     {helpOpen && <HelpCenter initialArticle={view === "settings" ? ({types:"types",hierarchy:"hierarchy",states:"workflows"}[settingsSection] || "types") : "types"} onClose={() => setHelpOpen(false)}/>}
     </>
-    </WorkConfigContext.Provider>
+    </WorkspaceLinksProvider></WorkConfigContext.Provider>
   );
 }
 function SprintCard({
@@ -2443,25 +2422,23 @@ function Detail({
                         此交付依据的要求已变化，请核对当前工作项及所属任务的要求。
                       </div>
                     )}
-                    <p>{r.summary || "正在执行…"}</p>
+                    <MarkdownPreview value={r.summary || "正在执行…"}/>
                     {r.progress?.map((p, n) => (
-                      <p key={n} className="muted">
-                        {time(p.at)} · {p.message}
-                      </p>
+                      <div key={n} className="muted">
+                        {time(p.at)}<MarkdownPreview value={p.message}/>
+                      </div>
                     ))}
                     {r.verification && (
                       <div className="verification">
                         <b>验证结果</b>
-                        <p>{r.verification}</p>
+                        <MarkdownPreview value={r.verification}/>
                       </div>
                     )}
                     {r.artifacts?.map((a, n) => (
                       <div key={n} className="artifact">
                         <Link size={14} />
                         {/^https?:\/\//.test(a.url) ? (
-                          <a href={a.url} target="_blank" rel="noreferrer">
-                            {a.title}
-                          </a>
+                          <WorkspaceLink href={a.url}>{a.title}</WorkspaceLink>
                         ) : (
                           <span>
                             {a.title}
@@ -2476,7 +2453,7 @@ function Detail({
                           {rv.decision === "accept" ? "验收通过" : "要求修改"} ·{" "}
                           {rv.author}
                         </b>
-                        <p>{rv.comment}</p>
+                        <MarkdownPreview value={rv.comment}/>
                         <small>{time(rv.at)}</small>
                       </div>
                     ))}
@@ -2999,7 +2976,7 @@ function EditorModal({
                     <input name="title" required autoFocus />
                   </Field>
                   <Field label="内容">
-                    <textarea name="body" required rows="6" />
+                    <RichTextEditor name="body" label="内容" onBusyChange={imageBusy} disabled={busy}/>
                   </Field>
                 </>
               )}
@@ -3018,11 +2995,7 @@ function EditorModal({
                     </Select>
                   </Field>
                   <Field label="审核意见">
-                    <textarea
-                      name="comment"
-                      required
-                      placeholder="说明结果是否满足标准，或明确需要修改的地方。"
-                    />
+                    <RichTextEditor name="comment" label="审核意见" onBusyChange={imageBusy} disabled={busy}/>
                   </Field>
                   {m.run && ((m.run.itemVersion !== undefined && m.run.itemVersion !== m.story.contentVersion) || m.run.storyVersion !== (isSubtask(m.story, project) ? items.find(i => i.id === m.story.parentId) : m.story).contentVersion) && (
                     <label className="check-label">
@@ -3046,14 +3019,10 @@ function EditorModal({
                     />
                   </Field>
                   <Field label="交付说明">
-                    <textarea name="summary" required />
+                    <RichTextEditor name="summary" label="交付说明" onBusyChange={imageBusy} disabled={busy}/>
                   </Field>
                   <Field label="验证结果">
-                    <textarea
-                      name="verification"
-                      required
-                      placeholder="做了哪些验证？哪些尚未验证？"
-                    />
+                    <RichTextEditor name="verification" label="验证结果" onBusyChange={imageBusy} disabled={busy}/>
                   </Field>
                   <div className="form-grid">
                     <Field label="成果名称">
@@ -3160,11 +3129,7 @@ function EditorModal({
                       </Field>
                     ))}
                   <Field label="发布说明">
-                    <textarea
-                      name="notes"
-                      required
-                      placeholder="描述本次实际交付及已知限制。"
-                    />
+                    <RichTextEditor name="notes" label="发布说明" onBusyChange={imageBusy} disabled={busy}/>
                   </Field>
                 </>
               )}

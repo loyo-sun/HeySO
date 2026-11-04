@@ -3,11 +3,13 @@ import {useEditor,EditorContent} from '@tiptap/react';
 import {inlineExtensions,completeBold} from './inline-editor.mjs';
 import {MAX_MARKDOWN_LENGTH,pastedImageData} from './markdown-policy.mjs';
 import './rich-text.css';
+import {useWorkspaceLinks} from './WorkspaceLinks.jsx';
 
-export default function RichTextEditor({value,defaultValue='',name,label='多行文本',onSave,onBusyChange,disabled=false,placeholder=''}) {
+export default function RichTextEditor({value,defaultValue='',name,label='多行文本',onSave,onChange,onBusyChange,disabled=false,placeholder=''}) {
+  const links=useWorkspaceLinks(),linksRef=useRef(links);linksRef.current=links;
   const [text,setText]=useState(value??defaultValue),[pending,setPending]=useState(false),[error,setError]=useState('');
   const draft=useRef(text),saved=useRef(text),inFlight=useRef(new Set()),conflict=useRef(false),busy=useRef(false),blurred=useRef(false),latest=useRef({onSave,onBusyChange,disabled});
-  latest.current={onSave,onBusyChange,disabled};
+  latest.current={onSave,onChange,onBusyChange,disabled};
   async function commit(){
     const next=draft.current;
     if(conflict.current){setError('云端内容已更新。请复制当前草稿，刷新后核对再保存。');return;}
@@ -18,7 +20,7 @@ export default function RichTextEditor({value,defaultValue='',name,label='多行
   }
   const editor=useEditor({
     immediatelyRender:false,
-    extensions:inlineExtensions(placeholder||undefined),content:value??defaultValue,contentType:'markdown',editable:!disabled,
+    extensions:inlineExtensions(placeholder||undefined,()=>linksRef.current),content:value??defaultValue,contentType:'markdown',editable:!disabled,
     editorProps:{attributes:{role:'textbox','aria-label':label,'aria-multiline':'true',class:'inline-markdown markdown-content'},
       handleTextInput:(_view,from,to,text)=>completeBold(editor,from,to,text),
       handlePaste:(_view,event)=>{
@@ -28,12 +30,14 @@ export default function RichTextEditor({value,defaultValue='',name,label='多行
         if(markdown&&markdown.length+draft.current.length<=MAX_MARKDOWN_LENGTH){event.preventDefault();editor.commands.insertContent(markdown,{contentType:'markdown'});return true;}
         return false;
       }},
-    onUpdate:({editor})=>{const next=editor.getMarkdown();draft.current=next;setText(next);setError('');},
+    onUpdate:({editor})=>{const next=editor.getMarkdown();draft.current=next;setText(next);setError('');latest.current.onChange?.(next);},
     onFocus:()=>{blurred.current=false;},onBlur:()=>{blurred.current=true;commit();},
   });
+  useEffect(()=>{if(editor&&!editor.isDestroyed)editor.storage.workspaceLink?.refresh();},[editor,links]);
   useEffect(()=>{if(editor&&!editor.isDestroyed)editor.setEditable(!disabled&&!pending,false);},[editor,disabled,pending]);
   useEffect(()=>{
     if(value===undefined||!editor||editor.isDestroyed)return;
+    if(draft.current===value){saved.current=value;conflict.current=false;return;}
     if(draft.current===saved.current||draft.current===value){draft.current=value;setText(value);editor.commands.setContent(value,{contentType:'markdown',emitUpdate:false});conflict.current=false;}
     else if(value!==saved.current&&!inFlight.current.has(value)){conflict.current=true;setError('云端内容已更新。请复制当前草稿，刷新后核对再保存。');}
     saved.current=value;

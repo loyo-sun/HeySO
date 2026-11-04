@@ -3,6 +3,7 @@ import StarterKit from '@tiptap/starter-kit';
 import Image from '@tiptap/extension-image';
 import Placeholder from '@tiptap/extension-placeholder';
 import {Markdown} from '@tiptap/markdown';
+import {createWorkspaceLinkExtension} from './workspace-links.mjs';
 import {Plugin} from '@tiptap/pm/state';
 import {MAX_MARKDOWN_LENGTH,safeMarkdownUrl} from './markdown-policy.mjs';
 
@@ -18,8 +19,8 @@ export function completeBold(editor,from,to,text) {
   editor.chain().deleteRange({from:from-1,to:from}).toggleBold().run();
   return true;
 }
-export function inlineExtensions(placeholder='点击输入，支持 Markdown 和粘贴图片') {
-  return [StarterKit.configure({heading:{levels:[1,2,3]},underline:false,link:{openOnClick:false,isAllowedUri:url=>!!safeMarkdownUrl(url,'href')}}),
-    SafeImage.configure({allowBase64:true}),Placeholder.configure({placeholder}),Markdown,
+export function inlineExtensions(placeholder='点击输入，支持 Markdown 和粘贴图片',links=()=>({})) {
+  return [StarterKit.configure({heading:{levels:[1,2,3]},underline:false,link:false}),
+    createWorkspaceLinkExtension(links),SafeImage.configure({allowBase64:true}),Placeholder.configure({placeholder}),Markdown,
     Extension.create({name:'boundedInlineContent',addProseMirrorPlugins(){return [new Plugin({filterTransaction:tr=>!tr.docChanged||JSON.stringify(tr.doc.toJSON()).length<=MAX_MARKDOWN_LENGTH})];}})];
 }
