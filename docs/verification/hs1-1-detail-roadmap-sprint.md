@@ -15,4 +15,6 @@
 ![路线图多选](../screenshots/roadmap-multi-filter.jpg)
 ![Sprint 标题栏统计](../screenshots/sprint-heading-metrics.jpg)
 
-云端发布与线上权限/操作者验证结果在发布后补充。
+LoyoCloud 0.0.13-bate.3（1af35278）已发布；发布前备份数据库并保留 0.0.13-bate.2 作为回退版本。正式域名健康、子任务独立 AI 停用/恢复、认证操作者、防止父级代验收、交付重试去重、返工及回读持久化共 8 项验证通过，见 [线上验证记录](loyocloud-0.13.3-live.json)。
+
+GitHub PR #1 的代码检查成功，Netlify 预览部署成功；主分支尚未合并，等待人工验收。
