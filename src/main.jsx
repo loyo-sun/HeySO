@@ -70,6 +70,8 @@ import useWorkspaceRoute from "./useWorkspaceRoute.jsx";
 import "./dashboard.css";
 import WorkItemDialog from "./WorkItemDialog.jsx";
 import WorkItemTitle from "./WorkItemTitle.jsx";
+import RichTextEditor from "./RichTextEditor.jsx";
+import MarkdownPreview from "./MarkdownPreview.jsx";
 import { workItemEntries, executionInstruction } from "./work-item-actions.mjs";
 import { isExecutionItem, runTargetId, configFor, typeFor, typeNames, statusNamesFor, isWorkItem, isSubtask, categoryOf, hasStatus, terminal, statusFor, allowedTransition, parentCandidates, childTypes, canParent, statusCategories, workflowFor, workflowStatuses, progressCategory, boardStatuses, aiReady } from "../shared/work-config.mjs";
 
@@ -2069,8 +2071,9 @@ function SprintCard({
   );
 }
 function Field({ label, children, wide }) {
+  const Container = React.Children.toArray(children).some(child => React.isValidElement(child) && child.type === RichTextEditor) ? "div" : "label";
   return (
-    <label className={"field " + (wide ? "wide" : "")}>
+    <Container className={"field " + (wide ? "wide" : "")}>
       <span>{label}</span>
       {React.Children.map(children, (child) =>
         React.isValidElement(child) && child.type === Select
@@ -2079,30 +2082,7 @@ function Field({ label, children, wide }) {
             })
           : child,
       )}
-    </label>
-  );
-}
-function TextEdit({ value, save, multiline = false, placeholder = "" }) {
-  const [v, setV] = useState(value || "");
-  useEffect(() => setV(value || ""), [value]);
-  return multiline ? (
-    <textarea
-      value={v}
-      placeholder={placeholder}
-      onChange={(e) => setV(e.target.value)}
-      onBlur={() => {
-        if (v !== (value || "")) save(v);
-      }}
-    />
-  ) : (
-    <input
-      value={v}
-      placeholder={placeholder}
-      onChange={(e) => setV(e.target.value)}
-      onBlur={() => {
-        if (v !== (value || "")) save(v);
-      }}
-    />
+    </Container>
   );
 }
 function Detail({
@@ -2347,32 +2327,32 @@ function Detail({
                 onProjectSettings={onProjectSettings}
                 busy={busy}
               />
-              <Field label="描述与上下文">
-                <TextEdit
+              <Field label="描述">
+                <RichTextEditor
                   key={i.id + "desc"}
-                  multiline
                   value={i.description}
-                  save={(description) => update({ description })}
+                  label="描述"
+                  onSave={(description) => update({ description })}
                   placeholder="描述背景、目标与需要提供的材料…"
                 />
               </Field>
               {isExecutionItem(i, project) && (
                 <Field label="验收标准">
-                  <TextEdit
+                  <RichTextEditor
                     key={i.id + "ac"}
-                    multiline
                     value={i.acceptance}
-                    save={(acceptance) => update({ acceptance })}
+                    label="验收标准"
+                    onSave={(acceptance) => update({ acceptance })}
                     placeholder="什么样的结果可以被确认完成？"
                   />
                 </Field>
               )}
               {i.kind === "theme" && (
                 <Field label="目标与衡量标准">
-                  <TextEdit
-                    multiline
+                  <RichTextEditor
                     value={i.goal}
-                    save={(goal) => update({ goal })}
+                    label="目标与衡量标准"
+                    onSave={(goal) => update({ goal })}
                   />
                 </Field>
               )}
@@ -2603,6 +2583,8 @@ function EditorModal({
   const [itemKind, setItemKind] = useState(m.kind || "story");
   const [itemParent, setItemParent] = useState(m.parentId || "");
   const [error, setError] = useState("");
+  const [imagePending,setImagePending] = useState(0);
+  const imageBusy = delta => setImagePending(n => Math.max(0,n+delta));
   const [showToken, setShowToken] = useState(false);
   const [planStart, setPlanStart] = useState(
     m.type === "item" ? data.items.find((i) => i.id === m.parentId)?.startDate || project.startDate || "" : "",
@@ -2628,6 +2610,7 @@ function EditorModal({
   const get = (f, k) => String(f.get(k) || "").trim();
   async function submit(e) {
     e.preventDefault();
+    if (busy || imagePending) return;
     const f = new FormData(e.target);
     let type,
       p = { projectId: project.id };
@@ -2928,10 +2911,7 @@ function EditorModal({
                     </p>
                   )}
                   <Field label="描述">
-                    <textarea
-                      name="description"
-                      placeholder="说明背景、目标与预期结果"
-                    />
+                    <RichTextEditor name="description" label="描述" onBusyChange={imageBusy} disabled={busy} placeholder="说明背景、目标与预期结果"/>
                   </Field>
                   <div className="form-grid">
                     <Field label="负责人">
@@ -2952,10 +2932,7 @@ function EditorModal({
                   {isExecutionItem({ kind: itemKind }, project) && (
                     <>
                       <Field label="验收标准">
-                        <textarea
-                          name="acceptance"
-                          placeholder="达到什么条件，才能确认完成？"
-                        />
+                        <RichTextEditor name="acceptance" label="验收标准" onBusyChange={imageBusy} disabled={busy} placeholder="达到什么条件，才能确认完成？"/>
                       </Field>
                       {isWorkItem({kind:itemKind}, project) && <Field label="故事点">
                         <input
@@ -3072,7 +3049,7 @@ function EditorModal({
                     <small>{project.code}-{m.story.number}</small>
                     <h3>{m.story.title}</h3>
                     <h4>验收标准</h4>
-                    <p>{m.story.acceptance || "尚未填写"}</p>
+                    <MarkdownPreview value={m.story.acceptance} empty="尚未填写"/>
                   </div>
                   <Field label="审核决定">
                     <Select name="decision">
@@ -3246,7 +3223,7 @@ function EditorModal({
               <button
                 className={m.type === "delete" ? "danger-button" : "primary"}
                 disabled={
-                  busy ||
+                  busy || imagePending > 0 ||
                   (m.type === "item" &&
                     (!project.startDate || !project.endDate))
                 }

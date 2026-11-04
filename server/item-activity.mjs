@@ -1,7 +1,7 @@
 import { typeNames, statusNamesFor } from '../shared/work-config.mjs';
 
 const fields = [
-  ['title','标题'], ['description','描述与上下文'], ['acceptance','验收标准'],
+  ['title','标题'], ['description','描述'], ['acceptance','验收标准'],
   ['kind','类型'], ['status','状态'], ['owner','负责人'], ['priority','优先级'],
   ['points','故事点'], ['startDate','开始日期'], ['endDate','结束日期'],
   ['parentId','父级工作项'], ['sprintId','冲刺'], ['releaseId','版本'],

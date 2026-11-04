@@ -1,0 +1,25 @@
+.rich-text-editor { min-width: 0; border: 1px solid #e5e5eb; border-radius: 7px; background: #fff; overflow: hidden; }
+.rich-text-toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 3px; padding: 6px 8px; border-bottom: 1px solid #eeeef3; background: #fafafa; }
+.rich-text-toolbar button { border: 0; background: transparent; padding: 4px 7px; min-height: 26px; color: #737381; font-size: 11px; }
+.rich-text-toolbar button[aria-pressed="true"] { color: #b45f40; background: #f9eee8; }
+.rich-text-toolbar button:hover { background: #eeeef3; }
+.rich-text-divider { height: 16px; width: 1px; margin: 0 4px; background: #e5e5eb; }
+.rich-text-editor > textarea { display: block; width: 100%; min-height: 150px; border: 0; border-radius: 0; padding: 12px; font: inherit; line-height: 1.75; resize: vertical; box-shadow: none; }
+.rich-text-editor > textarea:focus { outline: 0; box-shadow: inset 0 0 0 1px #c2c8d2; }
+.rich-text-preview { min-height: 150px; padding: 12px; }
+.rich-text-hint { padding: 6px 12px 9px; color: #92929f; font-size: 10px; line-height: 1.6; }
+.rich-text-error { margin: 0; padding: 0 12px 9px; color: #b34842; font-size: 12px; }
+.markdown-content { min-width: 0; overflow-wrap: anywhere; font-size: 13px; line-height: 1.75; }
+.markdown-content > :first-child { margin-top: 0; }
+.markdown-content > :last-child { margin-bottom: 0; }
+.markdown-content h1,.markdown-content h2,.markdown-content h3 { margin: 18px 0 10px; line-height: 1.5; color: #33333e; }
+.markdown-content h1 { font-size: 22px; }
+.markdown-content h2 { font-size: 19px; }
+.markdown-content h3 { font-size: 16px; }
+.markdown-content p { margin: 8px 0; white-space: pre-wrap; }
+.markdown-content ul,.markdown-content ol { padding-left: 24px; margin: 8px 0; }
+.markdown-content li { margin: 4px 0; }
+.markdown-content img { display: block; max-width: 100%; height: auto; border-radius: 5px; margin: 10px 0; }
+.markdown-content pre { max-width: 100%; overflow: auto; padding: 12px; background: #f6f7f9; border-radius: 5px; }
+.markdown-content code { font-size: .95em; }
+.markdown-content blockquote { margin: 12px 0; padding-left: 12px; border-left: 3px solid #d7dce3; color: #7a7e88; }
