@@ -1,4 +1,4 @@
-import { typeNames, isWorkItem, isExecutionItem, runTargetId, categoryOf, allowedTransition, workflowFor, workflowStatuses } from "../shared/work-config.mjs";
+import { aiExecutionEnabled, typeNames, isWorkItem, isExecutionItem, runTargetId, categoryOf, allowedTransition, workflowFor, workflowStatuses } from "../shared/work-config.mjs";
 
 export function workItemEntries({ item: i, snapshot = false, project, data, handlers: h }) {
   const items = data.items.filter((x) => x.projectId === project.id);
@@ -39,7 +39,7 @@ export function workItemEntries({ item: i, snapshot = false, project, data, hand
   if (items.some((x) => x.parentId === i.id) && h.toggleBranch) entries.push({label:h.collapsed ? "展开当前分支" : "收起当前分支",run:() => h.toggleBranch(i.id)});
   if (executable) {
     entries.push({label:"查看交付与验收",run:() => h.deliveries(i),separator:true});
-    if ((i.aiEnabled || items.find(parent => parent.id === i.parentId)?.aiEnabled) && h.instruction) entries.push({label:"复制 AI 执行指令",run:() => h.instruction(i)});
+    if (aiExecutionEnabled(i,items) && h.instruction) entries.push({label:"复制 AI 执行指令",run:() => h.instruction(i)});
     if (categoryOf(project,i.status,i.kind) === "review" && h.review) entries.push({label:"进入人工验收…",run:() => h.review(i)});
   }
   const reason = items.some((x) => x.parentId === i.id) ? "已有子项，请先处理子项" : data.runs.some((r) => runTargetId(r) === i.id || r.storyId === i.id) ? "已有执行记录，需保留历史" : data.sprints.some((s) => s.baseline?.some((x) => x.id === i.id)) ? "已纳入冲刺基线，需保留历史" : "";

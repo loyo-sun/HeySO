@@ -1,4 +1,6 @@
+import {aiExecutionEnabled} from '../shared/work-config.mjs';
 import ActivityDetails from './ActivityDetails.jsx';
+import {WorkspaceSync,watchWorkspaceUpdates} from './workspace-sync.mjs';
 import React, { useState, useEffect, useRef } from "react";
 import AccessGate, { useHosting } from './AccessGate.jsx';
 import { createRoot } from "react-dom/client";
@@ -69,6 +71,9 @@ import Dashboard from "./Dashboard.jsx";
 import useWorkspaceRoute from "./useWorkspaceRoute.jsx";
 import "./dashboard.css";
 import WorkItemDialog from "./WorkItemDialog.jsx";
+import WorkItemTitle from "./WorkItemTitle.jsx";
+import RichTextEditor from "./RichTextEditor.jsx";
+import MarkdownPreview from "./MarkdownPreview.jsx";
 import { workItemEntries, executionInstruction } from "./work-item-actions.mjs";
 import { isExecutionItem, runTargetId, configFor, typeFor, typeNames, statusNamesFor, isWorkItem, isSubtask, categoryOf, hasStatus, terminal, statusFor, allowedTransition, parentCandidates, childTypes, canParent, statusCategories, workflowFor, workflowStatuses, progressCategory, boardStatuses, aiReady } from "../shared/work-config.mjs";
 
@@ -121,10 +126,13 @@ const fmt = (d) =>
     : "未设置";
 const time = (d) =>
   new Date(d).toLocaleString("zh-CN", {
+    year: "numeric",
     month: "2-digit",
     day: "2-digit",
     hour: "2-digit",
     minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
   });
 const percent = (n, d) => (d ? Math.round((n / d) * 100) : 0);
 const sum = (arr) => arr.reduce((a, x) => a + (x.points || 0), 0);
@@ -238,31 +246,18 @@ function App() {
     request: requestSettingsNavigation,
   };
   const receiveCloudState = (result) => {
-    setData(result.state);dataRef.current=result.state;
+    syncRef.current.receive(result.state);
     if(result.projectId){setProjectId(result.projectId);localStorage.setItem("heyso-project",result.projectId);setSelected(null);}
   };
   useEffect(()=>{
     const fileId=new URLSearchParams(window.location.search).get('cloudFile');
     if(fileId){setView('settings');setSettingsSection('integrations');}
   },[]);
-  const dataRef = useRef(data);
-  dataRef.current = data;
-  async function refresh() {
-    try {
-      const r = await fetch("/api/state");
-      if (hosting.hosted && r.status === 401) window.dispatchEvent(new Event('heyso-session-expired'));
-      if (!r.ok) throw Error();
-      const d = await r.json();
-      if (d.revision !== dataRef.current?.revision) setData(d);
-      setOnline(true);
-    } catch {
-      setOnline(false);
-    }
-  }
+  const syncRef=useRef(null);
+  if(!syncRef.current)syncRef.current=new WorkspaceSync({cloud:hosting.provider==='loyocloud',onData:setData,onBusy:setBusy,onMessage:setToast,onOnline:setOnline,onExpired:()=>{if(hosting.hosted)window.dispatchEvent(new Event('heyso-session-expired'));}});
+  const refresh=()=>syncRef.current.refresh();
   useEffect(() => {
-    refresh();
-    const t = setInterval(() => { if (!document.hidden) refresh(); }, hosting.hosted ? 30000 : 3500);
-    return () => clearInterval(t);
+    return watchWorkspaceUpdates(syncRef.current,{intervalMs:hosting.hosted?2000:3500});
   }, []);
   useEffect(() => {
     if (toast) {
@@ -294,34 +289,7 @@ function App() {
     setToast('此工作项已不存在，已返回项目页面');
   }, [data, projectId, selected]);
   async function action(type, payload, quiet = false) {
-    setBusy(true);
-    try {
-      const r = await fetch("/api/action", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-HeySO-Client": "local-ui",
-        },
-        body: JSON.stringify({
-          action: { type, payload },
-          requestId: crypto.randomUUID(),
-          revision: dataRef.current.revision,
-          projectId,
-        }),
-      });
-      const v = await r.json();
-      if (!r.ok) throw Error(v.error);
-      setData(v.state);
-      dataRef.current = v.state;
-      if (!quiet) setToast("已保存");
-      return v.result;
-    } catch (e) {
-      setToast(e.message);
-      await refresh();
-      return null;
-    } finally {
-      setBusy(false);
-    }
+    return syncRef.current.action(type,payload,projectId,quiet);
   }
   async function copy(text, successMessage = "已复制") {
     try {
@@ -510,7 +478,7 @@ function App() {
       copy,open,create,
       update:(id,patch) => action("item.update",{id,...patch}),
       move:(id,parentId) => action("item.move",{id,parentId,projectId:project.id}),
-      edit:(item) => setModal({type:"workEdit",item}),
+      edit:(item) => open(item),
       snapshot:(item) => setModal({type:"workSnapshot",item}),
       deliveries:(item) => { open(item); setTab("runs"); },
       instruction:(item) => copy(executionInstruction(project,item)),
@@ -549,7 +517,7 @@ function App() {
         rows.map((i) => (
           <button className="story-row" key={i.id} data-work-item-id={i.id} data-history={historical} onClick={() => historical ? setModal({type:"workSnapshot",item:i}) : open(i)}>
             <div className="story-name">
-              <Kind kind={i.kind} />
+              <Kind kind={i.kind} iconOnly />
               <small>{project.code}-{i.number}</small>
               <span>{i.title}</span>
               {i.aiEnabled && <Bot size={14} className="purple" />}
@@ -655,7 +623,7 @@ function App() {
             <span aria-hidden="true" className="tree-drag-handle" title="拖动以更改父级">⠿</span>
             {draggedItem && dragOverItem === i.id && !validTarget && <span className="tree-drop-invalid-icon" role="img" aria-label="无法放入" title="无法放入：类型或层级不匹配"><X size={18} strokeWidth={3} aria-hidden="true"/></span>}
             {nested.length ? <button className="tree-fold icon-btn" aria-label={(collapsed ? "展开" : "收起") + i.title} aria-expanded={!collapsed} onClick={() => setCollapsedItems((old) => { const next = new Set(old); next.has(i.id) ? next.delete(i.id) : next.add(i.id); return next; })}>{collapsed ? <ChevronRight size={14}/> : <ChevronDown size={14}/>}</button> : <span className="tree-fold-placeholder"/>}
-            <button className="tree-title" onClick={() => open(i)}><Kind kind={i.kind}/><span>{i.title}</span>{i.number && <small>{project.code}-{i.number}</small>}</button>
+            <button className="tree-title" onClick={() => open(i)}><Kind kind={i.kind} iconOnly/><span>{i.title}</span>{i.number && <small>{project.code}-{i.number}</small>}</button>
             {collapsed && <span className="muted tree-child-count">{nested.length} 个子项</span>}
             {children.length > 0 && <span className="muted">{children.filter((x) => hasStatus(x, project, "done")).length}/{children.length} 工作项</span>}
             <Badge status={i.status}/>
@@ -933,7 +901,7 @@ function App() {
                   <section>
                     <strong>{e.title}</strong>
                     <ActivityDetails event={e}/>
-                    <small>{time(e.at)}</small>
+                    <small>{e.actor || "操作者未记录"} · {time(e.at)}</small>
                   </section>
                 </div>
               ))}
@@ -1225,7 +1193,7 @@ function App() {
         )}
         <div className={"content view-" + view} key={project.id + view} onContextMenu={handleContextMenu} onKeyDown={handleContextMenu}>
           {view === "overview" && renderOverview()}
-          {view === 'roadmap' && <React.Suspense fallback={<p className="muted" role="status">正在打开路线图…</p>}><Roadmap onSchedule={(item, dates) => action("item.update", { id: item.id, ...dates })} key={project.id} project={project} items={items} releases={releases} busy={busy} onOpen={open} onEdit={item => setModal({ type: 'workEdit', item })} onCreate={() => create()} onReleases={() => go('releases')} onProjectSettings={openProjectSettings}/></React.Suspense>}
+          {view === 'roadmap' && <React.Suspense fallback={<p className="muted" role="status">正在打开路线图…</p>}><Roadmap onSchedule={(item, dates) => action("item.update", { id: item.id, ...dates })} key={project.id} project={project} items={items} releases={releases} busy={busy} onOpen={open} onCreate={() => create()} onReleases={() => go('releases')} onProjectSettings={openProjectSettings}/></React.Suspense>}
           {view === "hierarchy" && (
             <>
               {header(
@@ -1367,7 +1335,7 @@ function App() {
                             onClick={() => open(i)}
                           >
                             <div>
-                              <Kind kind={i.kind}/><small>{project.code}-{i.number}</small>
+                              <Kind kind={i.kind} iconOnly/><small>{project.code}-{i.number}</small>
                               {i.aiEnabled && <Bot size={15} />}
                             </div>
                             <h4>{i.title}</h4>
@@ -1554,7 +1522,7 @@ function App() {
               <div className="stats three">
                 {[
                   [
-                    items.filter((x) => isExecutionItem(x, project) && (x.aiEnabled || (isSubtask(x, project) && items.find(p => p.id === x.parentId)?.aiEnabled))).length,
+                    items.filter((x) => isExecutionItem(x, project) && aiExecutionEnabled(x,items)).length,
                     "已启用 AI 的工作项",
                   ],
                   [runs.length, "累计执行记录"],
@@ -1620,7 +1588,7 @@ function App() {
               section={settingsSection}
               action={action}
               data={data}
-              setData={setData}
+              setData={next=>syncRef.current.receive(next)}
               setToast={setToast}
               busy={busy}
               onDirtyChange={setSettingsDirty}
@@ -1687,7 +1655,7 @@ function App() {
                 setToast("项目已删除");
               }}
             />
-          ) : modal.type === "workEdit" || modal.type === "workSnapshot" ? (
+          ) : modal.type === "workSnapshot" ? (
             <WorkItemDialog key={modal.type + modal.item.id} modal={modal} project={project} items={items} action={action} busy={busy} onClose={() => setModal(null)}/>
           ) : (
             <EditorModal
@@ -1780,7 +1748,25 @@ function SprintCard({
             <span>· 容量 {sp.capacity} SP</span>
           </div>
         </div>
-        <div className="ml-auto inline">
+          <div className="sprint-metrics">
+            <span>
+              <strong>{rows.length}</strong>范围内工作项
+            </span>
+            <span>
+              <strong>{sum(rows)}</strong>总故事点
+            </span>
+            <span>
+              <strong>{sum(done)}</strong>已完成故事点
+            </span>
+            <span>
+              <strong>{rows.filter((x) => !x.points).length}</strong>未估算
+            </span>
+            <div>
+              <Progress value={percent(done.length, rows.length)} />
+              <small>{percent(done.length, rows.length)}% 已验收</small>
+            </div>
+          </div>
+        <div className="inline sprint-actions">
           {sp.status === "planned" && (
             <button
               className="primary"
@@ -1812,24 +1798,6 @@ function SprintCard({
       </div>
       {expanded && (
         <>
-          <div className="sprint-metrics">
-            <span>
-              <strong>{rows.length}</strong>范围内工作项
-            </span>
-            <span>
-              <strong>{sum(rows)}</strong>总故事点
-            </span>
-            <span>
-              <strong>{sum(done)}</strong>已完成故事点
-            </span>
-            <span>
-              <strong>{rows.filter((x) => !x.points).length}</strong>未估算
-            </span>
-            <div>
-              <Progress value={percent(done.length, rows.length)} />
-              <small>{percent(done.length, rows.length)}% 已验收</small>
-            </div>
-          </div>
           <div className="tabs">
             {[
               ["stories", "冲刺范围"],
@@ -2068,8 +2036,9 @@ function SprintCard({
   );
 }
 function Field({ label, children, wide }) {
+  const Container = React.Children.toArray(children).some(child => React.isValidElement(child) && child.type === RichTextEditor) ? "div" : "label";
   return (
-    <label className={"field " + (wide ? "wide" : "")}>
+    <Container className={"field " + (wide ? "wide" : "")}>
       <span>{label}</span>
       {React.Children.map(children, (child) =>
         React.isValidElement(child) && child.type === Select
@@ -2078,30 +2047,7 @@ function Field({ label, children, wide }) {
             })
           : child,
       )}
-    </label>
-  );
-}
-function TextEdit({ value, save, multiline = false, placeholder = "" }) {
-  const [v, setV] = useState(value || "");
-  useEffect(() => setV(value || ""), [value]);
-  return multiline ? (
-    <textarea
-      value={v}
-      placeholder={placeholder}
-      onChange={(e) => setV(e.target.value)}
-      onBlur={() => {
-        if (v !== (value || "")) save(v);
-      }}
-    />
-  ) : (
-    <input
-      value={v}
-      placeholder={placeholder}
-      onChange={(e) => setV(e.target.value)}
-      onBlur={() => {
-        if (v !== (value || "")) save(v);
-      }}
-    />
+    </Container>
   );
 }
 function Detail({
@@ -2148,6 +2094,7 @@ function Detail({
     .reverse();
   const events = data.events.filter((x) => x.itemId === i.id);
   const prompt = executionInstruction(project, i);
+  const aiOn=aiExecutionEnabled(i,items);
   return (
     <div className="drawer-layer">
       <div className="drawer-scrim" onClick={close} />
@@ -2163,34 +2110,29 @@ function Detail({
             <button className="work-item-code" aria-label="复制工作项 ID" title="点击复制工作项 ID" onClick={() => { const code = i.number ? project.code + "-" + i.number : i.id; copy(code, "已复制工作项 ID：" + code); }}>{i.number ? project.code + "-" + i.number : i.id}</button>
           </div>
           <div>
-            <span className="muted">v{i.contentVersion}</span>
             <button className="icon-btn" aria-label="复制工作项链接" title="复制工作项链接" onClick={() => copy(window.location.href)}><Link size={17}/></button>
-            <button className="icon-btn" title="关闭详情" onClick={close}>
-              <PanelRightClose size={20} />
-            </button>
+            {isExecutionItem(i,project)&&<button className={'icon-btn detail-ai-button'+(aiOn?' on':'')} aria-label={aiOn?'停用 AI 执行':'启用 AI 执行'} aria-pressed={aiOn} title={!aiOn&&!aiReady(workflowFor(project,i.kind))?'请先配置执行、验收和完成节点':aiOn?'停用当前工作项的 AI 执行':'启用当前工作项的 AI 执行'} disabled={busy||(!aiOn&&!aiReady(workflowFor(project,i.kind)))} onClick={()=>update({aiEnabled:!aiOn,aiDisabled:aiOn})}><Bot size={18}/></button>}
           </div>
         </header>
         <div className="drawer-body">
-          {ancestors.length > 0 && <nav className="item-parent-path" aria-label="父级路径">{ancestors.map((parent) => <React.Fragment key={parent.id}><button onClick={() => open(parent)} title={parent.title}><Kind kind={parent.kind}/><span>{parent.title}</span></button><ChevronRight size={12}/></React.Fragment>)}<span>当前工作项</span></nav>}
-          <TextEdit
-            key={i.id + "title"}
-            value={i.title}
-            save={(title) => update({ title })}
-          />
-          <div className="detail-status">
-            <Badge status={i.status} />
-            {isWorkItem(i, project) && (
-              <button
-                className={"ai-switch " + (i.aiEnabled ? "on" : "")}
-                disabled={!i.aiEnabled && !aiReady(workflowFor(project,i.kind))}
-                title={aiReady(workflowFor(project,i.kind)) ? "" : "请先在项目设置的工作流中绑定执行、验收和完成节点"}
-                onClick={() => update({ aiEnabled: !i.aiEnabled })}
+          {ancestors.length > 0 && <nav className="item-parent-path" aria-label="父级路径">{ancestors.map((parent) => <React.Fragment key={parent.id}><button onClick={() => open(parent)} title={parent.title}><Kind kind={parent.kind} iconOnly/><span>{parent.title}</span></button><ChevronRight size={12}/></React.Fragment>)}<span>当前工作项</span></nav>}
+          <div className="detail-heading">
+            <div className="detail-title-row">
+              <span
+                className="detail-status-icon"
+                role="img"
+                aria-label={"当前状态：" + (statusNames[i.status] || i.status)}
+                title={statusNames[i.status] || i.status}
               >
-                <Bot size={15} />
-                {i.aiEnabled ? "AI 执行已启用" : "启用 AI 执行"}
-                <span />
-              </button>
-            )}
+                <StatusIcon value={i.status} stage={categoryOf(project, i.status, i.kind)} size={21} />
+              </span>
+              <WorkItemTitle
+                key={i.id + "title"}
+                value={i.title}
+                save={(title) => update({ title })}
+              />
+            </div>
+
           </div>
           <div className="tabs">
             {[
@@ -2335,32 +2277,32 @@ function Detail({
                 onProjectSettings={onProjectSettings}
                 busy={busy}
               />
-              <Field label="描述与上下文">
-                <TextEdit
+              <Field label="描述">
+                <RichTextEditor
                   key={i.id + "desc"}
-                  multiline
                   value={i.description}
-                  save={(description) => update({ description })}
+                  label="描述"
+                  onSave={(description) => update({ description })}
                   placeholder="描述背景、目标与需要提供的材料…"
                 />
               </Field>
               {isExecutionItem(i, project) && (
                 <Field label="验收标准">
-                  <TextEdit
+                  <RichTextEditor
                     key={i.id + "ac"}
-                    multiline
                     value={i.acceptance}
-                    save={(acceptance) => update({ acceptance })}
+                    label="验收标准"
+                    onSave={(acceptance) => update({ acceptance })}
                     placeholder="什么样的结果可以被确认完成？"
                   />
                 </Field>
               )}
               {i.kind === "theme" && (
                 <Field label="目标与衡量标准">
-                  <TextEdit
-                    multiline
+                  <RichTextEditor
                     value={i.goal}
-                    save={(goal) => update({ goal })}
+                    label="目标与衡量标准"
+                    onSave={(goal) => update({ goal })}
                   />
                 </Field>
               )}
@@ -2375,13 +2317,13 @@ function Detail({
                     会读取最新上下文，并将成果交回这里。
                   </p>
                   <button
-                    disabled={!i.aiEnabled && !story?.aiEnabled}
+                    disabled={!aiOn}
                     onClick={() => copy(prompt)}
                   >
                     <Copy size={15} />
                     复制执行指令
                   </button>
-                  {!i.aiEnabled && !story?.aiEnabled && (
+                  {!aiOn && (
                     <small>请先为所属工作项启用 AI 执行</small>
                   )}
                 </div>
@@ -2441,7 +2383,7 @@ function Detail({
                     className="child-row"
                     onClick={() => open(t)}
                   >
-                    <Kind kind={t.kind} />
+                    <Kind kind={t.kind} iconOnly />
                     <span>{t.title}</span>
                     <Badge status={t.status} />
                   </button>
@@ -2462,7 +2404,7 @@ function Detail({
             <>
               <div className="panel-title">
                 <h3>交付与人工验收</h3>
-                {!terminal(i, project) && (i.aiEnabled || story?.aiEnabled) && (
+                {!terminal(i, project) && aiOn && (
                   <button
                     onClick={() => setModal({ type: "delivery", story: i })}
                   >
@@ -2563,7 +2505,7 @@ function Detail({
                   <section>
                     <strong>{e.title}</strong>
                     <ActivityDetails event={e}/>
-                    <small>{time(e.at)}</small>
+                    <small>{e.actor || "操作者未记录"} · {time(e.at)}</small>
                   </section>
                 </div>
               ))}
@@ -2591,6 +2533,8 @@ function EditorModal({
   const [itemKind, setItemKind] = useState(m.kind || "story");
   const [itemParent, setItemParent] = useState(m.parentId || "");
   const [error, setError] = useState("");
+  const [imagePending,setImagePending] = useState(0);
+  const imageBusy = delta => setImagePending(n => Math.max(0,n+delta));
   const [showToken, setShowToken] = useState(false);
   const [planStart, setPlanStart] = useState(
     m.type === "item" ? data.items.find((i) => i.id === m.parentId)?.startDate || project.startDate || "" : "",
@@ -2616,6 +2560,7 @@ function EditorModal({
   const get = (f, k) => String(f.get(k) || "").trim();
   async function submit(e) {
     e.preventDefault();
+    if (busy || imagePending) return;
     const f = new FormData(e.target);
     let type,
       p = { projectId: project.id };
@@ -2916,10 +2861,7 @@ function EditorModal({
                     </p>
                   )}
                   <Field label="描述">
-                    <textarea
-                      name="description"
-                      placeholder="说明背景、目标与预期结果"
-                    />
+                    <RichTextEditor name="description" label="描述" onBusyChange={imageBusy} disabled={busy} placeholder="说明背景、目标与预期结果"/>
                   </Field>
                   <div className="form-grid">
                     <Field label="负责人">
@@ -2940,10 +2882,7 @@ function EditorModal({
                   {isExecutionItem({ kind: itemKind }, project) && (
                     <>
                       <Field label="验收标准">
-                        <textarea
-                          name="acceptance"
-                          placeholder="达到什么条件，才能确认完成？"
-                        />
+                        <RichTextEditor name="acceptance" label="验收标准" onBusyChange={imageBusy} disabled={busy} placeholder="达到什么条件，才能确认完成？"/>
                       </Field>
                       {isWorkItem({kind:itemKind}, project) && <Field label="故事点">
                         <input
@@ -3060,7 +2999,7 @@ function EditorModal({
                     <small>{project.code}-{m.story.number}</small>
                     <h3>{m.story.title}</h3>
                     <h4>验收标准</h4>
-                    <p>{m.story.acceptance || "尚未填写"}</p>
+                    <MarkdownPreview value={m.story.acceptance} empty="尚未填写"/>
                   </div>
                   <Field label="审核决定">
                     <Select name="decision">
@@ -3234,7 +3173,7 @@ function EditorModal({
               <button
                 className={m.type === "delete" ? "danger-button" : "primary"}
                 disabled={
-                  busy ||
+                  busy || imagePending > 0 ||
                   (m.type === "item" &&
                     (!project.startDate || !project.endDate))
                 }

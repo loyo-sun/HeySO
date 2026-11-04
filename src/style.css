@@ -1141,7 +1141,8 @@ main {
   margin-bottom: 22px;
 }
 .sprint-heading {
-  display: flex;
+  display: grid;
+  grid-template-columns: auto minmax(170px,1fr) minmax(0,2fr) auto;
   gap: 15px;
   padding: 23px;
   align-items: center;
@@ -1165,10 +1166,11 @@ main {
 }
 .sprint-metrics {
   display: flex;
-  gap: 40px;
-  padding: 21px 28px;
-  background: #fcfcfd;
-  border-top: 1px solid var(--border);
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 18px;
+  padding: 0;
+  min-width: 0;
 }
 .sprint-metrics > span {
   font-size: 10px;
@@ -1182,8 +1184,7 @@ main {
   margin-bottom: 5px;
 }
 .sprint-metrics > div {
-  margin-left: auto;
-  width: 160px;
+  width: 110px;
   align-self: center;
 }
 .sprint-metrics small {
@@ -1191,6 +1192,12 @@ main {
   text-align: right;
   margin-top: 8px;
   font-size: 10px;
+}
+.sprint-actions { justify-self: end; }
+@media (max-width: 1100px) {
+  .sprint-heading { grid-template-columns: auto minmax(0,1fr) auto; }
+  .sprint-heading > .sprint-metrics { grid-column: 2 / -1; grid-row: 2; justify-content: flex-start; }
+  .sprint-actions { grid-column: 3; grid-row: 1; }
 }
 .tabs {
   display: flex;
@@ -1472,20 +1479,55 @@ main {
   padding: 23px 28px;
   overflow: auto;
 }
-.drawer-body > input:first-child {
-  font-size: 21px;
+.detail-heading {
+  --detail-title-font-size: 21px;
+  min-width: 0;
+  margin-bottom: 20px;
+}
+.detail-title-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 0;
+}
+.detail-title-editor { flex: 1; min-width: 0; }
+.detail-title-editor .detail-title { width: 100%; }
+.detail-title-editor .error { font-size: 12px; line-height: 1.6; }
+.work-type-icon { display: inline-flex; flex-shrink: 0; align-items: center; }
+.detail-ai-button.on { color: #8163c5; background: #f2edf9; }
+.detail-status-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 24px;
+  height: calc(var(--detail-title-font-size) * 1.45);
+  margin-top: 7px;
+}
+.detail-status-icon .status-icon {
+  width: var(--detail-title-font-size);
+  height: var(--detail-title-font-size);
+}
+.detail-title {
+  flex: 1;
+  display: block;
+  font-size: var(--detail-title-font-size);
   font-weight: 600;
+  line-height: 1.45;
   border: 0;
   padding: 7px 0;
   width: 100%;
+  min-width: 0;
+  min-height: 1.45em;
+  resize: none;
+  overflow: hidden;
+  background: transparent;
   border-radius: 0;
-  margin-bottom: 15px;
+  margin: 0;
 }
-.detail-status {
+.detail-heading-actions {
   display: flex;
-  gap: 12px;
-  align-items: center;
-  margin-bottom: 20px;
+  justify-content: flex-end;
+  margin-top: 10px;
 }
 .ai-switch {
   margin-left: auto;

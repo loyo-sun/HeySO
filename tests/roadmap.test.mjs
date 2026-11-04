@@ -38,6 +38,12 @@ const items = [
   { id: 'b', kind: 'bug', title: '修复', number: 4, parentId: 'e', status: 'todo', owner: '其他成员' },
   { id: 'r', kind: 'task', title: '未归类', number: 5, status: 'todo', owner: '我' },
 ];
+test('roadmap status and owner filters support multiple selections, all and none',()=>{
+  assert.deepEqual(roadmapRows(items,project,{status:['todo','done'],owner:['我','其他成员']}).filter(r=>!r.contextOnly).map(r=>r.item.id),['s','b','r']);
+  assert.deepEqual(roadmapRows(items,project,{status:[]}),[]);
+  assert.deepEqual(roadmapRows(items,project,{owner:[]}),[]);
+  assert.deepEqual(roadmapRows(items,project,{status:['done'],owner:['我']}).map(r=>r.item.id),['e','s']);
+});
 test('roadmap filters retain ancestor paths, find hidden descendants and distinguish subtask visibility', () => {
   assert.deepEqual(roadmapRows(items,project).map(r=>r.item.id),['e','s','b','r']);
   assert.deepEqual(roadmapRows(items,project,{collapsed:new Set(['e'])}).map(r=>r.item.id),['e','r']);

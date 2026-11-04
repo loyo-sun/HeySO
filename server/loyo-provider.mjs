@@ -18,6 +18,17 @@ export function loyoApi(config, fetcher = fetch) {
   };
 }
 const empty = () => migrateState({ schemaVersion: 4, revision: 0, projects: [], ...Object.fromEntries(collections.map(k => [k, []])) });
+const revisionOf = heads => parseInt(createHash('sha256').update(JSON.stringify(heads.map(h=>[h.fileId,h.headId]).sort((a,b)=>a[0].localeCompare(b[0])))).digest('hex').slice(0,13),16);
+function fileState(files, config) {
+  const state=empty();
+  for(const file of files) {
+    const content=readProjectFile(file.content), p=content.workspace.projects[0];
+    if(state.projects.some(x=>x.id===p.id))fail('云端项目存在重复业务标识，请整理副本后重试',409);
+    state.projects.push({...p,cloud:{fileId:content.id,headId:file.headId,base:config.base,account:config.user.username,available:true,error:''}});
+    for(const key of collections)state[key].push(...content.workspace[key]);
+  }
+  return validate(state);
+}
 export async function handleLoyo(request, config, env, input, fetcher = fetch) {
   const path = new URL(request.url).pathname, api = loyoApi(config, fetcher);
   const load = async () => {
@@ -51,6 +62,26 @@ export async function handleLoyo(request, config, env, input, fetcher = fetch) {
   if (request.method === 'POST' && request.headers.get('x-heyso-client') !== 'local-ui') fail('需要客户端标识', 403);
   if (path === '/api/cloud/status') return json({ connected: true, base: config.base, user: config.user, primary: true, mcpUrl: config.base + '/mcp/heyso' });
   if (path === '/api/connection') return json({ url: config.base + '/mcp/heyso', oauth: true, hosted: true, provider: 'loyocloud', version: 'alpha_0.1', tools: toolDefinitions.map(([name, description]) => ({ name, description })) });
+  // Version checks read metadata only. Fetch complete content only for changed files.
+  if(path==='/api/state' && request.method==='POST' && Array.isArray(input.heads)) {
+    const list=await api('/api/v1/heyso/files'), heads=list.files.map(f=>({fileId:f.id,headId:f.head_id||f.headId}));
+    const known=new Map(input.heads.map(h=>[h.fileId,h.headId]));
+    const changed=heads.filter(h=>!h.headId||known.get(h.fileId)!==h.headId), files=[];
+    for(let i=0;i<changed.length;i+=5)files.push(...await Promise.all(changed.slice(i,i+5).map(h=>api('/api/v1/heyso/files/'+encodeURIComponent(h.fileId)))));
+    for(const f of files)heads.find(h=>h.fileId===f.content.id).headId=f.headId;
+    return json({delta:true,manifest:heads,state:fileState(files,config),revision:revisionOf(heads)});
+  }
+  // Per-file optimistic concurrency is enforced by Cloud. Its confirmed response
+  // already contains the complete updated project; no workspace reload is needed.
+  const changesIdentifiers=input.action?.type==='project.update'&&['name','code'].some(key=>input.action.payload?.[key]!==undefined);
+  if(path==='/api/action' && input.fileId && input.headId && input.action?.type!=='project.create'&&!changesIdentifiers) {
+    if(input.action?.type==='project.delete')fail('请在 LoyoCloud 云空间中将项目文件移至回收站');
+    if(!/^[0-9a-f-]{36}$/i.test(input.fileId)||!input.requestId)fail('需要项目文件标识及唯一请求标识');
+    const out=await api('/api/v1/heyso/files/'+encodeURIComponent(input.fileId)+'/action',{action:input.action,headId:input.headId,requestId:input.requestId});
+    const state=fileState([out],config), projectId=state.projects[0].id;
+    const heads=(input.heads||[]).filter(h=>h.fileId!==input.fileId);heads.push({fileId:input.fileId,headId:out.headId});
+    return json({delta:true,state,revision:revisionOf(heads),result:out.result,projectId});
+  }
   const { state, files } = await load();
   if (path === '/api/state') return json(state);
   if (path === '/api/cloud/files') return json({ files: files.map(f => ({ id: f.content.id, name: f.content.name })) });
@@ -82,6 +113,7 @@ export async function handleLoyo(request, config, env, input, fetcher = fetch) {
       const record = [...state.projects, ...collections.flatMap(k => state[k])].find(x => x.id === id);
       projectId = p.projectId || record?.projectId || (state.projects.some(x => x.id === id) ? id : input.projectId);
       const project = state.projects.find(x => x.id === projectId); if (!project) fail('项目不存在', 404);
+      if(changesIdentifiers){const candidate=structuredClone(state);act(candidate,input.action);validate(candidate);}
       const out = await api('/api/v1/heyso/files/' + project.cloud.fileId + '/action', { action: input.action, headId: project.cloud.headId, requestId: input.requestId || randomUUID() }); result = out.result;
     }
     return json({ state: (await load()).state, result, projectId });

@@ -153,3 +153,6 @@
     margin-bottom: 10px;
   }
 }
+.sidebar-project-switch-icon { display: none; }
+.sidebar .project-switcher .select-trigger > .select-project-icon { display: none; }
+.sidebar-compact .sidebar .project-switcher .sidebar-project-switch-icon { display: block; }

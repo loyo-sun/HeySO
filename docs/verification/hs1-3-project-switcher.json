@@ -1,0 +1,15 @@
+{
+  "requirement": "展开时无项目图标；收起时展示切换图标。",
+  "expanded": {
+    "name": "HeySO 产品研发HS · 当前项目",
+    "projectIconVisible": false,
+    "switchIconVisible": false
+  },
+  "collapsed": {
+    "nameVisible": false,
+    "projectIconVisible": false,
+    "switchIconVisible": true
+  },
+  "menuOpens": true,
+  "expandedRestored": true
+}

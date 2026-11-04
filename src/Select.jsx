@@ -11,6 +11,7 @@ import { createPortal } from "react-dom";
 import {
   Check,
   ChevronDown,
+  ChevronsUpDown,
   Search,
   X,
   Plus,
@@ -56,13 +57,13 @@ const statusIcons = {
   cancel: CircleX,
   changes: CircleDot,
 };
-export function StatusIcon({ value }) {
+export function StatusIcon({ value, stage, size = 15 }) {
   const project = useWorkProject();
-  const category = ({todo:"todo",in_progress:"active",done:"done"}[progressCategory(project,value)]) || value;
+  const category = stage || ({todo:"todo",in_progress:"active",done:"done"}[progressCategory(project,value)]) || value;
   const Icon = statusIcons[category] || ({in_progress:CircleDot}[value]) || Circle;
   return (
     <Icon
-      size={15}
+      size={size}
       className={`status-icon tone-${category}`}
       aria-hidden="true"
     />
@@ -381,6 +382,7 @@ export default function Select({
         }}
       >
         {selected && <OptionIcon kind={kind} option={selected} />}
+        {kind === 'project' && <ChevronsUpDown size={18} className="sidebar-project-switch-icon" aria-hidden="true"/>}
         <span className="select-value">
           <span>{selected?.label || "请选择"}</span>
           {kind === "project" && (

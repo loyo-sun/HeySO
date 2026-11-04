@@ -1,0 +1,12 @@
+{
+  "twoRealPages": true,
+  "confirmedAt": 1793773881573,
+  "observedAt": 1793773882840,
+  "visibleDelayMs": 1267,
+  "previousDraftConflictTest": {
+    "draftPreserved": true,
+    "explicitWarning": true,
+    "noSilentOverwrite": true
+  },
+  "foregroundPollingMs": 2000
+}

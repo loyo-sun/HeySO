@@ -1,0 +1,997 @@
+{
+  "workItem": "HS1-6",
+  "rootCause": "标题样式依赖 first-child，父级路径导致有父级工作项的标题丢失样式。",
+  "userClarification": "状态以图标形式放在标题前方。",
+  "reviewedTypes": [
+    "theme",
+    "epic",
+    "feature",
+    "story",
+    "task",
+    "bug",
+    "subtask",
+    "custom_work",
+    "custom_child",
+    "custom_plan"
+  ],
+  "scenarioCount": 11,
+  "viewportChecks": 22,
+  "checks": [
+    "全部工作项使用统一标题样式",
+    "状态只以图标展示在标题前方，与标题首行对齐",
+    "状态图标保留状态名称提示和无障碍名称，详情中保留状态下拉框",
+    "长标题完整换行，无详情区域横向溢出",
+    "手机详情面板按容器宽度布局，不被滚动条裁切",
+    "按类型保留父级路径、AI 开关、交付入口、验收标准、版本和冲刺字段",
+    "标题编辑及回车保存通过，短标题收缩、长标题及窗口变化自适应高度"
+  ],
+  "results": [
+    {
+      "viewport": "desktop",
+      "kind": "theme",
+      "level": 3,
+      "result": {
+        "ai": false,
+        "aligned": true,
+        "border": "0px",
+        "fields": [
+          "工作项类型",
+          "负责人",
+          "状态",
+          "优先级",
+          "开始日期",
+          "结束日期",
+          "描述与上下文",
+          "目标与衡量标准"
+        ],
+        "fontSize": "21px",
+        "iconBeforeTitle": true,
+        "iconClass": "lucide lucide-circle-dashed status-icon tone-backlog",
+        "iconFirstLineAligned": true,
+        "iconLabel": "当前状态：待规划",
+        "iconOnly": true,
+        "iconTooltip": "待规划",
+        "overflow": false,
+        "panelWithinContainer": true,
+        "parentPath": false,
+        "separateStatusRow": false,
+        "tabs": [
+          "详情",
+          "子项",
+          "活动记录"
+        ],
+        "tabsGap": 20,
+        "titleFits": true,
+        "value": "战略主题｜统一详情布局审查：标题应清晰换行，状态与操作保持对齐，父级路径及类型专属字段独立展示"
+      }
+    },
+    {
+      "viewport": "desktop",
+      "kind": "epic",
+      "level": 2,
+      "result": {
+        "ai": false,
+        "aligned": true,
+        "border": "0px",
+        "fields": [
+          "工作项类型",
+          "负责人",
+          "状态",
+          "优先级",
+          "父级工作项",
+          "开始日期",
+          "结束日期",
+          "描述与上下文"
+        ],
+        "fontSize": "21px",
+        "iconBeforeTitle": true,
+        "iconClass": "lucide lucide-circle-dashed status-icon tone-backlog",
+        "iconFirstLineAligned": true,
+        "iconLabel": "当前状态：待规划",
+        "iconOnly": true,
+        "iconTooltip": "待规划",
+        "overflow": false,
+        "panelWithinContainer": true,
+        "parentPath": false,
+        "separateStatusRow": false,
+        "tabs": [
+          "详情",
+          "子项",
+          "活动记录"
+        ],
+        "tabsGap": 20,
+        "titleFits": true,
+        "value": "史诗｜统一详情布局审查：标题应清晰换行，状态与操作保持对齐，父级路径及类型专属字段独立展示"
+      }
+    },
+    {
+      "viewport": "desktop",
+      "kind": "feature",
+      "level": 1,
+      "result": {
+        "ai": false,
+        "aligned": true,
+        "border": "0px",
+        "fields": [
+          "工作项类型",
+          "负责人",
+          "状态",
+          "优先级",
+          "父级工作项",
+          "开始日期",
+          "结束日期",
+          "描述与上下文"
+        ],
+        "fontSize": "21px",
+        "iconBeforeTitle": true,
+        "iconClass": "lucide lucide-circle-dashed status-icon tone-backlog",
+        "iconFirstLineAligned": true,
+        "iconLabel": "当前状态：待规划",
+        "iconOnly": true,
+        "iconTooltip": "待规划",
+        "overflow": false,
+        "panelWithinContainer": true,
+        "parentPath": false,
+        "separateStatusRow": false,
+        "tabs": [
+          "详情",
+          "子项",
+          "活动记录"
+        ],
+        "tabsGap": 20,
+        "titleFits": true,
+        "value": "特性｜统一详情布局审查：标题应清晰换行，状态与操作保持对齐，父级路径及类型专属字段独立展示"
+      }
+    },
+    {
+      "viewport": "desktop",
+      "kind": "story",
+      "level": 0,
+      "result": {
+        "ai": true,
+        "aligned": true,
+        "border": "0px",
+        "fields": [
+          "工作项类型",
+          "负责人",
+          "状态",
+          "优先级",
+          "父级工作项",
+          "目标版本",
+          "Sprint",
+          "故事点",
+          "开始日期",
+          "结束日期",
+          "描述与上下文",
+          "验收标准"
+        ],
+        "fontSize": "21px",
+        "iconBeforeTitle": true,
+        "iconClass": "lucide lucide-circle-dashed status-icon tone-backlog",
+        "iconFirstLineAligned": true,
+        "iconLabel": "当前状态：待规划",
+        "iconOnly": true,
+        "iconTooltip": "待规划",
+        "overflow": false,
+        "panelWithinContainer": true,
+        "parentPath": true,
+        "separateStatusRow": false,
+        "tabs": [
+          "详情",
+          "子任务",
+          "交付与验收",
+          "活动记录"
+        ],
+        "tabsGap": 20,
+        "titleFits": true,
+        "value": "故事｜统一详情布局审查：标题应清晰换行，状态与操作保持对齐，父级路径及类型专属字段独立展示"
+      }
+    },
+    {
+      "viewport": "desktop",
+      "kind": "task",
+      "level": 0,
+      "result": {
+        "ai": true,
+        "aligned": true,
+        "border": "0px",
+        "fields": [
+          "工作项类型",
+          "负责人",
+          "状态",
+          "优先级",
+          "父级工作项",
+          "目标版本",
+          "Sprint",
+          "故事点",
+          "开始日期",
+          "结束日期",
+          "描述与上下文",
+          "验收标准"
+        ],
+        "fontSize": "21px",
+        "iconBeforeTitle": true,
+        "iconClass": "lucide lucide-circle-dashed status-icon tone-backlog",
+        "iconFirstLineAligned": true,
+        "iconLabel": "当前状态：待规划",
+        "iconOnly": true,
+        "iconTooltip": "待规划",
+        "overflow": false,
+        "panelWithinContainer": true,
+        "parentPath": true,
+        "separateStatusRow": false,
+        "tabs": [
+          "详情",
+          "子任务",
+          "交付与验收",
+          "活动记录"
+        ],
+        "tabsGap": 20,
+        "titleFits": true,
+        "value": "任务｜统一详情布局审查：标题应清晰换行，状态与操作保持对齐，父级路径及类型专属字段独立展示"
+      }
+    },
+    {
+      "viewport": "desktop",
+      "kind": "bug",
+      "level": 0,
+      "result": {
+        "ai": true,
+        "aligned": true,
+        "border": "0px",
+        "fields": [
+          "工作项类型",
+          "负责人",
+          "状态",
+          "优先级",
+          "父级工作项",
+          "目标版本",
+          "Sprint",
+          "故事点",
+          "开始日期",
+          "结束日期",
+          "描述与上下文",
+          "验收标准"
+        ],
+        "fontSize": "21px",
+        "iconBeforeTitle": true,
+        "iconClass": "lucide lucide-circle-dashed status-icon tone-backlog",
+        "iconFirstLineAligned": true,
+        "iconLabel": "当前状态：待规划",
+        "iconOnly": true,
+        "iconTooltip": "待规划",
+        "overflow": false,
+        "panelWithinContainer": true,
+        "parentPath": true,
+        "separateStatusRow": false,
+        "tabs": [
+          "详情",
+          "子任务",
+          "交付与验收",
+          "活动记录"
+        ],
+        "tabsGap": 20,
+        "titleFits": true,
+        "value": "缺陷｜统一详情布局审查：标题应清晰换行，状态与操作保持对齐，父级路径及类型专属字段独立展示"
+      }
+    },
+    {
+      "viewport": "desktop",
+      "kind": "subtask",
+      "level": -1,
+      "result": {
+        "ai": false,
+        "aligned": true,
+        "border": "0px",
+        "fields": [
+          "工作项类型",
+          "负责人",
+          "状态",
+          "优先级",
+          "父级工作项",
+          "开始日期",
+          "结束日期",
+          "描述与上下文",
+          "验收标准"
+        ],
+        "fontSize": "21px",
+        "iconBeforeTitle": true,
+        "iconClass": "lucide lucide-circle-dashed status-icon tone-backlog",
+        "iconFirstLineAligned": true,
+        "iconLabel": "当前状态：待规划",
+        "iconOnly": true,
+        "iconTooltip": "待规划",
+        "overflow": false,
+        "panelWithinContainer": true,
+        "parentPath": true,
+        "separateStatusRow": false,
+        "tabs": [
+          "详情",
+          "子项",
+          "交付与验收",
+          "活动记录"
+        ],
+        "tabsGap": 20,
+        "titleFits": true,
+        "value": "子任务｜统一详情布局审查：标题应清晰换行，状态与操作保持对齐，父级路径及类型专属字段独立展示"
+      }
+    },
+    {
+      "viewport": "desktop",
+      "kind": "custom_work",
+      "level": 0,
+      "result": {
+        "ai": true,
+        "aligned": true,
+        "border": "0px",
+        "fields": [
+          "工作项类型",
+          "负责人",
+          "状态",
+          "优先级",
+          "父级工作项",
+          "目标版本",
+          "Sprint",
+          "故事点",
+          "开始日期",
+          "结束日期",
+          "描述与上下文",
+          "验收标准"
+        ],
+        "fontSize": "21px",
+        "iconBeforeTitle": true,
+        "iconClass": "lucide lucide-circle-dashed status-icon tone-backlog",
+        "iconFirstLineAligned": true,
+        "iconLabel": "当前状态：待规划",
+        "iconOnly": true,
+        "iconTooltip": "待规划",
+        "overflow": false,
+        "panelWithinContainer": true,
+        "parentPath": true,
+        "separateStatusRow": false,
+        "tabs": [
+          "详情",
+          "子任务",
+          "交付与验收",
+          "活动记录"
+        ],
+        "tabsGap": 20,
+        "titleFits": true,
+        "value": "自定义执行项｜统一详情布局审查：标题应清晰换行，状态与操作保持对齐，父级路径及类型专属字段独立展示"
+      }
+    },
+    {
+      "viewport": "desktop",
+      "kind": "custom_child",
+      "level": -1,
+      "result": {
+        "ai": false,
+        "aligned": true,
+        "border": "0px",
+        "fields": [
+          "工作项类型",
+          "负责人",
+          "状态",
+          "优先级",
+          "父级工作项",
+          "开始日期",
+          "结束日期",
+          "描述与上下文",
+          "验收标准"
+        ],
+        "fontSize": "21px",
+        "iconBeforeTitle": true,
+        "iconClass": "lucide lucide-circle-dashed status-icon tone-backlog",
+        "iconFirstLineAligned": true,
+        "iconLabel": "当前状态：待规划",
+        "iconOnly": true,
+        "iconTooltip": "待规划",
+        "overflow": false,
+        "panelWithinContainer": true,
+        "parentPath": true,
+        "separateStatusRow": false,
+        "tabs": [
+          "详情",
+          "子项",
+          "交付与验收",
+          "活动记录"
+        ],
+        "tabsGap": 20,
+        "titleFits": true,
+        "value": "自定义子任务｜统一详情布局审查：标题应清晰换行，状态与操作保持对齐，父级路径及类型专属字段独立展示"
+      }
+    },
+    {
+      "viewport": "desktop",
+      "kind": "custom_plan",
+      "level": 1,
+      "result": {
+        "ai": false,
+        "aligned": true,
+        "border": "0px",
+        "fields": [
+          "工作项类型",
+          "负责人",
+          "状态",
+          "优先级",
+          "父级工作项",
+          "开始日期",
+          "结束日期",
+          "描述与上下文"
+        ],
+        "fontSize": "21px",
+        "iconBeforeTitle": true,
+        "iconClass": "lucide lucide-circle-dashed status-icon tone-backlog",
+        "iconFirstLineAligned": true,
+        "iconLabel": "当前状态：待规划",
+        "iconOnly": true,
+        "iconTooltip": "待规划",
+        "overflow": false,
+        "panelWithinContainer": true,
+        "parentPath": false,
+        "separateStatusRow": false,
+        "tabs": [
+          "详情",
+          "子项",
+          "活动记录"
+        ],
+        "tabsGap": 20,
+        "titleFits": true,
+        "value": "自定义规划项｜统一详情布局审查：标题应清晰换行，状态与操作保持对齐，父级路径及类型专属字段独立展示"
+      }
+    },
+    {
+      "viewport": "desktop",
+      "kind": "task-root",
+      "level": 0,
+      "result": {
+        "ai": true,
+        "aligned": true,
+        "border": "0px",
+        "fields": [
+          "工作项类型",
+          "负责人",
+          "状态",
+          "优先级",
+          "父级工作项",
+          "目标版本",
+          "Sprint",
+          "故事点",
+          "开始日期",
+          "结束日期",
+          "描述与上下文",
+          "验收标准"
+        ],
+        "fontSize": "21px",
+        "iconBeforeTitle": true,
+        "iconClass": "lucide lucide-circle-dashed status-icon tone-backlog",
+        "iconFirstLineAligned": true,
+        "iconLabel": "当前状态：待规划",
+        "iconOnly": true,
+        "iconTooltip": "待规划",
+        "overflow": false,
+        "panelWithinContainer": true,
+        "parentPath": false,
+        "separateStatusRow": false,
+        "tabs": [
+          "详情",
+          "子任务",
+          "交付与验收",
+          "活动记录"
+        ],
+        "tabsGap": 20,
+        "titleFits": true,
+        "value": "根层级任务｜统一详情布局审查：标题应清晰换行，状态与操作保持对齐，父级路径及类型专属字段独立展示"
+      }
+    },
+    {
+      "viewport": "390x844",
+      "kind": "theme",
+      "level": 3,
+      "result": {
+        "ai": false,
+        "aligned": true,
+        "border": "0px",
+        "fields": [
+          "工作项类型",
+          "负责人",
+          "状态",
+          "优先级",
+          "开始日期",
+          "结束日期",
+          "描述与上下文",
+          "目标与衡量标准"
+        ],
+        "fontSize": "19px",
+        "iconBeforeTitle": true,
+        "iconClass": "lucide lucide-circle-dashed status-icon tone-backlog",
+        "iconFirstLineAligned": true,
+        "iconLabel": "当前状态：待规划",
+        "iconOnly": true,
+        "iconTooltip": "待规划",
+        "overflow": false,
+        "panelWithinContainer": true,
+        "parentPath": false,
+        "separateStatusRow": false,
+        "tabs": [
+          "详情",
+          "子项",
+          "活动记录"
+        ],
+        "tabsGap": 20,
+        "titleFits": true,
+        "value": "战略主题｜统一详情布局审查：标题应清晰换行，状态与操作保持对齐，父级路径及类型专属字段独立展示"
+      }
+    },
+    {
+      "viewport": "390x844",
+      "kind": "epic",
+      "level": 2,
+      "result": {
+        "ai": false,
+        "aligned": true,
+        "border": "0px",
+        "fields": [
+          "工作项类型",
+          "负责人",
+          "状态",
+          "优先级",
+          "父级工作项",
+          "开始日期",
+          "结束日期",
+          "描述与上下文"
+        ],
+        "fontSize": "19px",
+        "iconBeforeTitle": true,
+        "iconClass": "lucide lucide-circle-dashed status-icon tone-backlog",
+        "iconFirstLineAligned": true,
+        "iconLabel": "当前状态：待规划",
+        "iconOnly": true,
+        "iconTooltip": "待规划",
+        "overflow": false,
+        "panelWithinContainer": true,
+        "parentPath": false,
+        "separateStatusRow": false,
+        "tabs": [
+          "详情",
+          "子项",
+          "活动记录"
+        ],
+        "tabsGap": 20,
+        "titleFits": true,
+        "value": "史诗｜统一详情布局审查：标题应清晰换行，状态与操作保持对齐，父级路径及类型专属字段独立展示"
+      }
+    },
+    {
+      "viewport": "390x844",
+      "kind": "feature",
+      "level": 1,
+      "result": {
+        "ai": false,
+        "aligned": true,
+        "border": "0px",
+        "fields": [
+          "工作项类型",
+          "负责人",
+          "状态",
+          "优先级",
+          "父级工作项",
+          "开始日期",
+          "结束日期",
+          "描述与上下文"
+        ],
+        "fontSize": "19px",
+        "iconBeforeTitle": true,
+        "iconClass": "lucide lucide-circle-dashed status-icon tone-backlog",
+        "iconFirstLineAligned": true,
+        "iconLabel": "当前状态：待规划",
+        "iconOnly": true,
+        "iconTooltip": "待规划",
+        "overflow": false,
+        "panelWithinContainer": true,
+        "parentPath": false,
+        "separateStatusRow": false,
+        "tabs": [
+          "详情",
+          "子项",
+          "活动记录"
+        ],
+        "tabsGap": 20,
+        "titleFits": true,
+        "value": "特性｜统一详情布局审查：标题应清晰换行，状态与操作保持对齐，父级路径及类型专属字段独立展示"
+      }
+    },
+    {
+      "viewport": "390x844",
+      "kind": "story",
+      "level": 0,
+      "result": {
+        "ai": true,
+        "aligned": true,
+        "border": "0px",
+        "fields": [
+          "工作项类型",
+          "负责人",
+          "状态",
+          "优先级",
+          "父级工作项",
+          "目标版本",
+          "Sprint",
+          "故事点",
+          "开始日期",
+          "结束日期",
+          "描述与上下文",
+          "验收标准"
+        ],
+        "fontSize": "19px",
+        "iconBeforeTitle": true,
+        "iconClass": "lucide lucide-circle-dashed status-icon tone-backlog",
+        "iconFirstLineAligned": true,
+        "iconLabel": "当前状态：待规划",
+        "iconOnly": true,
+        "iconTooltip": "待规划",
+        "overflow": false,
+        "panelWithinContainer": true,
+        "parentPath": true,
+        "separateStatusRow": false,
+        "tabs": [
+          "详情",
+          "子任务",
+          "交付与验收",
+          "活动记录"
+        ],
+        "tabsGap": 20,
+        "titleFits": true,
+        "value": "故事｜统一详情布局审查：标题应清晰换行，状态与操作保持对齐，父级路径及类型专属字段独立展示"
+      }
+    },
+    {
+      "viewport": "390x844",
+      "kind": "task",
+      "level": 0,
+      "result": {
+        "ai": true,
+        "aligned": true,
+        "border": "0px",
+        "fields": [
+          "工作项类型",
+          "负责人",
+          "状态",
+          "优先级",
+          "父级工作项",
+          "目标版本",
+          "Sprint",
+          "故事点",
+          "开始日期",
+          "结束日期",
+          "描述与上下文",
+          "验收标准"
+        ],
+        "fontSize": "19px",
+        "iconBeforeTitle": true,
+        "iconClass": "lucide lucide-circle-dashed status-icon tone-backlog",
+        "iconFirstLineAligned": true,
+        "iconLabel": "当前状态：待规划",
+        "iconOnly": true,
+        "iconTooltip": "待规划",
+        "overflow": false,
+        "panelWithinContainer": true,
+        "parentPath": true,
+        "separateStatusRow": false,
+        "tabs": [
+          "详情",
+          "子任务",
+          "交付与验收",
+          "活动记录"
+        ],
+        "tabsGap": 20,
+        "titleFits": true,
+        "value": "任务｜统一详情布局审查：标题应清晰换行，状态与操作保持对齐，父级路径及类型专属字段独立展示"
+      }
+    },
+    {
+      "viewport": "390x844",
+      "kind": "bug",
+      "level": 0,
+      "result": {
+        "ai": true,
+        "aligned": true,
+        "border": "0px",
+        "fields": [
+          "工作项类型",
+          "负责人",
+          "状态",
+          "优先级",
+          "父级工作项",
+          "目标版本",
+          "Sprint",
+          "故事点",
+          "开始日期",
+          "结束日期",
+          "描述与上下文",
+          "验收标准"
+        ],
+        "fontSize": "19px",
+        "iconBeforeTitle": true,
+        "iconClass": "lucide lucide-circle-dashed status-icon tone-backlog",
+        "iconFirstLineAligned": true,
+        "iconLabel": "当前状态：待规划",
+        "iconOnly": true,
+        "iconTooltip": "待规划",
+        "overflow": false,
+        "panelWithinContainer": true,
+        "parentPath": true,
+        "separateStatusRow": false,
+        "tabs": [
+          "详情",
+          "子任务",
+          "交付与验收",
+          "活动记录"
+        ],
+        "tabsGap": 20,
+        "titleFits": true,
+        "value": "缺陷｜统一详情布局审查：标题应清晰换行，状态与操作保持对齐，父级路径及类型专属字段独立展示"
+      }
+    },
+    {
+      "viewport": "390x844",
+      "kind": "subtask",
+      "level": -1,
+      "result": {
+        "ai": false,
+        "aligned": true,
+        "border": "0px",
+        "fields": [
+          "工作项类型",
+          "负责人",
+          "状态",
+          "优先级",
+          "父级工作项",
+          "开始日期",
+          "结束日期",
+          "描述与上下文",
+          "验收标准"
+        ],
+        "fontSize": "19px",
+        "iconBeforeTitle": true,
+        "iconClass": "lucide lucide-circle-dashed status-icon tone-backlog",
+        "iconFirstLineAligned": true,
+        "iconLabel": "当前状态：待规划",
+        "iconOnly": true,
+        "iconTooltip": "待规划",
+        "overflow": false,
+        "panelWithinContainer": true,
+        "parentPath": true,
+        "separateStatusRow": false,
+        "tabs": [
+          "详情",
+          "子项",
+          "交付与验收",
+          "活动记录"
+        ],
+        "tabsGap": 20,
+        "titleFits": true,
+        "value": "子任务｜统一详情布局审查：标题应清晰换行，状态与操作保持对齐，父级路径及类型专属字段独立展示"
+      }
+    },
+    {
+      "viewport": "390x844",
+      "kind": "custom_work",
+      "level": 0,
+      "result": {
+        "ai": true,
+        "aligned": true,
+        "border": "0px",
+        "fields": [
+          "工作项类型",
+          "负责人",
+          "状态",
+          "优先级",
+          "父级工作项",
+          "目标版本",
+          "Sprint",
+          "故事点",
+          "开始日期",
+          "结束日期",
+          "描述与上下文",
+          "验收标准"
+        ],
+        "fontSize": "19px",
+        "iconBeforeTitle": true,
+        "iconClass": "lucide lucide-circle-dashed status-icon tone-backlog",
+        "iconFirstLineAligned": true,
+        "iconLabel": "当前状态：待规划",
+        "iconOnly": true,
+        "iconTooltip": "待规划",
+        "overflow": false,
+        "panelWithinContainer": true,
+        "parentPath": true,
+        "separateStatusRow": false,
+        "tabs": [
+          "详情",
+          "子任务",
+          "交付与验收",
+          "活动记录"
+        ],
+        "tabsGap": 20,
+        "titleFits": true,
+        "value": "自定义执行项｜统一详情布局审查：标题应清晰换行，状态与操作保持对齐，父级路径及类型专属字段独立展示"
+      }
+    },
+    {
+      "viewport": "390x844",
+      "kind": "custom_child",
+      "level": -1,
+      "result": {
+        "ai": false,
+        "aligned": true,
+        "border": "0px",
+        "fields": [
+          "工作项类型",
+          "负责人",
+          "状态",
+          "优先级",
+          "父级工作项",
+          "开始日期",
+          "结束日期",
+          "描述与上下文",
+          "验收标准"
+        ],
+        "fontSize": "19px",
+        "iconBeforeTitle": true,
+        "iconClass": "lucide lucide-circle-dashed status-icon tone-backlog",
+        "iconFirstLineAligned": true,
+        "iconLabel": "当前状态：待规划",
+        "iconOnly": true,
+        "iconTooltip": "待规划",
+        "overflow": false,
+        "panelWithinContainer": true,
+        "parentPath": true,
+        "separateStatusRow": false,
+        "tabs": [
+          "详情",
+          "子项",
+          "交付与验收",
+          "活动记录"
+        ],
+        "tabsGap": 20,
+        "titleFits": true,
+        "value": "自定义子任务｜统一详情布局审查：标题应清晰换行，状态与操作保持对齐，父级路径及类型专属字段独立展示"
+      }
+    },
+    {
+      "viewport": "390x844",
+      "kind": "custom_plan",
+      "level": 1,
+      "result": {
+        "ai": false,
+        "aligned": true,
+        "border": "0px",
+        "fields": [
+          "工作项类型",
+          "负责人",
+          "状态",
+          "优先级",
+          "父级工作项",
+          "开始日期",
+          "结束日期",
+          "描述与上下文"
+        ],
+        "fontSize": "19px",
+        "iconBeforeTitle": true,
+        "iconClass": "lucide lucide-circle-dashed status-icon tone-backlog",
+        "iconFirstLineAligned": true,
+        "iconLabel": "当前状态：待规划",
+        "iconOnly": true,
+        "iconTooltip": "待规划",
+        "overflow": false,
+        "panelWithinContainer": true,
+        "parentPath": false,
+        "separateStatusRow": false,
+        "tabs": [
+          "详情",
+          "子项",
+          "活动记录"
+        ],
+        "tabsGap": 20,
+        "titleFits": true,
+        "value": "自定义规划项｜统一详情布局审查：标题应清晰换行，状态与操作保持对齐，父级路径及类型专属字段独立展示"
+      }
+    },
+    {
+      "viewport": "390x844",
+      "kind": "task-root",
+      "level": 0,
+      "result": {
+        "ai": true,
+        "aligned": true,
+        "border": "0px",
+        "fields": [
+          "工作项类型",
+          "负责人",
+          "状态",
+          "优先级",
+          "父级工作项",
+          "目标版本",
+          "Sprint",
+          "故事点",
+          "开始日期",
+          "结束日期",
+          "描述与上下文",
+          "验收标准"
+        ],
+        "fontSize": "19px",
+        "iconBeforeTitle": true,
+        "iconClass": "lucide lucide-circle-dashed status-icon tone-backlog",
+        "iconFirstLineAligned": true,
+        "iconLabel": "当前状态：待规划",
+        "iconOnly": true,
+        "iconTooltip": "待规划",
+        "overflow": false,
+        "panelWithinContainer": true,
+        "parentPath": false,
+        "separateStatusRow": false,
+        "tabs": [
+          "详情",
+          "子任务",
+          "交付与验收",
+          "活动记录"
+        ],
+        "tabsGap": 20,
+        "titleFits": true,
+        "value": "根层级任务｜统一详情布局审查：标题应清晰换行，状态与操作保持对齐，父级路径及类型专属字段独立展示"
+      }
+    }
+  ],
+  "statusIconChecks": [
+    {
+      "stage": "backlog",
+      "name": "待规划",
+      "iconClass": "lucide lucide-circle-dashed status-icon tone-backlog",
+      "text": "",
+      "tooltip": "待规划"
+    },
+    {
+      "stage": "todo",
+      "name": "待开始",
+      "iconClass": "lucide lucide-circle status-icon tone-todo",
+      "text": "",
+      "tooltip": "待开始"
+    },
+    {
+      "stage": "active",
+      "name": "执行中",
+      "iconClass": "lucide lucide-circle-dot status-icon tone-active",
+      "text": "",
+      "tooltip": "执行中"
+    },
+    {
+      "stage": "blocked",
+      "name": "阻塞",
+      "iconClass": "lucide lucide-octagon-pause status-icon tone-blocked",
+      "text": "",
+      "tooltip": "阻塞"
+    },
+    {
+      "stage": "review",
+      "name": "待验收",
+      "iconClass": "lucide lucide-clock3 status-icon tone-review",
+      "text": "",
+      "tooltip": "待验收"
+    },
+    {
+      "stage": "done",
+      "name": "已完成",
+      "iconClass": "lucide lucide-circle-check status-icon tone-done",
+      "text": "",
+      "tooltip": "已完成"
+    },
+    {
+      "stage": "cancelled",
+      "name": "已取消",
+      "iconClass": "lucide lucide-circle-x status-icon tone-cancelled",
+      "text": "",
+      "tooltip": "已取消"
+    }
+  ]
+}
