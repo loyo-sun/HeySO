@@ -69,6 +69,7 @@ import Dashboard from "./Dashboard.jsx";
 import useWorkspaceRoute from "./useWorkspaceRoute.jsx";
 import "./dashboard.css";
 import WorkItemDialog from "./WorkItemDialog.jsx";
+import WorkItemTitle from "./WorkItemTitle.jsx";
 import { workItemEntries, executionInstruction } from "./work-item-actions.mjs";
 import { isExecutionItem, runTargetId, configFor, typeFor, typeNames, statusNamesFor, isWorkItem, isSubtask, categoryOf, hasStatus, terminal, statusFor, allowedTransition, parentCandidates, childTypes, canParent, statusCategories, workflowFor, workflowStatuses, progressCategory, boardStatuses, aiReady } from "../shared/work-config.mjs";
 
@@ -2172,24 +2173,35 @@ function Detail({
         </header>
         <div className="drawer-body">
           {ancestors.length > 0 && <nav className="item-parent-path" aria-label="父级路径">{ancestors.map((parent) => <React.Fragment key={parent.id}><button onClick={() => open(parent)} title={parent.title}><Kind kind={parent.kind}/><span>{parent.title}</span></button><ChevronRight size={12}/></React.Fragment>)}<span>当前工作项</span></nav>}
-          <TextEdit
-            key={i.id + "title"}
-            value={i.title}
-            save={(title) => update({ title })}
-          />
-          <div className="detail-status">
-            <Badge status={i.status} />
-            {isWorkItem(i, project) && (
-              <button
-                className={"ai-switch " + (i.aiEnabled ? "on" : "")}
-                disabled={!i.aiEnabled && !aiReady(workflowFor(project,i.kind))}
-                title={aiReady(workflowFor(project,i.kind)) ? "" : "请先在项目设置的工作流中绑定执行、验收和完成节点"}
-                onClick={() => update({ aiEnabled: !i.aiEnabled })}
+          <div className="detail-heading">
+            <div className="detail-title-row">
+              <span
+                className="detail-status-icon"
+                role="img"
+                aria-label={"当前状态：" + (statusNames[i.status] || i.status)}
+                title={statusNames[i.status] || i.status}
               >
-                <Bot size={15} />
-                {i.aiEnabled ? "AI 执行已启用" : "启用 AI 执行"}
-                <span />
-              </button>
+                <StatusIcon value={i.status} stage={categoryOf(project, i.status, i.kind)} size={21} />
+              </span>
+              <WorkItemTitle
+                key={i.id + "title"}
+                value={i.title}
+                save={(title) => update({ title })}
+              />
+            </div>
+            {isWorkItem(i, project) && (
+              <div className="detail-heading-actions">
+                <button
+                  className={"ai-switch " + (i.aiEnabled ? "on" : "")}
+                  disabled={!i.aiEnabled && !aiReady(workflowFor(project,i.kind))}
+                  title={aiReady(workflowFor(project,i.kind)) ? "" : "请先在项目设置的工作流中绑定执行、验收和完成节点"}
+                  onClick={() => update({ aiEnabled: !i.aiEnabled })}
+                >
+                  <Bot size={15} />
+                  {i.aiEnabled ? "AI 执行已启用" : "启用 AI 执行"}
+                  <span />
+                </button>
+              </div>
             )}
           </div>
           <div className="tabs">
