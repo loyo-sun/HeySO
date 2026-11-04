@@ -15,7 +15,7 @@ test('.heyso roundtrip preserves a complete project and excludes other projects 
  assert.throws(()=>readProjectFile({...file,fileVersion:99}));
 });
 test('cloud domain bundle stays byte-for-byte identical to HeySO rules',()=>{
- for(const file of ['server/model.mjs','server/item-activity.mjs','server/migrate.mjs','server/project-file.mjs','server/mcp.mjs','server/mcp-tools.mjs','shared/work-config.mjs','shared/workflows.mjs','shared/identifiers.mjs','shared/member-roles.mjs','shared/schedule.mjs']){
+ for(const file of ['server/model.mjs','server/item-activity.mjs','server/migrate.mjs','server/project-file.mjs','server/mcp.mjs','server/mcp-tools.mjs','shared/work-config.mjs','shared/workflows.mjs','shared/identifiers.mjs','shared/member-roles.mjs','shared/schedule.mjs','shared/run-closure.mjs']){
    const bundled=new URL('../../LoyoCloud/vendor/heyso/'+file,import.meta.url);
    if(fs.existsSync(bundled))assert.equal(fs.readFileSync(bundled,'utf8'),fs.readFileSync(new URL('../'+file,import.meta.url),'utf8'),file);
  }

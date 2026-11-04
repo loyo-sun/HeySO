@@ -634,9 +634,13 @@ function App() {
             <button className="tree-title" onClick={() => open(i)}><Kind kind={i.kind} iconOnly/><span>{i.title}</span>{i.number && <small>{project.code}-{i.number}</small>}</button>
             {collapsed && <span className="muted tree-child-count">{nested.length} 个子项</span>}
             {children.length > 0 && <span className="muted">{children.filter((x) => hasStatus(x, project, "done")).length}/{children.length} 工作项</span>}
-            <Badge status={i.status}/><span className="person tree-owner" title={i.owner||"未分配"}><span className="avatar">{i.owner?.slice(0,1)||"?"}</span><span>{i.owner||"未分配"}</span></span>
+            <div className="tree-row-meta">
+              <span className="tree-status-icon" role="img" aria-label={"状态："+(statusNames[i.status]||i.status)} title={statusNames[i.status]||i.status}><StatusIcon value={i.status} stage={categoryOf(project,i.status,i.kind)} size={16}/></span>
+              <span className="tree-priority-icon" role="img" aria-label={"优先级："+(priorities[i.priority]||"未设置")} title={priorities[i.priority]||"未设置"}><PriorityIcon value={i.priority}/></span>
+              <span className="person tree-owner" title={i.owner||"未分配"}><span className="avatar">{i.owner?.slice(0,1)||"?"}</span><span>{i.owner||"未分配"}</span></span>
+              {next ? <button className="icon-btn tree-add-child" title={"添加子项到" + i.title} onClick={() => create(next, i.id)}><Plus size={16}/></button> : <span className="tree-add-placeholder"/>}
+            </div>
             {draggedItem && dragOverItem === i.id && <span className="tree-drop-label">{validTarget ? "松开归入此项" : "无法放入：类型或层级不匹配"}</span>}
-            {next && <button className="icon-btn" title={"添加子项到" + i.title} onClick={() => create(next, i.id)}><Plus size={16}/></button>}
           </div>
           {!collapsed && renderItemTree({ parent: i.id, depth: depth + 1 })}
         </React.Fragment>;
@@ -2454,7 +2458,7 @@ function Detail({
                           {rv.author}
                         </b>
                         <MarkdownPreview value={rv.comment}/>
-                        <small>{time(rv.at)}</small>
+                        <small>{rv.automatic&&"系统自动触发 · "}{time(rv.at)}</small>
                       </div>
                     ))}
                     {r.status === "review" && (

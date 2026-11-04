@@ -1,3 +1,4 @@
+import {closeSupersededRuns} from '../shared/run-closure.mjs';
 import { captureItemActivity, itemActivityChanges, activityDetail } from './item-activity.mjs';
 import { fitChildSchedules } from '../shared/schedule.mjs';
 import { availableProjectCode, allocateItemNumber, checkIdentifiers, migrateIdentifiers } from "../shared/identifiers.mjs";
@@ -1186,13 +1187,14 @@ export function act(s, a) {
       review.comment,
       st.id,
     );
+    if(p.decision==='accept'&&run)closeSupersededRuns(s,run);
     snapshot(s, storyOf(s, st).sprintId);
     out = review;
   } else fail("未知操作");
   validate(s);
   for (const item of s.items) {
     const changes = itemActivityChanges(activityBefore, s, item);
-    let event = s.events.find(e => !previousEventIds.has(e.id) && e.itemId === item.id);
+    let event = s.events.find(e => !previousEventIds.has(e.id) && e.itemId === item.id && !e.automatic);
     if (!changes.length) {
       if (event && ['item.update','item.move'].includes(type) && item.id === p.id) s.events = s.events.filter(e => e.id !== event.id);
       continue;
@@ -1205,7 +1207,7 @@ export function act(s, a) {
     if (event.detail) event.note = event.detail;
     event.detail = activityDetail(changes, event.note);
   }
-  for(const event of s.events)if(!previousEventIds.has(event.id))event.actor=String((type.startsWith('run.')?p.agent:a.actor)||'我').slice(0,120);
+  for(const event of s.events)if(!previousEventIds.has(event.id)&&!event.automatic)event.actor=String((type.startsWith('run.')?p.agent:a.actor)||'我').slice(0,120);
   return out;
 }
 function scope(s, i, oldId, newId, reason) {

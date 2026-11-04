@@ -166,3 +166,42 @@ test('migration preserves a status the user changed after the original acceptanc
   state.runs.push({id:'legacy-reopened', projectId:c.parent.projectId, storyId:c.parent.id, itemId:child.id, storyVersion:1, status:'accepted', createdAt:'2030-01-01T00:00:00.000Z', reviews:[]});
   assert.equal(migrateState(state).items.find(i => i.id === child.id).status, 'active');
 });
+
+test('accepting a newer delivery automatically closes earlier pending deliveries for the same child only',t=>{
+ const c=setup(t);
+ const submit=(args,id)=>c.act('run.submit',{...args,summary:'交付',verification:'通过',requestId:id});
+ const older=submit(c.args,'closure-old');
+ const siblingArgs={...c.args,itemId:c.sibling.id};
+ const sibling=submit(siblingArgs,'closure-sibling');
+ const newer=submit(c.args,'closure-new');
+ c.act('review',{storyId:c.child.id,runId:newer.id,decision:'accept',comment:'人工验收通过'});
+ const state=c.store.read(),old=state.runs.find(r=>r.id===older.id),current=state.runs.find(r=>r.id===newer.id);
+ assert.equal(old.status,'changes');assert.equal(old.supersededByRunId,newer.id);
+ assert.equal(old.reviews.at(-1).comment,'新任务已执行');assert.equal(old.reviews.at(-1).author,'系统');assert.equal(old.reviews.at(-1).automatic,true);
+ assert.equal(current.status,'accepted');assert.equal(current.reviews.at(-1).author,'我');
+ assert.equal(state.runs.find(r=>r.id===sibling.id).status,'review');
+ assert.equal(c.status(c.child.id),'done');assert.equal(c.status(c.parent.id),'todo');assert.equal(c.status(c.sibling.id),'review');
+ const event=state.events.find(e=>e.runId===older.id&&e.automatic);
+ assert.equal(event.actor,'系统');assert.equal(event.triggerRunId,newer.id);
+ assert.equal(state.events.find(e=>e.title==='人工验收通过').actor,'我');
+});
+
+test('requesting changes on a newer delivery does not close older pending deliveries',t=>{
+ const c=setup(t),submit=id=>c.act('run.submit',{...c.args,summary:'交付',verification:'通过',requestId:id});
+ const older=submit('closure-no-old'),newer=submit('closure-no-new');
+ c.act('review',{storyId:c.child.id,runId:newer.id,decision:'changes',comment:'需要修改'});
+ assert.equal(c.store.read().runs.find(r=>r.id===older.id).status,'review');assert.equal(c.status(c.child.id),'active');
+});
+
+test('old accepted project data closes pending historical deliveries once without reopening the item',t=>{
+ const c=setup(t),submit=id=>c.act('run.submit',{...c.args,summary:'交付',verification:'通过',requestId:id});
+ const older=submit('closure-migrate-old'),newer=submit('closure-migrate-new');
+ c.act('review',{storyId:c.child.id,runId:newer.id,decision:'accept',comment:'通过'});
+ const legacy=c.store.read(),old=legacy.runs.find(r=>r.id===older.id);
+ old.status='review';old.reviews=[];delete old.supersededByRunId;legacy.events=legacy.events.filter(e=>!e.automatic);
+ const migrated=migrateState(legacy);
+ assert.equal(migrated.runs.find(r=>r.id===older.id).status,'changes');
+ assert.equal(migrated.items.find(i=>i.id===c.child.id).status,'done');
+ assert.deepEqual(migrateState(migrated),migrated);
+ assert.equal(legacy.runs.find(r=>r.id===older.id).status,'review');
+});
