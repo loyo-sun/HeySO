@@ -10,7 +10,7 @@ export default function CloudPanel({project,busy,onState,setToast}){
     const fileId=new URLSearchParams(window.location.search).get('cloudFile');
     if(status?.connected&&fileId&&!opening.current){opening.current=true;run(async()=>{
       const result=await api('/api/cloud/open',{fileId});onStateRef.current(result);
-      const url=new URL(window.location.href);url.searchParams.delete('cloudFile');history.replaceState(null,'',url);
+      const url=new URL(window.location.href);url.searchParams.delete('cloudFile');history.replaceState(history.state,'',url);
     }).finally(()=>{opening.current=false;});}
   },[status?.connected]);
   async function convert(id){const state=await api('/api/state');const result=await api('/api/cloud/convert',{projectId:id,revision:state.revision});onStateRef.current(result);setToast('已转为在线项目，保存到 LoyoCloud 云空间');}

@@ -66,6 +66,7 @@ import InfoTip from "./InfoTip.jsx";
 import HelpCenter from "./HelpCenter.jsx";
 import ContextMenu from "./ContextMenu.jsx";
 import Dashboard from "./Dashboard.jsx";
+import useWorkspaceRoute from "./useWorkspaceRoute.jsx";
 import "./dashboard.css";
 import WorkItemDialog from "./WorkItemDialog.jsx";
 import { workItemEntries, executionInstruction } from "./work-item-actions.mjs";
@@ -171,10 +172,12 @@ function Progress({ value }) {
 }
 function App() {
   const hosting = useHosting();
-  const [page, setPage] = useState(() => {
-    const params = new URLSearchParams(window.location.search);
-    return params.has("view") || params.has("cloudFile") || params.get("tab") === "projects" ? "projects" : "dashboard";
-  });
+  const routeGuard = useRef(null);
+  const { page, setPage, projectId, setProjectId, view, setView, settingsSection, setSettingsSection,
+    selected, setSelected, tab, setTab } = useWorkspaceRoute({
+      views: [...navs.map(([id]) => id), 'settings'], sections: settingsPages.map(([id]) => id),
+      fallbackProject: localStorage.getItem('heyso-project') || 'p_heyso',
+    }, routeGuard);
   useEffect(() => { window.scrollTo(0, 0); }, [page]);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     try {
@@ -201,21 +204,11 @@ function App() {
     }
   }, [sidebarCollapsed]);
   const [data, setData] = useState(null),
-    [projectId, setProjectId] = useState(
-      localStorage.getItem("heyso-project") || "p_heyso",
-    ),
-    [view, setView] = useState(() => {
-      const requested = new URLSearchParams(window.location.search).get('view');
-      return navs.some(([id]) => id === requested) ? requested : 'overview';
-    }),
-    [settingsSection, setSettingsSection] = useState("general"),
     [draggedItem, setDraggedItem] = useState(null),
     [dragOverItem, setDragOverItem] = useState(null),
     [collapsedItems, setCollapsedItems] = useState(() => new Set()),
     [treeQuery, setTreeQuery] = useState(""),
     [modal, setModal] = useState(null),
-    [selected, setSelected] = useState(null),
-    [tab, setTab] = useState("detail"),
     [toast, setToast] = useState(""),
     [query, setQuery] = useState(""),
     [filter, setFilter] = useState("all"),
@@ -239,6 +232,10 @@ function App() {
     if (busy) return;
     if (view === "settings" && settingsDirtyRef.current) setSettingsNavigation(() => navigate);
     else navigate();
+  };
+  routeGuard.current = {
+    blocked: () => view === 'settings' && settingsDirtyRef.current,
+    request: requestSettingsNavigation,
   };
   const receiveCloudState = (result) => {
     setData(result.state);dataRef.current=result.state;
@@ -291,6 +288,11 @@ function App() {
     if (nextId) localStorage.setItem("heyso-project", nextId);
     else localStorage.removeItem("heyso-project");
   }, [data, projectId]);
+  useEffect(() => {
+    if (!data || !selected || data.items.some(item => item.id === selected && item.projectId === projectId)) return;
+    setSelected(null);
+    setToast('此工作项已不存在，已返回项目页面');
+  }, [data, projectId, selected]);
   async function action(type, payload, quiet = false) {
     setBusy(true);
     try {
@@ -1002,7 +1004,9 @@ function App() {
               }}><Icon size={15}/><span>{label}</span></button>
           ))}
         </div>
-        <div className="appbar-actions"><button className="help-entry" aria-label="帮助中心" title="帮助中心" onClick={() => setHelpOpen(true)}><CircleHelp size={19}/></button>
+        <div className="appbar-actions">
+        <button className="help-entry" aria-label="复制当前页面链接" title="复制当前页面链接" onClick={() => copy(window.location.href)}><Link size={18}/></button>
+        <button className="help-entry" aria-label="帮助中心" title="帮助中心" onClick={() => setHelpOpen(true)}><CircleHelp size={19}/></button>
         <button
           className="global-search"
           aria-label="搜索工作项"
@@ -2160,6 +2164,7 @@ function Detail({
           </div>
           <div>
             <span className="muted">v{i.contentVersion}</span>
+            <button className="icon-btn" aria-label="复制工作项链接" title="复制工作项链接" onClick={() => copy(window.location.href)}><Link size={17}/></button>
             <button className="icon-btn" title="关闭详情" onClick={close}>
               <PanelRightClose size={20} />
             </button>
