@@ -1,3 +1,4 @@
+import {reconcileSupersededRuns} from '../shared/run-closure.mjs';
 import { migrateIdentifiers } from "../shared/identifiers.mjs";
 import { rolesForMembers, defaultRoles } from "../shared/member-roles.mjs";
 import { upgradeWorkflowConfig } from "../shared/workflows.mjs";
@@ -54,7 +55,7 @@ function addMemberRoles(state) {
       project.memberRoles = rolesForMembers(project.members);
     }
   }
-  return migrateDeliveryOwnership(migrateIdentifiers(state));
+  return reconcileSupersededRuns(migrateDeliveryOwnership(migrateIdentifiers(state)));
 }
 
 // itemId is the delivery owner; storyId retains the original parent context/version.

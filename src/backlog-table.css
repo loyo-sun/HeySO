@@ -65,3 +65,13 @@
 .backlog-range-fields { display: flex; flex-direction: column; gap: 10px; min-height: 0; overflow-y: auto; }
 .backlog-range-fields label { display: flex; flex-direction: column; gap: 5px; color: var(--muted); font-size: 11px; }
 .backlog-range-fields input { width: 100%; min-width: 0; padding: 7px; font-size: 12px; color: var(--text); }
+
+.tree-row-meta { display: flex; align-items: center; justify-content: flex-end; gap: 12px; margin-left: auto; flex-shrink: 0; }
+.tree-row-meta .tree-status-icon,.tree-row-meta .tree-priority-icon { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 16px; }
+.tree-row .tree-row-meta .tree-owner { flex: 0 1 auto; justify-content: flex-end; max-width: 110px; }
+.tree-row-meta .tree-add-child,.tree-row-meta .tree-add-placeholder { width: 26px; height: 26px; flex: 0 0 26px; padding: 4px; }
+.tree-row .tree-title { min-width: 0; }
+.tree-row .tree-title > span:not(.work-type-icon) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media(max-width:700px){.tree-row-meta{gap:8px;}.tree-row .tree-row-meta .tree-owner{max-width:80px;}}
+
+.tree-row:not(.drag-target):not(.drag-invalid):not(.dragging):hover { background: #f5f5f6; }
