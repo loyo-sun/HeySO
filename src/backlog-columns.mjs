@@ -1,7 +1,7 @@
 import {configFor,typeNames,statusNamesFor} from '../shared/work-config.mjs';
 export const backlogColumns=[
   ['workItem','工作项',320],['status','状态',110],['priority','优先级',105],['owner','负责人',130],['points','故事点',90],
-  ['kind','类型',100],['startDate','开始日期',120],['endDate','结束日期',120],['sprintId','冲刺',145],['releaseId','版本',130],['parentId','父级工作项',220],['createdAt','创建时间',170],['updatedAt','更新时间',170],
+  ['kind','类型',100],['startDate','开始日期',120],['endDate','结束日期',120],['sprintId','冲刺',145],['releaseId','版本',130],['createdAt','创建时间',170],['updatedAt','更新时间',170],
 ].map(([id,label,width])=>({id,label,width}));
 export const defaultBacklogPrefs=()=>({columns:['workItem','status','priority','owner','points'],sort:{key:'priority',direction:'desc'}});
 export function normalizeBacklogPrefs(value){
@@ -10,16 +10,15 @@ export function normalizeBacklogPrefs(value){
   const sort=columns.includes(value.sort?.key)&&['asc','desc'].includes(value.sort?.direction)?value.sort:{key:'workItem',direction:'asc'};
   return {columns,sort};
 }
-export function moveBacklogColumn(columns,from,to){
-  if(from==='workItem'||to==='workItem'||!columns.includes(from)||!columns.includes(to))return columns;
-  const next=columns.filter(id=>id!==from);next.splice(columns.indexOf(to),0,from);return next;
+export function moveBacklogColumn(columns,from,to,edge){
+  if(from===to||from==='workItem'||to==='workItem'||!columns.includes(from)||!columns.includes(to))return columns;
+  const next=columns.filter(id=>id!==from),index=edge?next.indexOf(to)+(edge==='after'?1:0):columns.indexOf(to);next.splice(index,0,from);return next;
 }
 export function backlogValue(item,key,{project,items=[],sprints=[],releases=[]}){
-  if(key==='workItem')return item.title;
+  if(key==='workItem')return item.number===null||item.number===undefined?null:Number(item.number);
   if(key==='kind')return typeNames(project)[item.kind]||item.kind;
   if(key==='status')return statusNamesFor(project)[item.status]||item.status;
   if(key==='priority')return ({high:'高',medium:'中',low:'低'})[item.priority]||item.priority;
-  if(key==='parentId'){const p=items.find(p=>p.id===item.parentId);return p?`${project.code}-${p.number} ${p.title}`:null;}
   if(key==='sprintId')return sprints.find(s=>s.id===item.sprintId)?.name;
   if(key==='releaseId')return releases.find(r=>r.id===item.releaseId)?.name;
   return item[key]??null;
