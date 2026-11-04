@@ -1254,7 +1254,7 @@ function App() {
               </section>
             </>
           )}
-          {view === "backlog" && <BacklogTable key={project.id} rows={filtered} project={project} items={items} sprints={sprints} releases={releases} onOpen={open} toolbar={toolbar} kind={kind=><Kind kind={kind} iconOnly/>} status={status=><Badge status={status}/>} priority={value=><span className={'priority '+value}><PriorityIcon value={value}/>{priorities[value]}</span>} heading={header('待办池','梳理工作项、设置可见字段与列顺序，点击列标题按升序或降序排列。',<button className="primary" onClick={()=>create()}><Plus size={16}/>新建工作项</button>)}/>}
+          {view === "backlog" && <BacklogTable key={project.id} rows={stories} project={project} items={items} sprints={sprints} releases={releases} onOpen={open} kind={kind=><Kind kind={kind} iconOnly/>} status={status=><Badge status={status}/>} priority={value=><span className={'priority '+value}><PriorityIcon value={value}/>{priorities[value]}</span>} heading={header('待办池','梳理工作项、设置可见字段与列顺序，点击列标题按升序或降序排列。',<button className="primary" onClick={()=>create()}><Plus size={16}/>新建工作项</button>)}/>}
           {view === "board" && (
             <>
               {header(
