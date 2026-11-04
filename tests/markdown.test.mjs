@@ -6,7 +6,9 @@ import ReactMarkdown from 'react-markdown';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import {safeMarkdownUrl,insertMarkdown,formatMarkdown,MAX_MARKDOWN_LENGTH} from '../src/markdown-policy.mjs';
+import {safeMarkdownUrl} from '../src/markdown-policy.mjs';
+import {Editor} from '@tiptap/core';
+import {inlineExtensions} from '../src/inline-editor.mjs';
 import {createStore} from '../server/store.mjs';
 import {projectFile,readProjectFile} from '../server/project-file.mjs';
 
@@ -25,14 +27,15 @@ test('URLs reject executable schemes and SVG data while allowing bounded embedde
  const html=renderToStaticMarkup(React.createElement(ReactMarkdown,{skipHtml:true,urlTransform:safeMarkdownUrl},'<script>alert(1)</script>\n\n<img src=x onerror=alert(1)>\n\n[恶意](javascript:alert%281%29)'));
  assert.ok(!/<script|<img|onerror|href="javascript:/i.test(html));
 });
-test('toolbar formatting respects line boundaries, selection and ordered list numbering',()=>{
- assert.equal(formatMarkdown('前段\n标题',4,4,'## ').text,'前段\n## 标题');
- assert.equal(formatMarkdown('文字',0,2,'**文字**').text,'**文字**');
- assert.equal(formatMarkdown('甲\n乙',0,3,'1. ').text,'1. 甲\n2. 乙');
- assert.equal(formatMarkdown('\n文字',0,0,'# ').text,'# \n文字');
- assert.equal(formatMarkdown('## 标题',3,3,'### ').text,'### 标题');
- assert.equal(insertMarkdown('甲乙',1,1,'图').text,'甲图乙');
- assert.throws(()=>insertMarkdown('a'.repeat(MAX_MARKDOWN_LENGTH),1,1,'b'),/内容过长/);
+test('inline editing parses and serializes headings, bold, both list types and embedded images without losing them',()=>{
+ const source=`# 一级\n\n## 二级\n\n### 三级\n\n**加粗**\n\n- 甲\n- 乙\n\n1. 一\n2. 二\n\n![说明](${png})`;
+ const editor=new Editor({element:null,extensions:inlineExtensions(),content:source,contentType:'markdown'});
+ try {
+   const json=JSON.stringify(editor.getJSON());
+   for(const type of ['heading','bold','bulletList','orderedList','image'])assert.ok(json.includes('"'+type+'"'),type);
+   const saved=editor.getMarkdown(),again=new Editor({element:null,extensions:inlineExtensions(),content:saved,contentType:'markdown'});
+   try{assert.deepEqual(again.getJSON(),editor.getJSON());assert.ok(saved.includes(png));}finally{again.destroy();}
+ }finally{editor.destroy();}
 });
 test('Markdown and pasted image content survives save, restart and project export/import',t=>{
  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'heyso-markdown-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));

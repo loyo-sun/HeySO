@@ -10,19 +10,6 @@ export function safeMarkdownUrl(url, key) {
   if (/^(?:\/\/|\\)/.test(clean) || /[\u0000-\u001f]/.test(clean)) return '';
   return clean;
 }
-export function insertMarkdown(value, start, end, insertion) {
-  const text = value.slice(0, start) + insertion + value.slice(end);
-  if (text.length > MAX_MARKDOWN_LENGTH) throw Error('内容过长，请减少图片或文字后重试。');
-  return {text, cursor:start + insertion.length};
-}
-export function formatMarkdown(value,start,end,syntax) {
-  if (syntax === '**文字**') return insertMarkdown(value,start,end,'**'+(value.slice(start,end)||'文字')+'**');
-  const from=start===0?0:value.lastIndexOf('\n',start-1)+1;
-  const next=value.indexOf('\n',end),to=next<0?value.length:next;
-  const block=value.slice(from,to).split('\n').map((line,index)=>(syntax==='1. '?`${index+1}. `:syntax)+line.replace(/^\s{0,3}(?:#{1,6}\s|[-*+]\s|\d+\.\s)/,''));
-  return insertMarkdown(value,from,to,block.join('\n'));
-}
-
 export async function pastedImageData(file) {
   if (!/^image\/(?:png|jpeg|webp|gif)$/.test(file.type)) throw Error('支持粘贴 PNG、JPEG、WebP 或 GIF 图片。');
   if (file.size > 20 * 1024 * 1024) throw Error('原始图片不能超过 20 MB，请缩小后重试。');
