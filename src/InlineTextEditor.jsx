@@ -6,14 +6,15 @@ import './rich-text.css';
 
 export default function RichTextEditor({value,defaultValue='',name,label='多行文本',onSave,onBusyChange,disabled=false,placeholder=''}) {
   const [text,setText]=useState(value??defaultValue),[pending,setPending]=useState(false),[error,setError]=useState('');
-  const draft=useRef(text),saved=useRef(text),conflict=useRef(false),busy=useRef(false),blurred=useRef(false),latest=useRef({onSave,onBusyChange,disabled});
+  const draft=useRef(text),saved=useRef(text),inFlight=useRef(new Set()),conflict=useRef(false),busy=useRef(false),blurred=useRef(false),latest=useRef({onSave,onBusyChange,disabled});
   latest.current={onSave,onBusyChange,disabled};
   async function commit(){
     const next=draft.current;
     if(conflict.current){setError('云端内容已更新。请复制当前草稿，刷新后核对再保存。');return;}
-    if(!latest.current.onSave||next===saved.current||busy.current)return;
-    const result=await latest.current.onSave(next);
-    if(result!==null&&result!==false)saved.current=next;
+    if(!latest.current.onSave||next===saved.current||busy.current||inFlight.current.has(next))return;
+    inFlight.current.add(next);
+    try{const result=await latest.current.onSave(next);if(result!==null&&result!==false)saved.current=next;}
+    finally{inFlight.current.delete(next);}
   }
   const editor=useEditor({
     immediatelyRender:false,
@@ -34,7 +35,7 @@ export default function RichTextEditor({value,defaultValue='',name,label='多行
   useEffect(()=>{
     if(value===undefined||!editor||editor.isDestroyed)return;
     if(draft.current===saved.current||draft.current===value){draft.current=value;setText(value);editor.commands.setContent(value,{contentType:'markdown',emitUpdate:false});conflict.current=false;}
-    else if(value!==saved.current){conflict.current=true;setError('云端内容已更新。请复制当前草稿，刷新后核对再保存。');}
+    else if(value!==saved.current&&!inFlight.current.has(value)){conflict.current=true;setError('云端内容已更新。请复制当前草稿，刷新后核对再保存。');}
     saved.current=value;
   },[editor,value]);
   async function pasteImages(files){
