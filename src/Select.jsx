@@ -11,6 +11,7 @@ import { createPortal } from "react-dom";
 import {
   Check,
   ChevronDown,
+  ChevronsUpDown,
   Search,
   X,
   Plus,
@@ -381,6 +382,7 @@ export default function Select({
         }}
       >
         {selected && <OptionIcon kind={kind} option={selected} />}
+        {kind === 'project' && <ChevronsUpDown size={18} className="sidebar-project-switch-icon" aria-hidden="true"/>}
         <span className="select-value">
           <span>{selected?.label || "请选择"}</span>
           {kind === "project" && (
