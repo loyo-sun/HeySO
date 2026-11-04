@@ -475,7 +475,7 @@ export default function Select({
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={() => choose(option)}
                 >
-                  <OptionIcon kind={kind} option={option} />
+                  {kind !== 'project' && <OptionIcon kind={kind} option={option} />}
                   <span className="select-option-label">
                     <span>{option.label}</span>
                     {kind === "project" && (

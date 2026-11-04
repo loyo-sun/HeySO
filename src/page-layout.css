@@ -1,0 +1,48 @@
+/* Shared page layout refinements. */
+.sprint-heading {
+  grid-template-columns: 26px minmax(180px,1fr) minmax(0,1.8fr) 160px;
+}
+.sprint-heading > .sprint-metrics {
+  display: grid;
+  grid-template-columns: repeat(4,minmax(0,1fr)) 110px;
+  align-items: center;
+  gap: 16px;
+  min-height: 88px;
+  width: 100%;
+  background: #fafafb;
+  padding: 18px 20px;
+}
+.sprint-heading .sprint-metrics > span { color: #98a2aa; white-space: nowrap; }
+.sprint-heading .sprint-metrics strong { color: #5d5d67; font-size: 20px; font-weight: 500; }
+.sprint-heading .sprint-metrics > div { width: 110px; margin: 0; }
+.sprint-heading .sprint-actions { width: 160px; justify-content: flex-end; }
+.backlog-sticky-heading {
+  position: sticky;
+  top: 44px;
+  z-index: 14;
+  padding-top: 14px;
+  margin-top: -14px;
+  background: var(--canvas);
+}
+.backlog-sticky-heading > .page-heading { margin-bottom: 20px; }
+.backlog-toolbar-panel { background: var(--surface); border: 1px solid var(--border); border-radius: 8px 8px 0 0; }
+.backlog-sticky-heading .toolbar { margin: 0; }
+.backlog-list { border-top: 0; border-radius: 0 0 8px 8px; }
+.release-filters { padding: 0; margin-bottom: 20px; }
+.release-filters button { display: inline-flex; gap: 7px; align-items: center; }
+.release-filters button span { font-size: 10px; color: var(--muted); }
+.roadmap-filter-search { display: flex; align-items: center; gap: 6px; padding: 4px 7px 8px; border-bottom: 1px solid var(--border); color: var(--muted); }
+.roadmap-filter-search input { width: 150px; min-width: 0; border: 0; box-shadow: none; outline: none; padding: 4px 0; font: inherit; font-size: 12px; }
+.roadmap-filter-empty { padding: 12px 8px; color: var(--muted); font-size: 12px; }
+@media (max-width: 1100px) {
+  .sprint-heading { grid-template-columns: 26px minmax(0,1fr) 160px; }
+  .sprint-heading > .sprint-metrics { grid-column: 2 / -1; grid-row: 2; }
+}
+@media (max-width: 700px) {
+  .backlog-sticky-heading { top: 40px; }
+  .sprint-heading { grid-template-columns: 24px minmax(0,1fr); }
+  .sprint-heading > .sprint-metrics { grid-column: 1 / -1; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 14px 8px; padding: 15px 12px; }
+  .sprint-heading .sprint-metrics > span { white-space: normal; }
+  .sprint-heading .sprint-metrics > div { grid-column: 1 / -1; width: 100%; }
+  .sprint-heading .sprint-actions { grid-column: 2; grid-row: 3; justify-self: end; }
+}

@@ -70,6 +70,7 @@ import ContextMenu from "./ContextMenu.jsx";
 import Dashboard from "./Dashboard.jsx";
 import useWorkspaceRoute from "./useWorkspaceRoute.jsx";
 import "./dashboard.css";
+import "./page-layout.css";
 import WorkItemDialog from "./WorkItemDialog.jsx";
 import WorkItemTitle from "./WorkItemTitle.jsx";
 import RichTextEditor from "./RichTextEditor.jsx";
@@ -112,8 +113,8 @@ const navs = [
   ["hierarchy", "工作项", Layers, "管理具体工作项的父子关系，支持拖拽归类。"],
   ["backlog", "待办池", Rows3, "整理故事优先级，安排版本与冲刺。"],
   ["board", "看板", Kanban, "按状态查看故事，拖动卡片推进工作。"],
-  ["sprints", "冲刺", Timer, "规划冲刺、跟踪执行、完成评审与复盘。"],
-  ["releases", "版本", Flag, "规划版本范围，管理发布与交付记录。"],
+  ["sprints", "Sprint 冲刺", Timer, "规划冲刺、跟踪执行、完成评审与复盘。"],
+  ["releases", "版本管理", Flag, "规划版本范围，管理发布与交付记录。"],
   ["memory", "记忆", BookOpen, "保存项目背景、关键决定和共享知识。"],
   ["ai", "智能", Bot, "跟踪 AI 执行，审核成果并完成验收。"],
 ];
@@ -221,6 +222,7 @@ function App() {
     [query, setQuery] = useState(""),
     [filter, setFilter] = useState("all"),
     [sprintFilter, setSprintFilter] = useState("all"),
+    [releaseFilter, setReleaseFilter] = useState("unreleased"),
     [ownerFilter, setOwnerFilter] = useState("all"),
     [busy, setBusy] = useState(false),
     [connection, setConnection] = useState(null),
@@ -267,6 +269,7 @@ function App() {
   }, [toast]);
   useEffect(() => {
     setFilter("all");
+    setReleaseFilter("unreleased");
     setQuery("");
     setOwnerFilter("all");
     setTreeQuery("");
@@ -575,10 +578,12 @@ function App() {
       <span className="muted ml-auto">{filtered.length} 个工作项</span>
     </div>
   );
+  const pageTitle=navs.find(n=>n[0]===view)?.[1];
+  const visibleReleases=releases.filter(r=>releaseFilter==="all"||(releaseFilter==="released"?r.status==="released":r.status!=="released"));
   const header = (title, description, button) => (
     <div className="page-heading">
       <div>
-        <h1 className="heading-with-info">{title}{view !== "overview" && description && <InfoTip label={title}>{description}</InfoTip>}</h1>
+        <h1 className="heading-with-info">{pageTitle||title}{view !== "overview" && description && <InfoTip label={pageTitle||title}>{description}</InfoTip>}</h1>
         {view === "overview" && <p>{description}</p>}
       </div>
       {button}
@@ -1249,6 +1254,7 @@ function App() {
           )}
           {view === "backlog" && (
             <>
+              <div className="backlog-sticky-heading">
               {header(
                 "产品待办池",
                 "梳理故事、明确优先级，再安排到合适的版本和冲刺。",
@@ -1257,8 +1263,9 @@ function App() {
                   新建工作项
                 </button>,
               )}
-              <section className="panel" data-work-scope="backlog" tabIndex={0}>
-                {toolbar}
+              <div className="backlog-toolbar-panel">{toolbar}</div>
+              </div>
+              <section className="panel backlog-list" data-work-scope="backlog" tabIndex={0}>
                 {storyRows(
                   [...filtered].sort(
                     (a, b) =>
@@ -1379,7 +1386,10 @@ function App() {
                   创建版本
                 </button>,
               )}
-              {releases.map((r) => {
+              <div className="release-filters tabs" role="tablist" aria-label="版本分类">
+                {[["all","全部"],["released","已发布"],["unreleased","未发布"]].map(([value,label])=><button key={value} role="tab" aria-selected={releaseFilter===value} className={releaseFilter===value?"active":""} onClick={()=>setReleaseFilter(value)}>{label}<span>{releases.filter(r=>value==="all"||(value==="released"?r.status==="released":r.status!=="released")).length}</span></button>)}
+              </div>
+              {visibleReleases.map((r) => {
                 const rows =
                     r.status === "released"
                       ? r.publishedStories || []
@@ -1450,7 +1460,7 @@ function App() {
                   </section>
                 );
               })}
-              {!releases.length && <Empty title="规划你的第一个版本" />}
+              {!visibleReleases.length && <Empty title={!releases.length?"规划你的第一个版本":releaseFilter==="released"?"暂无已发布版本":"暂无未发布版本"} />}
             </>
           )}
           {view === "memory" && (
