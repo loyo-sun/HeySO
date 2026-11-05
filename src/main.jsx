@@ -2,6 +2,7 @@ import {aiExecutionEnabled} from '../shared/work-config.mjs';
 import ActivityDetails from './ActivityDetails.jsx';
 import SprintWorkspace, {SprintStatusCounts} from "./SprintWorkspace.jsx";
 import SubtaskFilter from './SubtaskFilter.jsx';
+import {detailStatusOptions} from './detail-status-options.mjs';
 import {sprintPlanningItems} from './sprint-items.mjs';
 import ReleaseWorkspace from "./ReleaseWorkspace.jsx";
 import BacklogTable from './BacklogTable.jsx';
@@ -1434,12 +1435,6 @@ function Detail({
   setModal,
 }) {
   const update = (p) => action("item.update", { id: i.id, ...p });
-  const [pendingKind, setPendingKind] = useState("");
-  const [pendingStatus, setPendingStatus] = useState("");
-  const changeKind = (kind) => {
-    if(workflowStatuses(project,kind).some(s=>s.id===i.status)) update({kind});
-    else {setPendingKind(kind);setPendingStatus(workflowFor(project,kind).initialStatus);}
-  };
   const kinds = typeNames(project);
   const statusNames = statusNamesFor(project);
   const possibleParents = parentCandidates(project, items, i.kind, i.id);
@@ -1483,14 +1478,9 @@ function Detail({
           {ancestors.length > 0 && <nav className="item-parent-path" aria-label="所属工作项路径">{ancestors.map((parent) => <React.Fragment key={parent.id}><button onClick={() => open(parent)} title={parent.title}><Kind kind={parent.kind} iconOnly/><span>{parent.title}</span></button><ChevronRight size={12}/></React.Fragment>)}<span>当前工作项</span></nav>}
           <div className="detail-heading">
             <div className="detail-title-row">
-              <span
-                className="detail-status-icon"
-                role="img"
-                aria-label={"当前状态：" + (statusNames[i.status] || i.status)}
-                title={statusNames[i.status] || i.status}
-              >
-                <StatusIcon value={i.status} stage={categoryOf(project, i.status, i.kind)} size={21} />
-              </span>
+              <Select className="detail-status-icon detail-status-picker" aria-label="变更工作项状态" kind="status" value={i.status} searchable={false} disabled={busy} onChange={e=>update({status:e.target.value})}>
+                {detailStatusOptions(project,i).map(status=><option key={status.id} value={status.id}>{status.name}</option>)}
+              </Select>
               <WorkItemTitle
                 key={i.id + "title"}
                 value={i.title}
@@ -1518,9 +1508,6 @@ function Detail({
           {tab === "detail" && (
             <>
               <div className="form-grid detail-fields">
-                <Field label="工作项类型"><Select value={i.kind} onChange={(e) => changeKind(e.target.value)}>{configFor(project).types.filter((t) => t.enabled && (!t.hidden || t.id === i.kind) && t.level === typeFor(project, i.kind)?.level).map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}</Select></Field>
-                {pendingKind && <div className="workflow-migration-preview"><p>目标类型使用不同工作流，请选择转换后的状态。</p><Select aria-label="类型转换后的状态" value={pendingStatus} onChange={e=>setPendingStatus(e.target.value)}>{workflowStatuses(project,pendingKind).map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</Select><button onClick={async()=>{const result=await update({kind:pendingKind,status:pendingStatus});if(result)setPendingKind("");}}>确认转换</button><button onClick={()=>setPendingKind("")}>取消</button></div>}
-
                 <Field label="负责人">
                   <Select
                     value={i.owner}
@@ -1529,26 +1516,6 @@ function Detail({
                     {project.members.map((m) => (
                       <option key={m}>{m}</option>
                     ))}
-                  </Select>
-                </Field>
-                <Field label="状态">
-                  <Select
-                    value={i.status}
-                    onChange={(e) => update({ status: e.target.value })}
-                  >
-                    {Object.entries(statusNames)
-                      .filter(([key]) => key === i.status || (configFor(project).statuses.some((s) => s.id === key && s.enabled) && allowedTransition(project, i.status, key, i.kind)))
-                      .filter(
-                        ([k]) =>
-                          !isExecutionItem(i, project) || !workflowFor(project,i.kind).rules?.requireReview ||
-                          categoryOf(project, k, i.kind) !== "done" ||
-                          hasStatus(i, project, "done"),
-                      )
-                      .map(([k, v]) => (
-                        <option key={k} value={k}>
-                          {v}
-                        </option>
-                      ))}
                   </Select>
                 </Field>
                 <Field label="优先级">
