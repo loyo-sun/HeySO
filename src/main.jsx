@@ -1326,7 +1326,7 @@ function App() {
         </div>
       )}
     </div>
-    {helpOpen && <HelpCenter initialArticle={view === "settings" ? ({types:"types",hierarchy:"hierarchy",states:"workflows"}[settingsSection] || "types") : "types"} onClose={() => setHelpOpen(false)}/>}
+    {helpOpen && <HelpCenter initialArticle={page === "dashboard" ? "start" : view === "settings" ? ({types:"types",hierarchy:"hierarchy",states:"workflows",memory:"memory",integrations:"ai",data:"data",general:"projects",members:"projects",roles:"projects",workflow:"projects"}[settingsSection] || "start") : ({roadmap:"roadmap",backlog:"sprints",sprints:"sprints",board:"list",list:"list",releases:"releases",reports:"reports",ai:"ai"}[view] || "start")} onClose={() => setHelpOpen(false)}/>}
     </>
     </WorkspaceLinksProvider></WorkConfigContext.Provider>
   );
