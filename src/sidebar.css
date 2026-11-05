@@ -1,5 +1,5 @@
 .app {
-  --sidebar-size: 240px;
+  --sidebar-size: 200px;
 }
 .app.sidebar-compact {
   --sidebar-size: 64px;
@@ -156,3 +156,8 @@
 .sidebar-project-switch-icon { display: none; }
 .sidebar .project-switcher .select-trigger > .select-project-icon { display: none; }
 .sidebar-compact .sidebar .project-switcher .sidebar-project-switch-icon { display: block; }
+
+/* Keep the shared create entry separate from navigation in either sidebar mode. */
+.sidebar .sidebar-create { margin-bottom: 14px; }
+.app:not(.sidebar-compact) .sidebar { width: var(--sidebar-size); }
+.app:not(.sidebar-compact) > main { margin-left: var(--sidebar-size); width: calc(100% - var(--sidebar-size)); }

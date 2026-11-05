@@ -292,7 +292,8 @@ test("deleting the last project persists an empty workspace that can create a ne
 test("every requirement level requires a valid date range within its project", (t) => {
   const s = fresh(t);
   const p = doAction(s, "project.create", { name: "日期测试", ...projectPlan });
-  doAction(s, "project.workConfig", { id: p.id, config: defaultWorkConfig(true) });
+  const legacy = defaultWorkConfig(true); for(const type of legacy.types) type.hidden=false;
+  doAction(s, "project.workConfig", { id: p.id, config: legacy });
   let parentId = null;
   for (const kind of ["theme", "epic", "feature", "story", "subtask"]) {
     const payload = {

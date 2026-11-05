@@ -39,6 +39,10 @@ export function migrateState(input) {
 }
 
 function addMemberRoles(state) {
+  for(const project of state.projects||[])for(const type of project.workConfig?.types||[]){
+    if(['theme','feature'].includes(type.id)&&!type.retiredBuiltin){type.retiredBuiltin=true;type.hidden=true;}
+  }
+
   for (const project of state.projects || []) {
     if (!project || !Array.isArray(project.members)) continue;
     if (project.roles === undefined) {

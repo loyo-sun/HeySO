@@ -49,5 +49,5 @@ export default function useWorkspaceRoute(options, guard) {
     return previous[key] === next ? previous : { ...previous, [key]: next };
   });
   return { ...route, setPage: setter('page'), setProjectId: setter('projectId'), setView: setter('view'),
-    setSettingsSection: setter('settingsSection'), setSelected: setter('selected'), setTab: setter('tab') };
+    setSettingsSection: setter('settingsSection'), setReleaseId: setter('releaseId'), setSelected: setter('selected'), setTab: setter('tab') };
 }

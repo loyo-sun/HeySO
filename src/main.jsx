@@ -1,5 +1,9 @@
 import {aiExecutionEnabled} from '../shared/work-config.mjs';
 import ActivityDetails from './ActivityDetails.jsx';
+import SprintWorkspace, {SprintStatusCounts} from "./SprintWorkspace.jsx";
+import SubtaskFilter from './SubtaskFilter.jsx';
+import {sprintPlanningItems} from './sprint-items.mjs';
+import ReleaseWorkspace from "./ReleaseWorkspace.jsx";
 import BacklogTable from './BacklogTable.jsx';
 import {WorkspaceLinksProvider,WorkspaceLink} from './WorkspaceLinks.jsx';
 import {WorkspaceSync,watchWorkspaceUpdates} from './workspace-sync.mjs';
@@ -51,6 +55,7 @@ import {
   ArrowLeft,
   FolderKanban,
   CircleHelp,
+  BarChart3,
 } from "lucide-react";
 import "./style.css";
 import "./plane.css";
@@ -69,6 +74,7 @@ import heysoIcon from "./assets/heyso-icon.svg";
 import { WorkConfigContext, useWorkProject } from "./WorkConfigContext.jsx";
 import Kind from "./WorkType.jsx";
 import InfoTip from "./InfoTip.jsx";
+import PageTitle,{pageDescriptions} from "./PageTitle.jsx";
 import HelpCenter from "./HelpCenter.jsx";
 import ContextMenu from "./ContextMenu.jsx";
 import Dashboard from "./Dashboard.jsx";
@@ -78,9 +84,10 @@ import "./page-layout.css";
 import WorkItemDialog from "./WorkItemDialog.jsx";
 import WorkItemTitle from "./WorkItemTitle.jsx";
 import RichTextEditor from "./RichTextEditor.jsx";
+import Board from "./Board.jsx";
 import MarkdownPreview from "./MarkdownPreview.jsx";
 import { workItemEntries, executionInstruction } from "./work-item-actions.mjs";
-import { isExecutionItem, runTargetId, configFor, typeFor, typeNames, statusNamesFor, isWorkItem, isSubtask, categoryOf, hasStatus, terminal, statusFor, allowedTransition, parentCandidates, childTypes, canParent, statusCategories, workflowFor, workflowStatuses, progressCategory, boardStatuses, aiReady } from "../shared/work-config.mjs";
+import { effectiveSprintId, isExecutionItem, runTargetId, configFor, typeFor, typeNames, statusNamesFor, isWorkItem, isSubtask, categoryOf, hasStatus, terminal, statusFor, allowedTransition, parentCandidates, childTypes, canParent, statusCategories, workflowFor, workflowStatuses, progressCategory, boardStatuses, aiReady } from "../shared/work-config.mjs";
 
 const statusNames = {
   backlog: "待规划",
@@ -91,6 +98,7 @@ const statusNames = {
   done: "已完成",
   cancelled: "已取消",
 };
+const Reports = React.lazy(() => import('./Reports.jsx'));
 const Roadmap = React.lazy(() => import('./Roadmap.jsx'));
 const kinds = {
   theme: "战略主题",
@@ -112,16 +120,15 @@ const kindIcons = {
 };
 const priorities = { high: "高", medium: "中", low: "低" };
 const navs = [
-  ["overview", "概览", LayoutDashboard, "查看项目目标、进度和待验收成果。"],
-  ["roadmap", "路线图", Calendar, "在时间轴上查看工作项、进度和版本里程碑，调整计划日期。"],
-  ["hierarchy", "工作项", Layers, "管理具体工作项的父子关系，支持拖拽归类。"],
-  ["backlog", "待办池", Rows3, "整理故事优先级，安排版本与冲刺。"],
-  ["board", "看板", Kanban, "按状态查看故事，拖动卡片推进工作。"],
-  ["sprints", "Sprint 冲刺", Timer, "规划冲刺、跟踪执行、完成评审与复盘。"],
-  ["releases", "版本管理", Flag, "规划版本范围，管理发布与交付记录。"],
-  ["memory", "记忆", BookOpen, "保存项目背景、关键决定和共享知识。"],
+  ["roadmap", "线路", Calendar, "查看时间安排、工作进度和版本里程碑。"],
+  ["backlog", "冲刺", Timer, "规划冲刺、安排工作项并跟踪交付。"],
+  ["board", "看板", Kanban, "按状态推进工作，查看执行进度。"],
+  ["list", "清单", Rows3, "查询、筛选和管理全部工作项。"],
+  ["releases", "发布", Flag, "管理版本范围、发布与交付记录。"],
+  ["reports", "报告", BarChart3, "分析冲刺、流程、工作量和交付趋势。"],
   ["ai", "智能", Bot, "跟踪 AI 执行，审核成果并完成验收。"],
 ];
+const workViews = ["backlog", "board", "list", "sprints"];
 const fmt = (d) =>
   d
     ? new Date(d).toLocaleDateString("zh-CN", {
@@ -187,8 +194,8 @@ function App() {
   const hosting = useHosting();
   const routeGuard = useRef(null);
   const { page, setPage, projectId, setProjectId, view, setView, settingsSection, setSettingsSection,
-    selected, setSelected, tab, setTab } = useWorkspaceRoute({
-      views: [...navs.map(([id]) => id), 'settings'], sections: settingsPages.map(([id]) => id),
+    selected, setSelected, tab, setTab, releaseId, setReleaseId } = useWorkspaceRoute({
+      views: [...navs.map(([id]) => id), ...workViews, 'overview', 'work', 'settings'], sections: settingsPages.map(([id]) => id),
       fallbackProject: localStorage.getItem('heyso-project') || 'p_heyso',
     }, routeGuard);
   useEffect(() => { window.scrollTo(0, 0); }, [page]);
@@ -217,16 +224,13 @@ function App() {
     }
   }, [sidebarCollapsed]);
   const [data, setData] = useState(null),
-    [draggedItem, setDraggedItem] = useState(null),
-    [dragOverItem, setDragOverItem] = useState(null),
-    [collapsedItems, setCollapsedItems] = useState(() => new Set()),
-    [treeQuery, setTreeQuery] = useState(""),
     [modal, setModal] = useState(null),
     [toast, setToast] = useState(""),
     [query, setQuery] = useState(""),
     [filter, setFilter] = useState("all"),
     [sprintFilter, setSprintFilter] = useState("all"),
-    [releaseFilter, setReleaseFilter] = useState("unreleased"),
+    [boardReleaseFilter, setBoardReleaseFilter] = useState("all"),
+    [boardShowSubtasks, setBoardShowSubtasks] = useState(false),
     [ownerFilter, setOwnerFilter] = useState("all"),
     [busy, setBusy] = useState(false),
     [connection, setConnection] = useState(null),
@@ -273,13 +277,10 @@ function App() {
   }, [toast]);
   useEffect(() => {
     setFilter("all");
-    setReleaseFilter("unreleased");
+    setBoardReleaseFilter("all");
+    setBoardShowSubtasks(false);
     setQuery("");
     setOwnerFilter("all");
-    setTreeQuery("");
-    setCollapsedItems(new Set());
-    setDraggedItem(null);
-    setDragOverItem(null);
   }, [projectId]);
   useEffect(() => {
     if (!data || data.projects.some((p) => p.id === projectId)) return;
@@ -324,8 +325,9 @@ function App() {
     setFilter("all");
     setOwnerFilter("all");
     setQuery("");
-    setView(v);
+    setView(v === "work" ? "backlog" : v);
     setSelected(null);
+    setReleaseId(null);
     };
     if (v === "settings") navigate();
     else requestSettingsNavigation(navigate);
@@ -335,6 +337,7 @@ function App() {
     requestSettingsNavigation(() => {
     settingsDirtyRef.current = false;
     setProjectId(id);
+    setReleaseId(null);
     localStorage.setItem("heyso-project", id);
     setSelected(null);
     setQuery("");
@@ -354,7 +357,7 @@ function App() {
     requestSettingsNavigation(() => {
       if (view === "settings") {
         settingsDirtyRef.current = false;
-        setView("overview");
+        setView("roadmap");
       }
       setSelected(null);
       setContextMenu(null);
@@ -414,7 +417,7 @@ function App() {
               busy={busy}
               setProjectId={(id) => {
                 switchProject(id);
-                go("overview");
+                go("roadmap");
               }}
             />
           )}
@@ -432,6 +435,7 @@ function App() {
   const statusNames = Object.fromEntries(configFor(project).statuses.filter((s) => s.enabled).map((s) => [s.id, s.name]));
   const items = data.items.filter((x) => x.projectId === project.id),
     stories = items.filter((x) => isWorkItem(x, project)),
+    sprintItems = sprintPlanningItems(items, project),
     sprints = data.sprints.filter((x) => x.projectId === project.id),
     releases = data.releases.filter((x) => x.projectId === project.id),
     notes = data.notes.filter((x) => x.projectId === project.id),
@@ -441,8 +445,9 @@ function App() {
   const completed = stories.filter((x) => hasStatus(x, project, "done")),
     review = stories.filter((x) => hasStatus(x, project, "review")),
     blocked = stories.filter((x) => hasStatus(x, project, "blocked"));
-  const filtered = stories.filter(
+  const filtered = items.filter(i=>isExecutionItem(i,project)||!!i.sprintId).map(i=>({...i,sprintId:effectiveSprintId(i,items,project)})).filter(
     (i) =>
+      (view !== 'board' || boardShowSubtasks || !isSubtask(i,project)) &&
       (filter === "all" || (filter.startsWith("category:") ? hasStatus(i, project, filter.slice(9)) : i.status === filter)) &&
       (ownerFilter === "all" || i.owner === ownerFilter) &&
       (!query ||
@@ -491,22 +496,20 @@ function App() {
       instruction:(item) => copy(executionInstruction(project,item)),
       review:(item) => setModal({type:"review",story:item,run:runs.find((r) => runTargetId(r) === item.id && r.status === "review")}),
       remove:(item) => setModal({type:"delete",item}),
-      collapsed:collapsedItems.has(i.id),
-      toggleBranch:view === "hierarchy" ? (id) => setCollapsedItems((old) => { const next = new Set(old); next.has(id) ? next.delete(id) : next.add(id); return next; }) : null,
+
     }});
     const {scope,scopeId} = contextMenu;
     const sprint = sprints.find((s) => s.id === scopeId);
     const release = releases.find((r) => r.id === scopeId);
-    if ((scope === "sprint" && sprint?.status === "closed") || (scope === "release" && release?.status === "released")) return [{label:"历史记录，仅可查看",disabled:true}];
+    if ((scope === "sprint" && sprint?.status === "closed") || (scope === "release" && (release?.status === "released" || release?.archived))) return [{label:"历史记录，仅可查看",disabled:true}];
     const types = configFor(project).types.filter((t) => t.enabled && !t.hidden &&
-      (!(scope === "sprint" || scope === "release" || scope === "board") || isWorkItem({kind:t.id},project)) &&
+      (!(scope === "sprint" || scope === "release" || scope === "board") || scope==="release" || (scope==="board"?isExecutionItem({kind:t.id},project):!isSubtask({kind:t.id},project))) &&
       (scope !== "board" || workflowFor(project,t.id).initialStatus === scopeId));
     const defaults = scope === "sprint" ? {sprintId:scopeId} : scope === "release" ? {releaseId:scopeId} : {};
     const result = [{label:scope === "board" ? "在此状态新建工作项" : "新建工作项",disabled:!types.length,reason:!types.length ? "没有以此状态创建的可用类型" : "",children:types.map((t) => ({label:t.name,run:() => create(t.id,null,defaults)}))}];
-    if (scope === "hierarchy") result.push({label:"全部展开",run:() => setCollapsedItems(new Set())},{label:"全部收起",run:() => setCollapsedItems(new Set(items.filter((i) => items.some((x) => x.parentId === i.id)).map((i) => i.id)))});
     if (scope === "sprint" || scope === "release") {
       const field = scope === "sprint" ? "sprintId" : "releaseId";
-      const candidates = stories.filter((s) => s[field] !== scopeId && (scope !== "sprint" || !s.sprintId));
+      const candidates = (scope==="release"?items:stories).filter((s) => s[field] !== scopeId && (scope !== "sprint" || !s.sprintId));
       result.push({label:scope === "sprint" ? "从待办池添加" : "添加现有工作项",disabled:!candidates.length,reason:!candidates.length ? "没有可添加的工作项" : "",children:candidates.map((s) => ({label:`${project.code}-${s.number} · ${s.title}`,run:() => action("item.update",{id:s.id,[field]:scopeId})}))});
     }
     return result;
@@ -582,69 +585,56 @@ function App() {
       <span className="muted ml-auto">{filtered.length} 个工作项</span>
     </div>
   );
-  const pageTitle=navs.find(n=>n[0]===view)?.[1];
-  const visibleReleases=releases.filter(r=>releaseFilter==="all"||(releaseFilter==="released"?r.status==="released":r.status!=="released"));
+  const inWork = workViews.includes(view) || view === "work";
+  const pageTitle=navs.find(n=>n[0]===view)?.[1] || (inWork ? "冲刺" : undefined);
+  const openRelease = id => {go("releases");setReleaseId(typeof id === "string" ? id : null);};
   const header = (title, description, button) => (
     <div className="page-heading">
       <div>
-        <h1 className="heading-with-info">{pageTitle||title}{view !== "overview" && description && <InfoTip label={pageTitle||title}>{description}</InfoTip>}</h1>
+        <h1 className="heading-with-info">{pageTitle||title}{view !== "overview" && description && <InfoTip label={pageTitle||title}>{pageDescriptions[view]||description}</InfoTip>}</h1>
         {view === "overview" && <p>{description}</p>}
       </div>
       {button}
     </div>
   );
-  async function moveWorkItem(event, parentId) {
-    event.preventDefault(); event.stopPropagation();
-    const id = event.dataTransfer.getData("application/x-heyso-item") || event.dataTransfer.getData("text/plain");
-    setDraggedItem(null); setDragOverItem(null);
-    const item = items.find((i) => i.id === id);
-    if (!item || id === parentId) { setToast("请选择当前项目中可移动的工作项"); return; }
-    if ((!parentId && isSubtask(item, project)) || (parentId && !parentCandidates(project, items, item.kind, id).some((p) => p.id === parentId))) {
-      setToast("此类型不能放到该父级下，请检查层级规则"); return;
-    }
-    if ((item.parentId || null) === parentId) return;
-    const result = await action("item.move", { id, parentId, projectId: project.id });
-    if (result) {
-      setCollapsedItems((old) => { const next = new Set(old); next.delete(parentId); return next; });
-      setToast(parentId ? "已更新父级工作项，子项随之保留" : "已移至未归类");
-    }
-  }
-  function renderItemTree({ parent = null, depth = 0 } = {}) {
-    return <>
-      {items.filter((i) => (i.parentId || null) === parent).map((i) => {
-        const descendants = (id) => items.filter((x) => x.parentId === id).flatMap((x) => [x, ...descendants(x.id)]);
-        const nested = descendants(i.id);
-        const searchText = treeQuery.trim().toLowerCase();
-        const matches = (x) => `${x.title} ${typeNames(project)[x.kind]} ${project.code}-${x.number || ""}`.toLowerCase().includes(searchText);
-        if (searchText && ![i, ...nested].some(matches)) return null;
-        const children = nested.filter((x) => isWorkItem(x, project));
-        const collapsed = !searchText && collapsedItems.has(i.id);
-        const next = childTypes(project, i.kind)[0]?.id;
-        const dragItem = items.find((x) => x.id === draggedItem);
-        const validTarget = dragItem && parentCandidates(project, items, dragItem.kind, dragItem.id).some((p) => p.id === i.id);
-        return <React.Fragment key={i.id}>
-          <div className={"tree-row" + (dragOverItem === i.id ? (validTarget ? " drag-target" : " drag-invalid") : "") + (draggedItem === i.id ? " dragging" : "")}
-            data-work-item-id={i.id} tabIndex={0} style={{ paddingLeft: 20 + depth * 28 }} draggable={!busy}
-            onDragStart={(e) => { e.dataTransfer.setData("application/x-heyso-item", i.id); e.dataTransfer.setData("text/plain", i.id); e.dataTransfer.effectAllowed = "move"; setDraggedItem(i.id); }}
-            onDragEnd={() => { setDraggedItem(null); setDragOverItem(null); }}
-            onDragOver={(e) => { if (draggedItem) { e.preventDefault(); e.stopPropagation(); setDragOverItem(i.id); e.dataTransfer.dropEffect = validTarget ? "move" : "none"; } }}
-            onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) setDragOverItem(null); }} onDrop={(e) => moveWorkItem(e, i.id)}>
-            {draggedItem && dragOverItem === i.id && !validTarget && <span className="tree-drop-invalid-icon" role="img" aria-label="无法放入" title="无法放入：类型或层级不匹配"><X size={18} strokeWidth={3} aria-hidden="true"/></span>}
-            {nested.length ? <button className="tree-fold icon-btn" aria-label={(collapsed ? "展开" : "收起") + i.title} aria-expanded={!collapsed} onClick={() => setCollapsedItems((old) => { const next = new Set(old); next.has(i.id) ? next.delete(i.id) : next.add(i.id); return next; })}>{collapsed ? <ChevronRight size={14}/> : <ChevronDown size={14}/>}</button> : <span className="tree-fold-placeholder"/>}
-            <button className="tree-title" onClick={() => open(i)}><Kind kind={i.kind} iconOnly/><span>{i.title}</span>{i.number && <small>{project.code}-{i.number}</small>}</button>
-            {collapsed && <span className="muted tree-child-count">{nested.length} 个子项</span>}
-            {children.length > 0 && <span className="muted">{children.filter((x) => hasStatus(x, project, "done")).length}/{children.length} 工作项</span>}
-            <div className="tree-row-meta">
-              <span className="tree-status-icon" role="img" aria-label={"状态："+(statusNames[i.status]||i.status)} title={statusNames[i.status]||i.status}><StatusIcon value={i.status} stage={categoryOf(project,i.status,i.kind)} size={16}/></span>
-              <span className="tree-priority-icon" role="img" aria-label={"优先级："+(priorities[i.priority]||"未设置")} title={priorities[i.priority]||"未设置"}><PriorityIcon value={i.priority}/></span>
-              <span className="person tree-owner" title={i.owner||"未分配"}><span className="avatar">{i.owner?.slice(0,1)||"?"}</span><span>{i.owner||"未分配"}</span></span>
-              {next ? <button className="icon-btn tree-add-child" title={"添加子项到" + i.title} onClick={() => create(next, i.id)}><Plus size={16}/></button> : <span className="tree-add-placeholder"/>}
-            </div>
-            {draggedItem && dragOverItem === i.id && <span className="tree-drop-label">{validTarget ? "松开归入此项" : "无法放入：类型或层级不匹配"}</span>}
-          </div>
-          {!collapsed && renderItemTree({ parent: i.id, depth: depth + 1 })}
-        </React.Fragment>;
-      })}
+  function renderMemory() {
+    return <><div className="inline" style={{justifyContent:"flex-end",marginBottom:20}}><button className="primary" onClick={() => setModal({type:"note"})}><Plus size={16}/>记录记忆</button></div>
+              <div className="memory-grid">
+                {notes.map((n) => (
+                  <article className="panel memory-card" key={n.id}>
+                    <span
+                      className={
+                        "kind " + (n.type === "decision" ? "epic" : "feature")
+                      }
+                    >
+                      {n.type === "decision" ? (
+                        <GitBranch size={14} />
+                      ) : (
+                        <BookOpen size={14} />
+                      )}
+                      {
+                        {
+                          decision: "关键决定",
+                          context: "工作上下文",
+                          learning: "经验与复盘",
+                        }[n.type]
+                      }
+                    </span>
+                    <h3>{n.title}</h3>
+                    <MarkdownPreview value={n.body}/>
+                    <footer>
+                      <span className="avatar">我</span>
+                      <span>
+                        {n.author} · {fmt(n.createdAt)}
+                      </span>
+                      <span className="ml-auto">
+                        <CheckCircle2 size={13} /> 人工记录
+                      </span>
+                    </footer>
+                  </article>
+                ))}
+              </div>
+              {!notes.length && <Empty title="记录第一个共识" />}
     </>;
   }
   function renderOverview() {
@@ -656,10 +646,6 @@ function App() {
         {header(
           project.name,
           project.description || "查看项目进度、当前冲刺和待验收成果。",
-          <button className="primary" onClick={() => create()}>
-            <Plus size={16} />
-            新建工作项
-          </button>,
         )}
         <div className="inline" style={{marginBottom:16,gap:12}}><span>{project.cloud ? '在线项目 · LoyoCloud' : hosting.hosted ? '工作空间项目' : '本地项目'}</span><button onClick={()=>{go('settings');setSettingsSection('integrations');}}>{project.cloud ? '云空间与 AI 连接' : hosting.hosted ? '保存至 LoyoCloud' : '转为在线项目'}</button></div>
         {project.cloud?.error&&<div className="settings-error" role="alert">{project.cloud.error}。当前显示最近读取的内容，联网后刷新。</div>}
@@ -672,7 +658,7 @@ function App() {
                 "在项目设置中补充目标，为团队与 AI 提供共同方向。"}
             </p>
           </div>
-          <button className="text-btn" onClick={() => go("hierarchy")}>
+          <button className="text-btn" onClick={() => go("list")}>
             工作项全景
             <ArrowRight size={14} />
           </button>
@@ -923,40 +909,6 @@ function App() {
       </>
     );
   }
-  function renderSprints() {
-    return (
-      <>
-        {header(
-          "Sprint 冲刺",
-          "规划、执行、评审与复盘，形成持续改进的工作节奏。",
-          <button
-            className="primary"
-            onClick={() => setModal({ type: "sprint" })}
-          >
-            <Plus size={16} />
-            创建 Sprint
-          </button>,
-        )}
-        {sprints.length ? (
-          sprints.map((sp) => (
-            <SprintCard
-              key={sp.id}
-              sp={sp}
-              stories={stories}
-              action={action}
-              setModal={setModal}
-              open={open}
-              go={go}
-              setSprintFilter={setSprintFilter}
-              storyRows={storyRows}
-            />
-          ))
-        ) : (
-          <Empty title="还没有 Sprint" />
-        )}
-      </>
-    );
-  }
   return (
     <WorkConfigContext.Provider value={project}><WorkspaceLinksProvider project={project} items={items} onOpen={item=>{if(modal){const url=new URL(window.location.href);url.searchParams.set("item",item.id);url.searchParams.set("project",project.id);window.open(url.href,"_blank","noopener,noreferrer");}else open(item);}}>
     <>
@@ -1003,7 +955,7 @@ function App() {
       </header>
       {page === "dashboard" && <main className="dashboard-main" id="panel-dashboard" role="tabpanel" aria-labelledby="tab-dashboard">
         {!online && <div className="offline-banner">服务连接已断开，恢复连接后可继续保存。</div>}
-        <Dashboard data={data} onRefresh={refresh} onProject={(id) => { switchProject(id); go("overview"); }}
+        <Dashboard data={data} onRefresh={refresh} onProject={(id) => { switchProject(id); go("roadmap"); }}
           onOpen={(item) => { switchProject(item.projectId); go("backlog"); open(item); }}
           onCreateProject={() => setModal({ type: "project" })}/>
       </main>}
@@ -1012,19 +964,19 @@ function App() {
         id="project-sidebar"
         className="sidebar"
         compact={sidebarCompact}
-        aria-label={view === "settings" ? "项目设置导航" : "项目管理导航"}
+        aria-label={view === "settings" ? "项目设置导航" : "项目导航"}
       >
         {view === "settings" && (
           <div className="sidebar-title">
             <button
               className="back-to-project"
-              aria-label="返回项目管理"
-              data-sidebar-tooltip="返回项目管理"
+              aria-label="返回项目"
+              data-sidebar-tooltip="返回项目"
               data-sidebar-description="返回项目概览和日常工作菜单。"
-              onClick={() => go("overview")}
+              onClick={() => go("roadmap")}
             >
               <ArrowLeft size={16} />
-              <span>返回项目管理</span>
+              <span>返回项目</span>
             </button>
           </div>
         )}
@@ -1037,7 +989,7 @@ function App() {
             value={project.id}
             onCreate={() => requestSettingsNavigation(() => {
               settingsDirtyRef.current = false;
-              setView("overview");
+              setView("roadmap");
               setModal({ type: "project" });
             })}
             onChange={(e) => switchProject(e.target.value)}
@@ -1056,7 +1008,7 @@ function App() {
         </div>
         {view !== "settings" && (
           <button
-            className="sidebar-create"
+            className="sidebar-create primary"
             aria-label="新建工作项"
             data-sidebar-tooltip="新建工作项"
             data-sidebar-description="创建用户故事，明确目标和验收标准。"
@@ -1066,9 +1018,7 @@ function App() {
             <span>新建工作项</span>
           </button>
         )}
-        <div className="nav-label">
-          {view === "settings" ? "项目设置" : "项目管理"}
-        </div>
+        {view === "settings" && <div className="nav-label">项目设置</div>}
         <nav
           key={view === "settings" ? "settings" : "management"}
           className="sidebar-nav"
@@ -1084,12 +1034,12 @@ function App() {
                 }
                 aria-description={description || settingsDescriptions[id]}
                 aria-current={
-                  (view === "settings" ? settingsSection === id : view === id)
+                  (view === "settings" ? settingsSection === id : view === id || (id === "backlog" && ["work","sprints"].includes(view)))
                     ? "page"
                     : undefined
                 }
                 className={
-                  (view === "settings" ? settingsSection === id : view === id)
+                  (view === "settings" ? settingsSection === id : view === id || (id === "backlog" && ["work","sprints"].includes(view)))
                     ? "nav-item active"
                     : "nav-item"
                 }
@@ -1144,133 +1094,27 @@ function App() {
         </button>
       </Sidebar>
       <main id="panel-projects" role="tabpanel" aria-labelledby="tab-projects">
-        <header className="topbar">
-          <div>
-            <Select
-              className="mobile-project"
-              kind="project"
-              onCreate={() => requestSettingsNavigation(() => {
-                settingsDirtyRef.current = false;
-                setView("overview");
-                setModal({ type: "project" });
-              })}
-              aria-label="切换工作项目"
-              value={project.id}
-              onChange={(e) => switchProject(e.target.value)}
-            >
-              {data.projects.map((p) => (
-                <option
-                  key={p.id}
-                  value={p.id}
-                  data-code={p.code}
-                  data-description={p.description}
-                >
-                  {p.name}
-                </option>
-              ))}
-            </Select>
-            <span className="desktop-project">{project.name}</span>
-            <ChevronRight size={14} />
-            {view === "settings" && (
-              <>
-                <span>项目设置</span>
-                <ChevronRight size={14} />
-              </>
-            )}
-            <b>
-              {view === "settings"
-                ? settingsPages.find((x) => x[0] === settingsSection)?.[1]
-                : navs.find((x) => x[0] === view)?.[1]}
-            </b>
-          </div>
-          <div>
-            {hosting.hosted && hosting.configure && <button className="text-btn" onClick={hosting.configure}>云端存储</button>}
-            {hosting.hosted && <button className="text-btn" onClick={hosting.logout}>退出工作空间</button>}
-            <button
-              className="icon-btn"
-              title="刷新数据"
-              onClick={() => {
-                refresh();
-                setToast("已刷新");
-              }}
-            >
-              <RefreshCw size={16} />
-            </button>
-          </div>
-        </header>
+
         {!online && (
           <div className="offline-banner">
             服务连接已断开，恢复连接后可继续保存。
           </div>
         )}
         <div className={"content view-" + view} key={project.id + view} onContextMenu={handleContextMenu} onKeyDown={handleContextMenu}>
+          {inWork && view!=="list" && <section className="work-page-header">
+            <div className="page-heading"><PageTitle view={view} title={pageTitle}/></div>
+          </section>}
           {view === "overview" && renderOverview()}
-          {view === 'roadmap' && <React.Suspense fallback={<p className="muted" role="status">正在打开路线图…</p>}><Roadmap onSchedule={(item, dates) => action("item.update", { id: item.id, ...dates })} key={project.id} project={project} items={items} releases={releases} busy={busy} onOpen={open} onCreate={() => create()} onReleases={() => go('releases')} onProjectSettings={openProjectSettings}/></React.Suspense>}
-          {view === "hierarchy" && (
-            <>
-              {header(
-                "工作项层级",
-                "管理具体工作项的父子关系，拖动条目即可调整归属。",
-                <button className="primary" onClick={() => create()}>
-                  <Plus size={16} />
-                  新建工作项
-                </button>,
-              )}
-              <div className="hierarchy-legend">
-                {Object.keys(kinds).filter((k) => typeFor(project, k)?.enabled && !typeFor(project, k)?.hidden).map((k, i) => (
-                  <React.Fragment key={k}>
-                    <Kind kind={k} />
+          {view === 'reports' && <React.Suspense fallback={<p className="muted" role="status">正在生成报告…</p>}><Reports key={project.id} project={project} items={items} sprints={sprints} releases={releases} events={events} runs={runs} onOpen={open} onSnapshot={item=>setModal({type:'workSnapshot',item})} onRelease={openRelease}/></React.Suspense>}
+          {view === 'roadmap' && <React.Suspense fallback={<p className="muted" role="status">正在打开路线图…</p>}><Roadmap onSchedule={(item, dates) => action("item.update", { id: item.id, ...dates })} key={project.id} project={project} items={items} releases={releases} busy={busy} onOpen={open} onCreate={() => create()} onReleases={openRelease} onProjectSettings={openProjectSettings}/></React.Suspense>}
+          {view === "list" && <BacklogTable key={project.id + "all"} rows={items} project={project} items={items} sprints={sprints} releases={releases} onOpen={open} kind={kind=><Kind kind={kind} iconOnly/>} status={status=><Badge status={status}/>} priority={value=><span className={'priority '+value}><PriorityIcon value={value}/>{priorities[value]}</span>}/>}
+          {["backlog", "work", "sprints"].includes(view) && <SprintWorkspace key={project.id} project={project} stories={sprintItems} sprints={sprints} releases={releases} onRelease={openRelease} busy={busy} action={action} onOpen={open} onOpenSnapshot={item => setModal({type:"workSnapshot",item})} onCreate={create} renderSprint={(sp, planning) => <SprintCard key={sp.id} sp={sp} stories={sprintItems} action={action} setModal={setModal} open={open} go={go} setSprintFilter={setSprintFilter} storyRows={storyRows} onCreate={() => create(undefined, null, {sprintId:sp.id})} {...planning}/>}/>}
 
-                  </React.Fragment>
-                ))}
-                <span className="ml-auto muted">点击条目查看详情</span>
-              </div>
-              <section className="panel tree" data-work-scope="hierarchy" tabIndex={0}>
-                <div className="tree-sticky-header">
-                <div className="panel-title">
-                  <div className="tree-search"><Search size={15}/><input aria-label="搜索层级工作项" placeholder="搜索标题、编号或类型，保留父级路径" value={treeQuery} onChange={(e) => setTreeQuery(e.target.value)}/>{treeQuery && <button className="icon-btn" aria-label="清除层级搜索" onClick={() => setTreeQuery("")}><X size={13}/></button>}</div>
-                  <Select
-                    aria-label="新建工作项类型"
-                    value=""
-                    onChange={(e) => create(e.target.value)}
-                  >
-                    <option value="">新建条目</option>
-                    {Object.entries(kinds)
-                      .filter(([k]) => typeFor(project, k)?.enabled && !typeFor(project, k)?.hidden)
-                      .map(([k, v]) => (
-                        <option key={k} value={k}>
-                          {v}
-                        </option>
-                      ))}
-                  </Select>
-                </div>
-                <div className="tree-toolbar">
-                  <div className={"tree-root-drop" + (dragOverItem === "root" ? " drag-target" : "")} aria-label="移至未归类"
-                    onDragOver={(e) => { if (draggedItem) { e.preventDefault(); setDragOverItem("root"); } }}
-                    onDragLeave={() => setDragOverItem(null)} onDrop={(e) => moveWorkItem(e, null)}>
-                    {draggedItem ? `正在移动「${items.find((i) => i.id === draggedItem)?.title}」 · 松开移至未归类，或拖到允许的父级行` : "拖到这里移至根层级 / 未归类 · 子任务须保留父级，也可在详情中选择父级"}
-                  </div>
-                  <div className="tree-icon-actions"><button className="icon-btn" aria-label="全部展开工作项" title="全部展开" onClick={() => setCollapsedItems(new Set())}><ChevronsUpDown size={16}/></button><button className="icon-btn" aria-label="全部收起工作项" title="全部收起" onClick={() => setCollapsedItems(new Set(items.filter((i) => items.some((x) => x.parentId === i.id)).map((i) => i.id)))}><ChevronsDownUp size={16}/></button></div>
-                </div>
-                </div>
-                {renderItemTree()}
-                {!items.length && <Empty title="从你的第一个目标开始" />}
-              </section>
-            </>
-          )}
-          {view === "backlog" && <BacklogTable key={project.id} rows={stories} project={project} items={items} sprints={sprints} releases={releases} onOpen={open} kind={kind=><Kind kind={kind} iconOnly/>} status={status=><Badge status={status}/>} priority={value=><span className={'priority '+value}><PriorityIcon value={value}/>{priorities[value]}</span>} heading={header('待办池','梳理工作项、设置可见字段与列顺序，点击列标题按升序或降序排列。',<button className="primary" onClick={()=>create()}><Plus size={16}/>新建工作项</button>)}/>}
           {view === "board" && (
             <>
-              {header(
-                "工作看板",
-                "执行与验收分开，让每一个成果都有明确的下一步。",
-                <button className="primary" onClick={() => create()}>
-                  <Plus size={16} />
-                  新建工作项
-                </button>,
-              )}
               <div className="board-toolbar">
                 {toolbar}
+                <SubtaskFilter checked={boardShowSubtasks} onChange={setBoardShowSubtasks}/>
                 <Select
                   aria-label="冲刺筛选"
                   value={sprintFilter}
@@ -1283,220 +1127,13 @@ function App() {
                     </option>
                   ))}
                 </Select>
+                <Select aria-label="看板版本筛选" value={boardReleaseFilter} onChange={e=>setBoardReleaseFilter(e.target.value)}><option value="all">全部版本</option><option value="none">未安排版本</option>{releases.filter(r=>!r.archived).map(r=><option value={r.id} key={r.id}>{r.name}</option>)}</Select>
               </div>
-              <div className="board" style={{ gridTemplateColumns: `repeat(${boardStatuses(project).length}, minmax(205px, 1fr))` }}>
-                {boardStatuses(project).map(
-                  ({ id: status }) => {
-                    const rows = filtered.filter(
-                      (x) =>
-                        x.status === status &&
-                        (sprintFilter === "all" || x.sprintId === sprintFilter),
-                    );
-                    return (
-                      <section
-                        className="board-column" data-work-scope="board" data-scope-id={status} tabIndex={0}
-                        key={status}
-                        onDragOver={(e) => e.preventDefault()}
-                        onDrop={(e) => {
-                          e.preventDefault();
-                          const id = e.dataTransfer.getData("text/plain");
-                          if (id) action("item.update", { id, status });
-                        }}
-                      >
-                        <div className="column-title">
-                          <Badge status={status} />
-                          <span>{rows.length}</span>
-                          <button
-                            title="新建工作项"
-                            className="icon-btn ml-auto"
-                            onClick={() => create()}
-                          >
-                            <Plus size={15} />
-                          </button>
-                        </div>
-                        {rows.map((i) => (
-                          <button
-                            className="story-card" data-work-item-id={i.id}
-                            key={i.id}
-                            draggable
-                            onDragStart={(e) =>
-                              e.dataTransfer.setData("text/plain", i.id)
-                            }
-                            onClick={() => open(i)}
-                          >
-                            <div>
-                              <Kind kind={i.kind} iconOnly/><small>{project.code}-{i.number}</small>
-                              {i.aiEnabled && <Bot size={15} />}
-                            </div>
-                            <h4>{i.title}</h4>
-                            <p>
-                              {releases.find((r) => r.id === i.releaseId)
-                                ?.name || "未安排版本"}
-                            </p>
-                            <footer>
-                              <span className={"priority " + i.priority}>
-                                <PriorityIcon value={i.priority} />{" "}
-                                {priorities[i.priority]}
-                              </span>
-                              <span className="points">{i.points || "—"}</span>
-                              <span className="avatar ml-auto" title={i.owner}>
-                                {i.owner?.slice(0, 1)}
-                              </span>
-                            </footer>
-                          </button>
-                        ))}
-                        {!rows.length && (
-                          <div className="drop-hint">拖动工作项到这里</div>
-                        )}
-                      </section>
-                    );
-                  },
-                )}
-              </div>
+              <Board project={project} items={items} rows={filtered.filter(x=>(sprintFilter==='all'||x.sprintId===sprintFilter)&&(boardReleaseFilter==='all'||(boardReleaseFilter==='none'?!x.releaseId:x.releaseId===boardReleaseFilter)))} releases={releases} busy={busy} action={action} onOpen={open} onCreate={()=>create()} onNotice={setToast} renderStatus={status=><Badge status={status}/>}/>
             </>
           )}
-          {view === "sprints" && renderSprints()}
-          {view === "releases" && (
-            <>
-              {header(
-                "版本发布",
-                "独立规划发布范围，记录实际交付与延期内容。",
-                <button
-                  className="primary"
-                  onClick={() => setModal({ type: "release" })}
-                >
-                  <Plus size={16} />
-                  创建版本
-                </button>,
-              )}
-              <div className="release-filters tabs" role="tablist" aria-label="版本分类">
-                {[["all","全部"],["released","已发布"],["unreleased","未发布"]].map(([value,label])=><button key={value} role="tab" aria-selected={releaseFilter===value} className={releaseFilter===value?"active":""} onClick={()=>setReleaseFilter(value)}>{label}<span>{releases.filter(r=>value==="all"||(value==="released"?r.status==="released":r.status!=="released")).length}</span></button>)}
-              </div>
-              {visibleReleases.map((r) => {
-                const rows =
-                    r.status === "released"
-                      ? r.publishedStories || []
-                      : stories.filter((x) => x.releaseId === r.id),
-                  done = rows.filter((x) => hasStatus(x, project, "done"));
-                return (
-                  <section className="panel release-card" key={r.id} data-work-scope="release" data-scope-id={r.id} tabIndex={0}>
-                    <div className="release-heading">
-                      <div className="release-icon">
-                        <Flag size={22} />
-                      </div>
-                      <div>
-                        <div className="inline">
-                          <h2>{r.name}</h2>
-                          <Badge status={r.status} workflow={false} />
-                        </div>
-                        <p>{r.goal}</p>
-                      </div>
-                      <div className="ml-auto release-actions">
-                        <span className="muted">
-                          计划发布 {fmt(r.plannedDate)}
-                        </span>
-                        {r.status !== "released" && (
-                          <>
-                            <Select
-                              aria-label={`${r.name} 状态`}
-                              value={r.status}
-                              onChange={(e) =>
-                                action("release.update", {
-                                  id: r.id,
-                                  status: e.target.value,
-                                })
-                              }
-                            >
-                              <option value="planning">规划中</option>
-                              <option value="active">开发中</option>
-                              <option value="ready">待发布</option>
-                            </Select>
-                            <button
-                              className="primary"
-                              onClick={() =>
-                                setModal({ type: "publish", release: r })
-                              }
-                            >
-                              确认发布 <ArrowUpRight size={14} />
-                            </button>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                    <div className="release-progress">
-                      <Progress value={percent(done.length, rows.length)} />
-                      <span>
-                        {done.length} / {rows.length} 故事已验收
-                      </span>
-                    </div>
-                    {storyRows(rows, true, r.status === "released")}
-                    {r.status === "released" && (
-                      <div className="release-notes">
-                        <h4>发布记录 · {time(r.publishedAt)}</h4>
-                        <MarkdownPreview value={r.notes}/>
-                        <p className="muted">
-                          延期 {r.deferredStories?.length || 0}{" "}
-                          个工作项，已记录去向。
-                        </p>
-                      </div>
-                    )}
-                  </section>
-                );
-              })}
-              {!visibleReleases.length && <Empty title={!releases.length?"规划你的第一个版本":releaseFilter==="released"?"暂无已发布版本":"暂无未发布版本"} />}
-            </>
-          )}
-          {view === "memory" && (
-            <>
-              {header(
-                "项目记忆",
-                "持续保存项目约定、关键决定与经验，成为人和 AI 共享的记忆。",
-                <button
-                  className="primary"
-                  onClick={() => setModal({ type: "note" })}
-                >
-                  <Plus size={16} />
-                  记录记忆
-                </button>,
-              )}
-              <div className="memory-grid">
-                {notes.map((n) => (
-                  <article className="panel memory-card" key={n.id}>
-                    <span
-                      className={
-                        "kind " + (n.type === "decision" ? "epic" : "feature")
-                      }
-                    >
-                      {n.type === "decision" ? (
-                        <GitBranch size={14} />
-                      ) : (
-                        <BookOpen size={14} />
-                      )}
-                      {
-                        {
-                          decision: "关键决定",
-                          context: "工作上下文",
-                          learning: "经验与复盘",
-                        }[n.type]
-                      }
-                    </span>
-                    <h3>{n.title}</h3>
-                    <MarkdownPreview value={n.body}/>
-                    <footer>
-                      <span className="avatar">我</span>
-                      <span>
-                        {n.author} · {fmt(n.createdAt)}
-                      </span>
-                      <span className="ml-auto">
-                        <CheckCircle2 size={13} /> 人工记录
-                      </span>
-                    </footer>
-                  </article>
-                ))}
-              </div>
-              {!notes.length && <Empty title="记录第一个共识" />}
-            </>
-          )}
+
+          {view === "releases" && <ReleaseWorkspace key={project.id} project={project} items={items} releases={releases} sprints={sprints} releaseId={releaseId} onSelect={setReleaseId} action={action} busy={busy} onOpen={open} onSnapshot={item=>setModal({type:"workSnapshot",item})} onCreate={create}/>}
           {view === "ai" && (
             <>
               {header(
@@ -1579,6 +1216,7 @@ function App() {
               project={project}
               cloudPanel={<CloudPanel project={project} busy={busy||settingsDirtyRef.current} onState={receiveCloudState} setToast={setToast}/>}
               section={settingsSection}
+              memoryPanel={renderMemory()}
               action={action}
               data={data}
               setData={next=>syncRef.current.receive(next)}
@@ -1592,11 +1230,7 @@ function App() {
               }}
             />
           )}
-          <footer className="page-footer">
-            <span>合序 HeySO</span>
-            <span>Hey, Shared Outcomes.</span>
-            <span>{project.cloud ? "LoyoCloud 在线项目" : hosting.hosted ? "在线保存" : "本地保存"} · alpha_0.1</span>
-          </footer>
+
         </div>
       </main>
       </>}
@@ -1644,7 +1278,7 @@ function App() {
                 if (!result.remainingProjectId)
                   localStorage.removeItem("heyso-project");
                 setModal(null);
-                go("overview");
+                go("roadmap");
                 setToast("项目已删除");
               }}
             />
@@ -1684,7 +1318,7 @@ function App() {
         <div className="toast" role="status">
           <CheckCircle2 size={17} />
           {toast}
-          <button className="icon-btn" onClick={() => setToast("")}>
+          <button className="icon-btn" aria-label="关闭提示" onClick={() => setToast("")}>
             <X size={14} />
           </button>
         </div>
@@ -1703,126 +1337,42 @@ function SprintCard({
   open,
   go,
   setSprintFilter,
-  storyRows,
+  storyRows, workRows, onStart, onEdit, onClose, onCreate, scopeFilter, busy, activeSprint,
 }) {
   const project = useWorkProject();
-  const [expanded, setExpanded] = useState(sp.status === "active"),
-    [section, setSection] = useState("stories"),
-    [review, setReview] = useState(sp.review),
-    [retro, setRetro] = useState(sp.retro);
+  const [expanded, setExpanded] = useState(sp.status !== "closed");
   const rows =
       sp.status === "closed"
         ? sp.finalStories || []
         : stories.filter((x) => x.sprintId === sp.id),
     done = rows.filter((x) => hasStatus(x, project, "done"));
-  const daily = Object.values(
-    Object.fromEntries((sp.snapshots || []).map((x) => [x.date, x])),
-  );
-  const max = Math.max(1, ...daily.map((x) => x.total));
+  const visibleRows = scopeFilter ? rows.filter(scopeFilter) : rows;
+  const menuRef = useRef(null);
+  useEffect(() => {
+    const close = e => { if (e.type === "keydown" ? e.key === "Escape" : !menuRef.current?.contains(e.target)) menuRef.current?.removeAttribute("open"); };
+    document.addEventListener("pointerdown", close); document.addEventListener("keydown", close);
+    return () => {document.removeEventListener("pointerdown", close); document.removeEventListener("keydown", close);};
+  }, []);
   return (
     <section className="panel sprint-card" data-work-scope="sprint" data-scope-id={sp.id} tabIndex={0}>
       <div className="sprint-heading">
-        <button
-          className="icon-btn"
-          aria-label={expanded ? "收起冲刺" : "展开冲刺"}
-          onClick={() => setExpanded(!expanded)}
-        >
-          {expanded ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
-        </button>
-        <div>
-          <div className="inline">
-            <h2>{sp.name}</h2>
-            <Badge status={sp.status} workflow={false} />
-          </div>
-          <p>{sp.goal}</p>
-          <div className="muted">
-            <Calendar size={14} />
-            {fmt(sp.startDate)} — {fmt(sp.endDate)}{" "}
-            <span>· 容量 {sp.capacity} SP</span>
-          </div>
-        </div>
-          <div className="sprint-metrics">
-            <span>
-              <strong>{rows.length}</strong>范围内工作项
-            </span>
-            <span>
-              <strong>{sum(rows)}</strong>总故事点
-            </span>
-            <span>
-              <strong>{sum(done)}</strong>已完成故事点
-            </span>
-            <span>
-              <strong>{rows.filter((x) => !x.points).length}</strong>未估算
-            </span>
-            <div>
-              <Progress value={percent(done.length, rows.length)} />
-              <small>{percent(done.length, rows.length)}% 已验收</small>
-            </div>
-          </div>
+        <button className="icon-btn" aria-label={(expanded ? "收起" : "展开") + sp.name} aria-expanded={expanded} onClick={() => setExpanded(!expanded)}>{expanded ? <ChevronDown size={16}/> : <ChevronRight size={16}/>}</button>
+        <div className="sprint-heading-info"><h2 title={sp.name}>{sp.name}</h2><button className="sprint-date-link" disabled={busy || sp.status === "closed"} aria-label={"编辑" + sp.name + "日期"} onClick={onEdit}><Calendar size={12}/>{fmt(sp.startDate)} — {fmt(sp.endDate)}</button><span className="sprint-item-count">（{visibleRows.length} 个工作项）</span></div>
         <div className="inline sprint-actions">
-          {sp.status === "planned" && (
-            <button
-              className="primary"
-              onClick={() => action("sprint.start", { id: sp.id })}
-            >
-              <Play size={15} />
-              启动冲刺
-            </button>
-          )}
-          {sp.status === "active" && (
-            <>
-              <button
-                onClick={() => {
-                  go("board");
-                  setSprintFilter(sp.id);
-                }}
-              >
-                打开看板
-              </button>
-              <button
-                className="primary"
-                onClick={() => setModal({ type: "closeSprint", sprint: sp })}
-              >
-                结束冲刺
-              </button>
-            </>
-          )}
+          <SprintStatusCounts rows={visibleRows} project={project}/>
+          {sp.status === "planned" && <button className="primary" disabled={busy || !rows.length || !!activeSprint} title={activeSprint ? "请先完成当前冲刺" : !rows.length ? "先从待办池安排工作项" : "确认目标和周期后启动"} onClick={onStart}>启动冲刺</button>}
+          {sp.status === "active" && <button className="primary" disabled={busy} onClick={onClose}>完成冲刺</button>}
+          {sp.status!=="closed"&&<details className="sprint-more-menu" ref={menuRef}><summary aria-label={sp.name + "更多操作"}><MoreHorizontal size={17}/></summary><div className="sprint-more-options">
+            {sp.status !== "closed" && <button disabled={busy} onClick={() => {menuRef.current?.removeAttribute("open");onEdit();}}>编辑冲刺</button>}
+            {sp.status === "active" && <button onClick={() => {go("board");setSprintFilter(sp.id);}}>打开看板</button>}
+
+          </div></details>}
         </div>
       </div>
       {expanded && (
         <>
-          <div className="tabs">
-            {[
-              ["stories", "冲刺范围"],
-              ["review", "评审与复盘"],
-              ["tracking", "基线与燃尽"],
-            ].map(([id, label]) => (
-              <button
-                className={section === id ? "active" : ""}
-                key={id}
-                onClick={() => setSection(id)}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-          {section === "stories" && (
-            <>
-              {storyRows(rows, false, sp.status === "closed")}
-              {sp.status === "planned" && (
-                <div className="section-pad">
-                  <button
-                    onClick={() => {
-                      go("backlog");
-                    }}
-                  >
-                    从待办池安排故事 <ArrowRight size={14} />
-                  </button>
-                  <p className="muted">
-                    在故事详情中选择当前 Sprint，即可加入冲刺范围。
-                  </p>
-                </div>
-              )}
+              {workRows(rows)}
+              {sp.status !== "closed" && <div className="sprint-create-row"><button className="text-btn" disabled={busy} onClick={onCreate}><Plus size={15}/>新建工作项</button></div>}
               {sp.status === "closed" && sp.carryover?.length > 0 && (
                 <div className="section-pad">
                   <h4>未完成故事的去向</h4>
@@ -1841,192 +1391,14 @@ function SprintCard({
                   ))}
                 </div>
               )}
-            </>
-          )}
-          {section === "review" && (
-            <div className="section-pad">
-              <div className="form-grid">
-                <Field label="冲刺评审 · 目标与成果">
-                  <textarea
-                    disabled={sp.status === "closed"}
-                    value={review}
-                    onChange={(e) => setReview(e.target.value)}
-                    placeholder="目标是否达成？实际交付了什么？"
-                  />
-                </Field>
-                <Field label="做得好的地方">
-                  <textarea
-                    disabled={sp.status === "closed"}
-                    value={retro.wentWell}
-                    onChange={(e) =>
-                      setRetro({ ...retro, wentWell: e.target.value })
-                    }
-                    placeholder="哪些做法值得保留？"
-                  />
-                </Field>
-                <Field label="需要改进的地方">
-                  <textarea
-                    disabled={sp.status === "closed"}
-                    value={retro.improve}
-                    onChange={(e) =>
-                      setRetro({ ...retro, improve: e.target.value })
-                    }
-                    placeholder="哪些问题影响了交付？"
-                  />
-                </Field>
-                <Field label="下次采取的行动">
-                  <textarea
-                    disabled={sp.status === "closed"}
-                    value={retro.actions}
-                    onChange={(e) =>
-                      setRetro({ ...retro, actions: e.target.value })
-                    }
-                    placeholder="写清行动，结束时可以转为后续故事。"
-                  />
-                </Field>
-              </div>
-              {sp.status !== "closed" && (
-                <button
-                  className="primary"
-                  onClick={() =>
-                    action("sprint.update", { id: sp.id, review, retro })
-                  }
-                >
-                  保存评审与复盘
-                </button>
-              )}
-            </div>
-          )}
-          {section === "tracking" && (
-            <div className="section-pad">
-              <div className="form-grid">
-                <div>
-                  <h4>范围基线</h4>
-                  <p className="muted">
-                    启动时 {sp.baseline.length} 个工作项 · {sum(sp.baseline)}{" "}
-                    SP；当前 {rows.length} 个工作项 · {sum(rows)} SP
-                  </p>
-                  <div className="baseline-list">
-                    {sp.baseline.map((x) => (
-                      <div key={x.id}>
-                        <span>{x.title}</span>
-                        <b>{x.points || "—"} SP</b>
-                      </div>
-                    ))}
-                  </div>
-                  <h4>冲刺内范围变化</h4>
-                  {sp.scopeChanges.length ? (
-                    sp.scopeChanges.map((x, i) => (
-                      <p key={i} className="muted">
-                        {fmt(x.at)} · {x.action}「{x.title}」· {x.reason}
-                      </p>
-                    ))
-                  ) : (
-                    <p className="muted">暂无范围变化</p>
-                  )}
-                </div>
-                <div>
-                  <h4>剩余故事点</h4>
-                  {daily.length ? (
-                    <>
-                      <svg
-                        className="burn-chart"
-                        viewBox="0 0 420 210"
-                        role="img"
-                        aria-label="燃尽图：实际剩余故事点"
-                      >
-                        <line
-                          x1="30"
-                          y1="180"
-                          x2="400"
-                          y2="180"
-                          stroke="#dde2e7"
-                        />
-                        <line
-                          x1="30"
-                          y1="20"
-                          x2="30"
-                          y2="180"
-                          stroke="#dde2e7"
-                        />
-                        {[0, 0.5, 1].map((n) => (
-                          <g key={n}>
-                            <line
-                              x1="30"
-                              x2="400"
-                              y1={180 - n * 150}
-                              y2={180 - n * 150}
-                              stroke="#edf0f3"
-                            />
-                            <text
-                              x="0"
-                              y={185 - n * 150}
-                              fontSize="11"
-                              fill="#87919c"
-                            >
-                              {Math.round(max * n)}
-                            </text>
-                          </g>
-                        ))}
-                        <polyline
-                          points={daily
-                            .map(
-                              (d, i) =>
-                                `${45 + (daily.length > 1 ? (i / (daily.length - 1)) * 340 : 0)},${180 - (d.remaining / max) * 150}`,
-                            )
-                            .join(" ")}
-                          fill="none"
-                          stroke="var(--accent)"
-                          strokeWidth="3"
-                        />
-                        {daily.map((d, i) => (
-                          <g key={d.date}>
-                            <circle
-                              cx={
-                                45 +
-                                (daily.length > 1
-                                  ? (i / (daily.length - 1)) * 340
-                                  : 0)
-                              }
-                              cy={180 - (d.remaining / max) * 150}
-                              r="4"
-                              fill="var(--accent)"
-                            />
-                            <text
-                              x={
-                                45 +
-                                (daily.length > 1
-                                  ? (i / (daily.length - 1)) * 340
-                                  : 0)
-                              }
-                              y="202"
-                              textAnchor="middle"
-                              fontSize="10"
-                              fill="#87919c"
-                            >
-                              {fmt(d.date)}
-                            </text>
-                          </g>
-                        ))}
-                      </svg>
-                      <p className="muted">
-                        按实际变更记录每日最后的剩余量。
-                        {daily.length === 1
-                          ? "当前只有一天的数据，后续随执行累积。"
-                          : ""}
-                      </p>
-                    </>
-                  ) : (
-                    <p className="muted">启动冲刺后开始记录实际数据。</p>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
+
         </>
       )}
     </section>
   );
+}
+function InheritedPlanning({parent,sprints}) {
+  return <div className="inherited-planning wide"><Field label="Sprint（随父级）"><input aria-label="继承的 Sprint" readOnly value={parent?(sprints.find(sp=>sp.id===parent.sprintId)?.name||"产品待办池"):"请先选择父级工作项"}/></Field><p className="muted">子任务的冲刺随父级工作项调整；目标版本可独立设置。</p></div>;
 }
 function Field({ label, children, wide }) {
   const Container = React.Children.toArray(children).some(child => React.isValidElement(child) && child.type === RichTextEditor) ? "div" : "label";
@@ -2108,7 +1480,7 @@ function Detail({
           </div>
         </header>
         <div className="drawer-body">
-          {ancestors.length > 0 && <nav className="item-parent-path" aria-label="父级路径">{ancestors.map((parent) => <React.Fragment key={parent.id}><button onClick={() => open(parent)} title={parent.title}><Kind kind={parent.kind} iconOnly/><span>{parent.title}</span></button><ChevronRight size={12}/></React.Fragment>)}<span>当前工作项</span></nav>}
+          {ancestors.length > 0 && <nav className="item-parent-path" aria-label="所属工作项路径">{ancestors.map((parent) => <React.Fragment key={parent.id}><button onClick={() => open(parent)} title={parent.title}><Kind kind={parent.kind} iconOnly/><span>{parent.title}</span></button><ChevronRight size={12}/></React.Fragment>)}<span>当前工作项</span></nav>}
           <div className="detail-heading">
             <div className="detail-title-row">
               <span
@@ -2192,7 +1564,7 @@ function Detail({
                   </Select>
                 </Field>
                 {parentKind && (
-                  <Field label="父级工作项">
+                  <Field label="所属工作项">
                     <Select
                       value={i.parentId || ""}
                       onChange={(e) => update({ parentId: e.target.value })}
@@ -2201,15 +1573,15 @@ function Detail({
                       {items
                         .filter((x) => possibleParents.some((p) => p.id === x.id))
                         .map((x) => (
-                          <option key={x.id} value={x.id} data-kind={x.kind} data-description={typeNames(project)[x.kind] + (x.parentId ? " · " + (items.find((p) => p.id === x.parentId)?.title || "") : " · 根层级")}>
+                          <option key={x.id} value={x.id} data-kind={x.kind} data-description={typeNames(project)[x.kind] + (x.parentId ? " · " + (items.find((p) => p.id === x.parentId)?.title || "") : " · 未关联所属工作项")}>
                             {x.number ? `${project.code}-${x.number} · ${x.title}` : x.title}
                           </option>
                         ))}
                     </Select>
                   </Field>
                 )}
-                {isWorkItem(i, project) && (
-                  <>
+                {isSubtask(i,project)&&<InheritedPlanning parent={parentItem} releases={releases} sprints={sprints}/>}
+                {<>
                     <Field label="目标版本">
                       <Select
                         value={i.releaseId || ""}
@@ -2219,7 +1591,7 @@ function Detail({
                         {releases
                           .filter(
                             (r) =>
-                              r.status !== "released" || r.id === i.releaseId,
+                              (!r.archived && r.status !== "released") || r.id === i.releaseId,
                           )
                           .map((r) => (
                             <option key={r.id} value={r.id}>
@@ -2228,7 +1600,7 @@ function Detail({
                           ))}
                       </Select>
                     </Field>
-                    <Field label="Sprint">
+                    {!isSubtask(i,project)&&<Field label="Sprint">
                       <Select
                         value={i.sprintId || ""}
                         onChange={(e) => update({ sprintId: e.target.value })}
@@ -2244,8 +1616,8 @@ function Detail({
                             </option>
                           ))}
                       </Select>
-                    </Field>
-                    <Field label="故事点">
+                    </Field>}
+                    {isWorkItem(i,project)&&<Field label="故事点">
                       <Select
                         value={i.points || 0}
                         onChange={(e) =>
@@ -2258,9 +1630,8 @@ function Detail({
                           </option>
                         ))}
                       </Select>
-                    </Field>
-                  </>
-                )}
+                    </Field>}
+                  </>}
               </div>
               <ItemSchedule
                 item={i}
@@ -2522,6 +1893,7 @@ function EditorModal({
 }) {
   const kinds = typeNames(project);
   const [itemKind, setItemKind] = useState(m.kind || "story");
+  const [itemSprint,setItemSprint]=useState(m.sprintId||""),[itemRelease,setItemRelease]=useState(m.releaseId||"");
   const [itemParent, setItemParent] = useState(m.parentId || "");
   const [error, setError] = useState("");
   const [imagePending,setImagePending] = useState(0);
@@ -2569,8 +1941,8 @@ function EditorModal({
         points: Number(get(f, "points")) || 0,
         startDate: get(f, "startDate"),
         endDate: get(f, "endDate"),
-        sprintId: m.sprintId || null,
-        releaseId: m.releaseId || null,
+        sprintId: isSubtask({kind:itemKind},project)?null:itemSprint||null,
+        releaseId: itemRelease||null,
       });
     }
     if (m.type === "project") {
@@ -2812,7 +2184,7 @@ function EditorModal({
                     />
                   </Field>
                   {parentKind && (
-                    <Field label="父级工作项">
+                    <Field label="所属工作项">
                       <Select
                         name="parentId"
                         value={itemParent}
@@ -2830,7 +2202,7 @@ function EditorModal({
                         {items
                           .filter((x) => possibleParents.some((p) => p.id === x.id))
                           .map((x) => (
-                            <option key={x.id} value={x.id} data-kind={x.kind} data-description={typeNames(project)[x.kind] + (x.parentId ? " · " + (items.find((p) => p.id === x.parentId)?.title || "") : " · 根层级")}>
+                            <option key={x.id} value={x.id} data-kind={x.kind} data-description={typeNames(project)[x.kind] + (x.parentId ? " · " + (items.find((p) => p.id === x.parentId)?.title || "") : " · 未关联所属工作项")}>
                               {x.number ? `${project.code}-${x.number} · ${x.title}` : x.title}
                             </option>
                           ))}
@@ -2870,6 +2242,8 @@ function EditorModal({
                       </Select>
                     </Field>
                   </div>
+                  {<div className="form-grid"><Field label="目标版本"><Select name="releaseId" value={itemRelease} onChange={e=>setItemRelease(e.target.value)}><option value="">未安排版本</option>{data.releases.filter(r=>r.projectId===project.id&&!r.archived&&r.status!=="released").map(r=><option key={r.id} value={r.id}>{r.name}</option>)}</Select></Field>{!isSubtask({kind:itemKind},project)&&<Field label="Sprint"><Select name="sprintId" value={itemSprint} onChange={e=>setItemSprint(e.target.value)}><option value="">产品待办池</option>{data.sprints.filter(sp=>sp.projectId===project.id&&sp.status!=="closed").map(sp=><option key={sp.id} value={sp.id}>{sp.name}</option>)}</Select></Field>}</div>}
+                  {isSubtask({kind:itemKind},project)&&<InheritedPlanning parent={items.find(i=>i.id===itemParent)} releases={data.releases} sprints={data.sprints}/>}
                   {isExecutionItem({ kind: itemKind }, project) && (
                     <>
                       <Field label="验收标准">
@@ -2919,7 +2293,7 @@ function EditorModal({
                     setStart={setPlanStart}
                     setEnd={setPlanEnd}
                   />
-                  <p className="muted">需求层级的起止日期将受项目周期约束。</p>
+                  <p className="muted">工作项的起止日期须在项目周期内。</p>
                 </>
               )}
               {(m.type === "sprint" || m.type === "release") && (
@@ -3122,7 +2496,7 @@ function EditorModal({
                               (r) =>
                                 r.projectId === project.id &&
                                 r.id !== m.release.id &&
-                                r.status !== "released",
+                                !r.archived && r.status !== "released",
                             )
                             .map((r) => (
                               <option key={r.id} value={r.id}>
@@ -3176,3 +2550,5 @@ function EditorModal({
   );
 }
 createRoot(document.getElementById("root")).render(<AccessGate><App /></AccessGate>);
+
+import "./search.css";

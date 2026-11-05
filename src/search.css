@@ -1,0 +1,11 @@
+/* Shared search appearance, matching the report directory. */
+body :is(.search,.report-directory-search,.roadmap-search,.roadmap-filter-search,.dashboard-search,.tree-search,.select-search,.help-search,.app-search) {display:flex;align-items:center;gap:7px;background:#fff;border:1px solid var(--border,#dfe3e9);border-radius:6px;padding:8px 11px;color:#9aa2ab;min-height:34px;box-shadow:none;}
+body :is(.search,.report-directory-search,.roadmap-search,.roadmap-filter-search,.dashboard-search,.tree-search,.select-search,.help-search,.app-search)>svg {flex:0 0 15px;width:15px;height:15px;}
+body input:is([type=search],[aria-label^="搜索"],[placeholder^="搜索"]) {border:1px solid var(--border,#dfe3e9);border-radius:6px;background:white;color:var(--text,#42526e);font:inherit;font-size:12px;padding:8px 11px;min-height:34px;box-shadow:none;}
+body :is(.search,.report-directory-search,.roadmap-search,.roadmap-filter-search,.dashboard-search,.tree-search,.select-search,.help-search,.app-search) input {border:0;border-radius:0;background:transparent;box-shadow:none;padding:0;min-height:0;outline:0;color:var(--text,#42526e);font:inherit;font-size:12px;min-width:0;}
+body :is(.search,.report-directory-search,.roadmap-search,.roadmap-filter-search,.dashboard-search,.tree-search,.select-search,.help-search,.app-search) input::placeholder {color:#9aa2ab;}
+body :is(.search,.report-directory-search,.roadmap-search,.roadmap-filter-search,.dashboard-search,.tree-search,.select-search,.help-search,.app-search):focus-within {border-color:#c6a28d;box-shadow:0 0 0 2px #e8794212;}
+/* Match more specific page rules without changing search widths. */
+body .sprint-plan-toolbar .search,.board-toolbar .search,.version-list-toolbar .search {background:#fff;border-color:var(--border);padding:8px 11px;color:#9aa2ab;}
+body .sprint-plan-toolbar .search input,.board-toolbar .search input,.version-list-toolbar .search input {padding:0;color:var(--text,#42526e);}
+body .roadmap-plan-popover .roadmap-search {padding:8px 11px;}

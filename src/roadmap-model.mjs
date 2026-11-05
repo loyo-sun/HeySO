@@ -95,13 +95,13 @@ export function roadmapPoint(value, window) {
   const day = dayNumber(value);
   return day === null || day < window.start || day > window.end ? null : (day - window.start + .5) / window.days * 100;
 }
-export function roadmapRows(items, project, { query = '', status = 'all', owner = 'all', subtask = false, collapsed = new Set() } = {}) {
+export function roadmapRows(items, project, { query = '', status = 'all', owner = 'all', version = 'all', subtask = false, collapsed = new Set() } = {}) {
   const byId = new Map(items.map(i => [i.id, i])), children = new Map();
   for (const i of items) { const parent = byId.has(i.parentId) ? i.parentId : null; if (!children.has(parent)) children.set(parent, []); children.get(parent).push(i); }
-  const matches = new Set(items.filter(i => (subtask || !isSubtask(i, project)) && (status === 'all' || (Array.isArray(status)?status.includes(i.status):i.status===status)) && (owner === 'all' || (Array.isArray(owner)?owner.includes(i.owner||''):i.owner===owner)) && (!query.trim() || `${i.title} ${project.code}-${i.number} ${typeFor(project, i.kind)?.name || ''}`.toLowerCase().includes(query.trim().toLowerCase()))).map(i => i.id));
+  const matches = new Set(items.filter(i => (subtask || !isSubtask(i, project)) && (version === 'all' || version.includes(i.releaseId || '')) && (status === 'all' || (Array.isArray(status)?status.includes(i.status):i.status===status)) && (owner === 'all' || (Array.isArray(owner)?owner.includes(i.owner||''):i.owner===owner)) && (!query.trim() || `${i.title} ${project.code}-${i.number} ${typeFor(project, i.kind)?.name || ''}`.toLowerCase().includes(query.trim().toLowerCase()))).map(i => i.id));
   const included = new Set(matches);
   for (const id of matches) { let parent = byId.get(id)?.parentId; const visited = new Set([id]); while (parent && byId.has(parent) && !visited.has(parent)) { visited.add(parent); included.add(parent); parent = byId.get(parent).parentId; } }
-  const filtered = !!query.trim() || status !== 'all' || owner !== 'all', rows = [];
+  const filtered = !!query.trim() || status !== 'all' || owner !== 'all' || version !== 'all', rows = [];
   function walk(parent, depth, path = new Set()) {
     for (const item of children.get(parent) || []) {
       if (!included.has(item.id) || path.has(item.id)) continue;
@@ -118,4 +118,40 @@ export function roadmapProgress(item, items, project) {
   const work = isWorkItem(item, project) ? [item] : all.filter(i => isWorkItem(i, project));
   const done = work.filter(i => hasStatus(i, project, 'done')).length;
   return { done, total: work.length, percent: work.length ? Math.round(done / work.length * 100) : 0 };
+}
+
+// A plan view has an explicit visible date range; zooming never mutates schedules.
+export function roadmapPlanWindow(anchor, mode, project, items = [], releases = [], custom = {}) {
+  let start, end;
+  if (mode === 'custom' && dayNumber(custom.startDate) !== null && dayNumber(custom.endDate) !== null && dayNumber(custom.endDate) >= dayNumber(custom.startDate)) {
+    start = dayNumber(custom.startDate); end = dayNumber(custom.endDate);
+  } else if (mode === 'fit') {
+    const dates = [...items.flatMap(i => [i.startDate, i.endDate || i.dueDate]), ...releases.map(r => r.releasedDate || r.plannedDate)].map(dayNumber).filter(n => n !== null);
+    if (!dates.length) dates.push(...[project.startDate, project.endDate, anchor].map(dayNumber).filter(n => n !== null));
+    start = Math.min(...dates) - 7; end = Math.max(...dates) + 7;
+  } else {
+    start = dayNumber(anchor); const d = new Date(start * DAY);
+    end = Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + (mode === 'year' ? 12 : 3), d.getUTCDate()) / DAY - 1;
+  }
+  // Keep very long project plans practical while retaining all dates in fit mode.
+  const days = end - start + 1, segments = [], ticks = [], monthly = days > 180;
+  for (let n = start; n <= end; n++) {
+    const d = new Date(n * DAY), month = d.getUTCMonth(), year = d.getUTCFullYear();
+    if (n === start || d.getUTCDate() === 1) {
+      const next = Date.UTC(year, month + 1, 1) / DAY;
+      segments.push({label:`${year}年${month + 1}月`,left:(n-start)/days*100,width:(Math.min(next,end+1)-n)/days*100});
+    }
+    if (n === start || (monthly ? d.getUTCDate() === 1 : d.getUTCDay() === 1)) ticks.push({date:iso(n),left:(n-start)/days*100,label:`${month+1}/${d.getUTCDate()}`,weekend:[0,6].includes(d.getUTCDay())});
+  }
+  return {start,end,days,startDate:iso(start),endDate:iso(end),segments,ticks,label:`${iso(start)} — ${iso(end)}`};
+}
+export function roadmapPlanRows(items, project, options, top, bottom) {
+  const byId = new Map(items.map(i=>[i.id,i]));
+  const inRange = i => {const level=typeFor(project,i.kind)?.level ?? 0; return level<=top&&level>=bottom;};
+  const collapsed = new Set([...options.collapsed||[]].filter(id=>byId.has(id)&&inRange(byId.get(id))));
+  return roadmapRows(items,project,{...options,subtask:bottom<=-1,collapsed}).filter(r=>inRange(r.item)).map(r=>{
+    let depth=0,parent=byId.get(r.item.parentId),seen=new Set([r.item.id]);
+    while(parent&&!seen.has(parent.id)){seen.add(parent.id);if(inRange(parent))depth++;parent=byId.get(parent.parentId);}
+    return {...r,depth,hasChildren:r.hasChildren&&(typeFor(project,r.item.kind)?.level??0)>bottom};
+  });
 }

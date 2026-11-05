@@ -33,7 +33,7 @@ export function workItemEntries({ item: i, snapshot = false, project, data, hand
   ];
   if (standard) {
     entries.push(group("安排到 Sprint", [choice("移回产品待办池（清除 Sprint）",null,i.sprintId,"sprintId"), ...data.sprints.filter((s) => s.projectId === project.id && s.status !== "closed").map((s) => choice(s.name,s.id,i.sprintId,"sprintId"))], true));
-    entries.push(group("安排到版本", [choice("移出当前版本（清除版本）",null,i.releaseId,"releaseId"), ...data.releases.filter((r) => r.projectId === project.id && r.status !== "released").map((r) => choice(r.name,r.id,i.releaseId,"releaseId"))]));
+    entries.push(group("安排到版本", [choice("移出当前版本（清除版本）",null,i.releaseId,"releaseId"), ...data.releases.filter((r) => r.projectId === project.id && !r.archived && r.status !== "released").map((r) => choice(r.name,r.id,i.releaseId,"releaseId"))]));
     entries.push(group("设置故事点", [0,1,2,3,5,8,13,21,34].map((n) => choice(n ? String(n) : "未估算", n, i.points || 0,"points"))));
   }
   if (items.some((x) => x.parentId === i.id) && h.toggleBranch) entries.push({label:h.collapsed ? "展开当前分支" : "收起当前分支",run:() => h.toggleBranch(i.id)});

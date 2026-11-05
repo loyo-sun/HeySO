@@ -114,7 +114,7 @@ for (const platform of ['netlify', 'vercel', 'cloudflare']) for (const provider 
     assert.equal((await c.call('/api/setup/unlock', { setupKey: env.HEYSO_SETUP_KEY }, { Origin: 'https://evil.example' })).status, 403);
     await choose(c, provider, platform, mock);
     const session = await (await c.call('/api/session')).json(); assert.equal(session.authenticated, true); assert.equal(session.provider, provider);
-    const health = await (await c.call('/api/health')).json(); assert.equal(health.status, 'ok'); assert.equal(health.tools, 5);
+    const health = await (await c.call('/api/health')).json(); assert.equal(health.status, 'ok'); assert.equal(health.tools, 7);
     const cookie = [...c.jar.values()].join(';');
     for (const secret of [password, 'test-loyo-editor-token', 'test-redis-read-write-token']) assert.ok(!cookie.includes(secret));
     const before = await (await c.call('/api/state')).json();
@@ -138,7 +138,7 @@ for (const platform of ['netlify', 'vercel', 'cloudflare']) for (const provider 
       const connection = await (await c.call('/api/connection')).json(); assert.match(connection.token, /^hs1\./);
       const rpc = new Client({ name: 'wizard-mcp', version: '1' });
       await rpc.connect(new StreamableHTTPClientTransport(new URL(origin + '/mcp'), { requestInit: { headers: { Authorization: 'Bearer ' + connection.token } }, fetch: (url, init) => handleDeployment(new Request(url, init), env, options) }));
-      try { assert.equal((await rpc.listTools()).tools.length, 5); } finally { await rpc.close(); }
+      try { assert.equal((await rpc.listTools()).tools.length, 7); } finally { await rpc.close(); }
       const noCookie = new Request(origin + '/api/connection', { headers: { Authorization: 'Bearer ' + connection.token } });
       assert.equal((await handleDeployment(noCookie, env, options)).status, 401, 'an MCP token is not a browser login');
     }

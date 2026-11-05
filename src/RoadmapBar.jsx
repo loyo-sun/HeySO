@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { fitChildSchedules } from '../shared/schedule.mjs';
 import { dragRoadmapDates, roadmapBar } from './roadmap-model.mjs';
 
-export default function RoadmapBar({ item, items, project, window, progress, color, overdue, title, status, busy, onOpen, onSchedule }) {
+export default function RoadmapBar({ item, items, project, window, progress, color, overdue, title, status, compact=false, summary=false, busy, onOpen, onSchedule }) {
   const [preview, setPreview] = useState(null), [saving, setSaving] = useState(false);
   const gesture = useRef(null), suppressClick = useRef(false), latest = useRef(null);
   latest.current = { item, items, project, busy };
@@ -55,7 +55,7 @@ export default function RoadmapBar({ item, items, project, window, progress, col
   const events = mode => ({ onPointerDown: e => begin(e, mode), onPointerMove: move, onPointerUp: e => finish(e), onPointerCancel: e => finish(e, true), onLostPointerCapture: e => finish(e, true) });
   const blocked = busy || saving;
   return <>
-    <div className={`roadmap-bar${position.clippedStart ? ' clipped-start' : ''}${position.clippedEnd ? ' clipped-end' : ''}${preview ? ' is-dragging' : ''}${saving ? ' is-saving' : ''}`} style={{ left: `${position.left}%`, width: `${position.width}%`, '--bar-color': color }} title={preview ? undefined : title}>
+    <div className={`roadmap-bar${compact ? ' is-compact' : ''}${summary ? ' is-summary' : ''}${position.clippedStart ? ' clipped-start' : ''}${position.clippedEnd ? ' clipped-end' : ''}${preview ? ' is-dragging' : ''}${saving ? ' is-saving' : ''}`} style={{ left: `${position.left}%`, width: `${position.width}%`, '--bar-color': color }} title={preview ? undefined : title}>
       <span className="roadmap-bar-progress" style={{ width: `${progress.percent}%` }}/>
       <button className="roadmap-bar-body" {...events('move')} disabled={blocked} onClick={() => { if (!suppressClick.current) onOpen(item); suppressClick.current = false; }} aria-label={`查看详情：${title.replaceAll('\n', '，')}`} aria-describedby="roadmap-drag-help"><span className="roadmap-bar-title">{overdue && <i aria-label="计划已逾期"/>}{item.title}</span><small>{progress.total ? `${progress.percent}%` : status}</small></button>
       {!position.clippedStart && <button className="roadmap-resize roadmap-resize-start" {...events('start')} disabled={blocked} onClick={e => e.stopPropagation()} aria-label={'调整开始日期：' + item.title} title="拖动调整开始日期"/>}

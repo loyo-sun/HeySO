@@ -5,9 +5,12 @@ export const statusCategories = {
   review: "待验收", done: "已完成", cancelled: "已取消",
 };
 export const typePalette = [
-  ["#E87942", "橙色"], ["#8163C5", "紫色"], ["#5279C7", "蓝色"],
-  ["#379282", "青色"], ["#579451", "绿色"], ["#B48730", "金色"],
-  ["#CD5966", "红色"], ["#A76398", "粉紫"], ["#67758A", "灰蓝"],
+  ["#7B4DFF", "亮紫"], ["#10B981", "翠绿"], ["#2563EB", "蓝色"],
+  ["#60A5FA", "浅蓝"], ["#06B6D4", "青色"], ["#EC4899", "粉色"],
+  ["#F97316", "橙色"], ["#64748B", "灰蓝"], ["#F43F5E", "玫红"],
+  ["#0284C7", "湖蓝"], ["#DC2626", "红色"], ["#EA580C", "深橙"],
+  ["#B45309", "棕色"], ["#8B5CF6", "紫色"], ["#14B8A6", "蓝绿"],
+  ["#EAB308", "黄色"],
 ];
 export function aiExecutionEnabled(item,items=[]) {
   if(!item||item.aiDisabled)return false;
@@ -15,19 +18,15 @@ export function aiExecutionEnabled(item,items=[]) {
   const parent=items.find(i=>i.id===item.parentId);
   return !!(parent?.aiEnabled&&!parent.aiDisabled);
 }
-export const typeIcons = {
-  target: "目标", layers: "层叠", box: "方块", book: "故事", checklist: "任务",
-  bug: "缺陷", branch: "分支", flag: "旗帜", sparkles: "灵感", code: "代码",
-  palette: "设计", search: "调研", file: "文档", rocket: "发布", circle: "圆形", diamond: "菱形",
-};
-export const typeIcon = (type) => type?.icon || ({ theme: "target", epic: "layers", feature: "box", story: "book", task: "checklist", bug: "bug", subtask: "branch" }[type?.id]) || "box";
+export const typeIcons = {"strategy": "目标", "epic": "史诗", "story": "故事", "task": "任务", "subtask": "子任务", "explore": "探索", "design": "设计", "document": "文档", "operations": "宣传", "data": "数据", "bug": "缺陷", "incident": "星", "release": "里程碑", "change": "循环", "support": "握手", "idea": "想法"};
+export const legacyTypeIcons={target:'strategy',layers:'epic',box:'strategy',book:'story',checklist:'task',branch:'subtask',flag:'release',sparkles:'idea',code:'data',palette:'design',search:'explore',file:'document',rocket:'release',circle:'incident',diamond:'change'};
+export const canonicalTypeIcon=id=>legacyTypeIcons[id]||id;
+export const typeIcon=type=>canonicalTypeIcon(type?.icon||({theme:'strategy',feature:'strategy',epic:'epic',story:'story',task:'task',bug:'bug',subtask:'subtask'}[type?.id])||'task');
 export function typeColor(type) {
-  return type?.color || ({ theme: "#8163C5", epic: "#5279C7", feature: "#579451", story: "#B48730", task: "#379282", bug: "#CD5966", subtask: "#67758A" }[type?.id]) || "#E87942";
+  return type?.color || ({ theme: "#64748B", epic: "#8B5CF6", feature: "#64748B", story: "#10B981", task: "#60A5FA", bug: "#DC2626", subtask: "#0284C7" }[type?.id]) || "#F97316";
 }
 export const builtinTypes = [
-  { id: "theme", name: "战略主题", level: 1, enabled: true, hidden: true },
   { id: "epic", name: "史诗", level: 1, enabled: true },
-  { id: "feature", name: "特性", level: 1, enabled: true, hidden: true },
   { id: "story", name: "故事", level: 0, enabled: true },
   { id: "task", name: "任务", level: 0, enabled: true },
   { id: "bug", name: "缺陷", level: 0, enabled: true },
@@ -57,7 +56,8 @@ export function defaultWorkConfig(legacyExtended = false) {
   const config = { hierarchyVersion: 2, levels: defaultHierarchyLevels(), types, statuses, initialStatus: "backlog", transitions: Object.fromEntries(statuses.map((s) => [s.id, statuses.filter((t) => t.id !== s.id).map((t) => t.id)])) };
   // Only the imported demo/legacy fixture retains its original five-level structure.
   if (legacyExtended) {
-    for (const t of config.types) { t.hidden = false; if (t.id === "theme") t.level = 3; if (t.id === "epic") t.level = 2; if (t.id === "feature") t.level = 1; }
+    config.types.push({id:"theme",name:"战略主题",level:3,enabled:true,hidden:true,retiredBuiltin:true},{id:"feature",name:"特性",level:1,enabled:true,hidden:true,retiredBuiltin:true});
+    for (const t of config.types) { t.hidden = !!t.retiredBuiltin; if (t.id === "theme") t.level = 3; if (t.id === "epic") t.level = 2; if (t.id === "feature") t.level = 1; }
     return upgradeWorkflowConfig(legacyHierarchyConfig(config), true);
   }
   return upgradeWorkflowConfig(config);
@@ -152,7 +152,7 @@ export function checkWorkConfig(config) {
   for (const kind of ["epic", "standard", "subtask"]) if (config.levels.filter((l) => l.kind === kind).length !== 1) bad("必须保留唯一的 Epic、标准工作项和子任务层");
   for (const type of config.types) {
     if (type.hidden !== undefined && typeof type.hidden !== "boolean") bad("类型展示配置无效");
-    if (type.icon !== undefined && !Object.hasOwn(typeIcons, type.icon)) bad("类型图标无效，请选择支持的图标");
+    if (type.icon !== undefined && !Object.hasOwn(typeIcons, canonicalTypeIcon(type.icon))) bad("类型图标无效，请选择支持的图标");
     if (type.color !== undefined && !/^#[0-9a-fA-F]{6}$/.test(type.color)) bad("类型颜色须为有效的六位色值");
     if (!config.levels.some((l) => l.rank === type.level)) bad("工作类型必须属于已配置的层级");
     if (Object.hasOwn(type, "parents")) bad("类型父级规则已改为层级分组，请刷新后重试");
@@ -162,4 +162,9 @@ export function checkWorkConfig(config) {
   if (!config.types.some((t) => t.enabled && !t.hidden && t.level === 0)) bad("至少展示一种启用的执行层工作项类型");
   validateWorkflows(config, bad);
   return config;
+}
+
+// A subtask follows its direct parent's sprint; versions remain independent.
+export function effectiveSprintId(item, items, project) {
+  return isSubtask(item,project) ? items.find(parent=>parent.id===item.parentId)?.sprintId||null : item.sprintId||null;
 }

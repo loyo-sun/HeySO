@@ -77,7 +77,7 @@ test('hosted MCP works with the official SDK over stateless web-standard transpo
   });
   await client.connect(transport);
   try {
-    const tools = await client.listTools(); assert.equal(tools.tools.length, 5);
+    const tools = await client.listTools(); assert.equal(tools.tools.length, 7);
     const result = await client.callTool({ name: 'list_projects', arguments: {} });
     assert.ok(JSON.parse(result.content[0].text).length > 0);
     const denied = await client.callTool({ name: 'submit_result', arguments: { itemId: 'missing', storyVersion: 1, agent: 'test', summary: 'test', verification: 'test', requestId: 'test' } });

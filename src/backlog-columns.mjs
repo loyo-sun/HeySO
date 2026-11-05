@@ -1,7 +1,7 @@
-import {configFor,typeNames,statusNamesFor} from '../shared/work-config.mjs';
+import {effectiveSprintId,configFor,typeNames,statusNamesFor} from '../shared/work-config.mjs';
 export const backlogColumns=[
   ['workItem','工作项',320],['status','状态',110],['priority','优先级',105],['owner','负责人',130],['points','故事点',90],
-  ['kind','类型',100],['startDate','开始日期',120],['endDate','结束日期',120],['sprintId','冲刺',145],['releaseId','版本',130],['createdAt','创建时间',180],['updatedAt','更新时间',180],
+  ['kind','类型',100],['parentId','所属工作项',200],['startDate','开始日期',120],['endDate','结束日期',120],['sprintId','冲刺',145],['releaseId','版本',130],['createdAt','创建时间',180],['updatedAt','更新时间',180],
 ].map(([id,label,width])=>({id,label,width}));
 export const defaultBacklogPrefs=()=>({columns:['workItem','status','priority','owner','points'],sort:{key:'priority',direction:'desc'}});
 export function normalizeBacklogPrefs(value){
@@ -19,7 +19,8 @@ export function backlogValue(item,key,{project,items=[],sprints=[],releases=[]})
   if(key==='kind')return typeNames(project)[item.kind]||item.kind;
   if(key==='status')return statusNamesFor(project)[item.status]||item.status;
   if(key==='priority')return ({high:'高',medium:'中',low:'低'})[item.priority]||item.priority;
-  if(key==='sprintId')return sprints.find(s=>s.id===item.sprintId)?.name;
+  if(key==='parentId')return items.find(i=>i.id===item.parentId)?.title;
+  if(key==='sprintId')return sprints.find(s=>s.id===effectiveSprintId(item,items,project))?.name;
   if(key==='releaseId')return releases.find(r=>r.id===item.releaseId)?.name;
   return item[key]??null;
 }

@@ -118,7 +118,11 @@ macOS 用户完成安装与构建后，也可以双击项目中的「启动 HeyS
 
 ## 连接你的 AI 工具
 
-HeySO 通过 MCP 向外部 AI 工具提供项目上下文和执行入口。
+HeySO 通过 MCP 向外部 AI 工具提供项目上下文、工作项创建和编辑，以及执行入口。
+
+工作项管理使用 `create_item` 和 `update_item`：先调用 `query_project` 读取配置及 `revision`，写入时传入 `expectedRevision`、唯一 `requestId` 和 `agent`。创建需填写类型、标题和起止日期；编辑在 `patch` 中传入要修改的字段。相同请求重试复用 `requestId`；版本冲突时重新读取并使用新请求标识。
+
+LoyoCloud 需单独授权 `heyso:write`（创建和编辑工作项）；已有连接需重新授权并刷新工具列表。创建、编辑无需启用 AI，不能更改 AI 权限、状态或代替人工验收。
 
 1. 进入「项目设置 → AI 与 MCP」，查看连接地址与密钥。
 2. 在支持 HTTP MCP 和自定义请求头的 AI 客户端中完成连接配置。

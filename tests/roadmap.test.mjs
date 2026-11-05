@@ -111,3 +111,29 @@ test('all zoom levels include the full project, work and release span beyond the
     assert.ok(timeline.ticks.every(t=>t.left>=0 && t.left<100));
   }
 });
+test('version filtering retains parent context but only includes a subtask with its own version', () => {
+ const items=[{id:'epic',kind:'epic',title:'规划目标',number:1},{id:'story',kind:'story',parentId:'epic',releaseId:'r1',title:'本次交付',number:2},{id:'child',kind:'subtask',parentId:'story',title:'子任务',number:3},{id:'other',kind:'story',releaseId:'r2',title:'其他版本',number:4}];
+ const rows=roadmapRows(items,project,{version:['r1'],subtask:true,collapsed:new Set(['epic'])});
+ assert.deepEqual(rows.map(r=>r.item.id),['epic','story']);assert.equal(rows[0].contextOnly,true);assert.equal(rows[0].collapsed,false);
+ items.find(i=>i.id==='child').releaseId='r1';assert.deepEqual(roadmapRows(items,project,{version:['r1'],subtask:true}).map(r=>r.item.id),['epic','story','child']);
+});
+
+// Explicit plan windows must clip drawing rather than include the whole project.
+test('plan view date ranges support three months, fit and fixed dates without changing item dates', async () => {
+  const {roadmapPlanWindow}=await import('../src/roadmap-model.mjs');
+  const items=[{id:'a',startDate:'2026-02-01',endDate:'2026-02-10'}];
+  const p={...project,startDate:'2026-01-01',endDate:'2028-12-31'};
+  assert.equal(roadmapPlanWindow('2026-11-05','quarter',p,items).endDate,'2027-02-04');
+  const fixed=roadmapPlanWindow('2026-11-05','custom',p,items,[],{startDate:'2026-02-03',endDate:'2026-02-07'});
+  assert.equal(fixed.days,5);assert.ok(roadmapBar(items[0],fixed).clippedStart);assert.ok(roadmapBar(items[0],fixed).clippedEnd);
+  const fit=roadmapPlanWindow('2026-11-05','fit',p,items);
+  assert.equal(fit.startDate,'2026-01-25');assert.equal(fit.endDate,'2026-02-17');
+  assert.equal(items[0].startDate,'2026-02-01');
+});
+test('hierarchy range promotes visible descendants without hiding them behind an excluded collapsed parent', async()=>{
+  const {roadmapPlanRows}=await import('../src/roadmap-model.mjs');
+  const items=[{id:'e',kind:'epic',number:1},{id:'s',kind:'story',parentId:'e',number:2},{id:'sub',kind:'subtask',parentId:'s',number:3}];
+  const rows=roadmapPlanRows(items,project,{collapsed:new Set(['e'])},0,-1);
+  assert.deepEqual(rows.map(r=>[r.item.id,r.depth,r.hasChildren]),[['s',0,true],['sub',1,false]]);
+  assert.deepEqual(roadmapPlanRows(items,project,{collapsed:new Set()},0,0).map(r=>[r.item.id,r.hasChildren]),[['s',false]]);
+});

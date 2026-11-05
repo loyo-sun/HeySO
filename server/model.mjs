@@ -1,10 +1,11 @@
+import { createItemSchema, updateItemSchema } from './mcp-item-schema.mjs';
 import {closeSupersededRuns} from '../shared/run-closure.mjs';
 import { captureItemActivity, itemActivityChanges, activityDetail } from './item-activity.mjs';
 import { fitChildSchedules } from '../shared/schedule.mjs';
 import { availableProjectCode, allocateItemNumber, checkIdentifiers, migrateIdentifiers } from "../shared/identifiers.mjs";
 import { rolesForMembers, checkMemberRoles, defaultRoles, defaultMemberRole } from "../shared/member-roles.mjs";
-import { randomUUID } from "node:crypto";
-import { aiExecutionEnabled, isExecutionItem, runTargetId, defaultWorkConfig, configFor, typeFor, isWorkItem, isSubtask, typeNames, categoryOf, hasStatus, terminal, statusFor, allowedTransition, canParent, checkWorkConfig, workflowFor, workflowStatuses, workflowMigrationGroups, aiReady } from "../shared/work-config.mjs";
+import { randomUUID, createHash } from "node:crypto";
+import { effectiveSprintId, aiExecutionEnabled, isExecutionItem, runTargetId, defaultWorkConfig, configFor, typeFor, isWorkItem, isSubtask, typeNames, categoryOf, hasStatus, terminal, statusFor, allowedTransition, canParent, checkWorkConfig, workflowFor, workflowStatuses, workflowMigrationGroups, aiReady } from "../shared/work-config.mjs";
 export const statuses = [
   "backlog",
   "todo",
@@ -51,6 +52,14 @@ function dateRange(start, end, label, mandatory = false) {
   validDate(start, `${label}开始日期`);
   validDate(end, `${label}结束日期`);
   if (start > end) fail(`${label}结束日期不能早于开始日期`);
+}
+function checkReleasePlan(s, release) {
+  release.name = required(release.name, "版本名称");
+  if (s.releases.some(r => r.id !== release.id && r.projectId === release.projectId && r.name.trim().normalize("NFKC").toLowerCase() === release.name.normalize("NFKC").toLowerCase())) fail("当前项目已存在同名版本");
+  if (release.startDate) validDate(release.startDate, "版本开始日期");
+  if (release.plannedDate) validDate(release.plannedDate, "计划发布日期");
+  if (release.startDate && release.plannedDate && release.startDate > release.plannedDate) fail("计划发布日期不能早于开始日期");
+  if (typeof release.goal !== "string") fail("版本描述必须是文本");
 }
 function itemDates(item, project, mandatory = false) {
   dateRange(item.startDate, item.endDate, `「${item.title}」`, mandatory);
@@ -392,8 +401,8 @@ export function context(s, id) {
     story,
     tasks: s.items.filter((t) => t.parentId === story.id && isSubtask(t, projectOf(s, t))),
     targetTask: isSubtask(item, projectOf(s, item)) ? item : null,
-    release: s.releases.find((r) => r.id === story.releaseId) || null,
-    sprint: s.sprints.find((sp) => sp.id === story.sprintId) || null,
+    release: s.releases.find((r) => r.id === item.releaseId) || null,
+    sprint: s.sprints.find((sp) => sp.id === effectiveSprintId(item,s.items,projectOf(s,item))) || null,
     memory: s.notes.filter((n) => n.projectId === item.projectId),
     executions: s.runs.filter((r) => runTargetId(r) === item.id),
     rules: [
@@ -465,8 +474,7 @@ export function validate(s) {
         fail("父级类型或项目不匹配");
       if (!i.legacyParentDates) parentDates(i, p);
     } else if (isSubtask(i, project)) fail("子任务必须选择一个执行层父级工作项");
-    if (!isWorkItem(i, project) && (i.sprintId || i.releaseId))
-      fail("版本和 Sprint 只能分配给执行层工作项");
+    if (isSubtask(i, project) && i.sprintId) fail("子任务的 Sprint 由父级工作项决定，不能独立分配");
     for (const [key, arr] of [
       ["sprintId", "sprints"],
       ["releaseId", "releases"],
@@ -522,6 +530,33 @@ export function validate(s) {
 }
 export function act(s, a) {
   const { type, payload: p = {} } = a;
+  if (type === 'mcp.item.create' || type === 'mcp.item.update') {
+    const parsed = (type === 'mcp.item.create' ? createItemSchema : updateItemSchema).safeParse(p);
+    if (!parsed.success) fail(parsed.error.issues.map(i => i.message).join('；'));
+    const input = parsed.data;
+    const project = s.projects.find(x => x.id === input.projectId);
+    if (!project) fail('项目不存在', 404);
+    const fingerprint = createHash('sha256').update(JSON.stringify({type, input}, function(key, value) {
+      return value && typeof value === 'object' && !Array.isArray(value)
+        ? Object.fromEntries(Object.keys(value).sort().map(k => [k,value[k]])) : value;
+    })).digest('hex');
+    const prior = project.mcpRequests?.find(r => r.requestId === input.requestId);
+    if (prior) {
+      if (prior.fingerprint !== fingerprint) fail('requestId 已用于不同操作', 409);
+      return structuredClone(prior.result);
+    }
+    if (input.expectedRevision !== s.revision) fail('项目已有更新，请重新调用 query_project 获取 revision 后重试', 409);
+    const {projectId, expectedRevision, requestId, agent, itemId, patch, ...fields} = input;
+    if (type === 'mcp.item.update') {
+      const item = getItem(s, itemId);
+      if (item.projectId !== projectId) fail('工作项不属于指定项目', 404);
+    }
+    const result = act(s, {type:type === 'mcp.item.create' ? 'item.create' : 'item.update',
+      actor:a.actor || agent, payload:type === 'mcp.item.create' ? {...fields,projectId} : {...patch,id:itemId}});
+    project.mcpRequests ??= [];
+    project.mcpRequests.push({requestId, fingerprint, result:structuredClone(result)});
+    return result;
+  }
   const activityBefore = captureItemActivity(s), previousEventIds = new Set(s.events.map(e => e.id));
   let out;
   if (type === "project.create") {
@@ -654,8 +689,8 @@ export function act(s, a) {
       priority: p.priority || "medium",
       status: workflowFor(project, p.kind).initialStatus,
       points: Number(p.points) || 0,
-      releaseId: isWorkItem(p, project) ? p.releaseId || null : null,
-      sprintId: isWorkItem(p, project) ? p.sprintId || null : null,
+      releaseId: p.releaseId || null,
+      sprintId: isSubtask(p, project) ? null : p.sprintId || null,
       dueDate: p.dueDate || "",
       startDate: p.startDate,
       endDate: p.endDate || p.dueDate,
@@ -664,7 +699,9 @@ export function act(s, a) {
       createdAt: now(),
       updatedAt: now(),
     };
+    if(isSubtask(out,project)&&p.sprintId&&p.sprintId!==effectiveSprintId(out,s.items,project))fail("子任务的 Sprint 必须跟随父级工作项");
     if (!project.members.includes(out.owner)) fail("需求负责人必须在项目成员名册中");
+    if (out.releaseId && s.releases.some(r => r.id === out.releaseId && (r.archived || r.status === "released"))) fail("不能向已发布或已归档版本添加工作项");
     out.number = allocateItemNumber(project);
     s.items.push(out);
     if (isSubtask(out, project) && out.parentId) { const parent = getItem(s, out.parentId); parent.contentVersion = (parent.contentVersion || 1) + 1; }
@@ -702,12 +739,17 @@ export function act(s, a) {
       "aiEnabled",
       "aiDisabled",
       "goal",
+      "boardRank",
+      "sprintRank",
     ];
     for (const k of allowed)
       if (p[k] !== undefined)
         i[k] =
           p[k] ||
           (["releaseId", "sprintId", "parentId"].includes(k) ? null : p[k]);
+    if(isSubtask(i,project)&&p.sprintId!==undefined){if(p.sprintId!==effectiveSprintId(i,s.items,project))fail("子任务的 Sprint 必须跟随父级工作项");i.sprintId=null;}
+    if(p.sprintRank!==undefined&&!Number.isFinite(p.sprintRank))fail("冲刺顺序必须是有效数字");
+    if(p.boardRank!==undefined&&!Number.isFinite(p.boardRank))fail("看板顺序必须是有效数字");
     if (i.kind !== old.kind && typeFor(project, i.kind)?.level !== typeFor(project, old.kind)?.level) fail("类型转换只能在同层级之间进行");
     if (p.status !== undefined && i.kind === old.kind && !allowedTransition(project, old.status, i.status, i.kind)) fail("当前工作流不允许此状态转换");
     if (p.parentId !== undefined || p.startDate !== undefined || p.endDate !== undefined || p.dueDate !== undefined) {
@@ -750,6 +792,7 @@ export function act(s, a) {
       s.releases.find((r) => r.id === i.releaseId)?.status === "released"
     )
       fail("不能向已发布版本添加故事");
+    if (i.releaseId !== old.releaseId && s.releases.find(r => r.id === i.releaseId)?.archived) fail("不能向已归档版本添加工作项");
     if (isExecutionItem(i, project) && workflowFor(project,i.kind).rules?.requireReview && cat(s, i) === "done" && categoryOf(project, old.status, old.kind) !== "done")
       fail("请通过人工验收确认工作项完成");
     if (
@@ -827,6 +870,8 @@ export function act(s, a) {
       retro: { wentWell: "", improve: "", actions: "" },
       createdAt: now(),
     };
+    dateRange(out.startDate, out.endDate, "冲刺", true);
+    if (!Number.isFinite(Number(p.capacity || 0)) || Number(p.capacity || 0) < 0) fail("计划容量必须是非负数");
     s.sprints.push(out);
     addEvent(s, p.projectId, "sprint", "创建冲刺", out.name);
   } else if (type.startsWith("sprint.")) {
@@ -844,6 +889,10 @@ export function act(s, a) {
       if (!items.length) fail("请先为冲刺安排故事");
       if (items.some((x) => !x.owner || !x.acceptance?.trim()))
         fail("故事需要负责人和验收标准后才能进入冲刺");
+      const plan = { ...sp, ...Object.fromEntries(["name", "goal", "startDate", "endDate", "capacity"].filter(k => p[k] !== undefined).map(k => [k, p[k]])) };
+      required(plan.name, "Sprint 名称"); required(plan.goal, "冲刺目标"); dateRange(plan.startDate, plan.endDate, "冲刺", true);
+      if (!Number.isFinite(Number(plan.capacity)) || Number(plan.capacity) < 0) fail("计划容量必须是非负数");
+      for (const k of ["name", "goal", "startDate", "endDate", "capacity"]) sp[k] = plan[k];
       sp.status = "active";
       sp.startedAt = now();
       sp.baseline = items.map((x) => ({
@@ -857,11 +906,17 @@ export function act(s, a) {
       addEvent(s, sp.projectId, "sprint", "启动冲刺", sp.name);
     } else if (type === "sprint.update") {
       if (sp.status === "closed") fail("已结束冲刺的总结不能修改");
-      for (const k of ["review", "retro", "goal", "name", "capacity"])
+      if (p.startDate !== undefined || p.endDate !== undefined) dateRange(p.startDate ?? sp.startDate, p.endDate ?? sp.endDate, "冲刺", true);
+      if (p.capacity !== undefined && (!Number.isFinite(Number(p.capacity)) || Number(p.capacity) < 0)) fail("计划容量必须是非负数");
+      if (p.name !== undefined) required(p.name, "Sprint 名称");
+      if (p.goal !== undefined) required(p.goal, "冲刺目标");
+      for (const k of ["review", "retro", "goal", "name", "capacity", "startDate", "endDate"])
         if (p[k] !== undefined) sp[k] = p[k];
       addEvent(s, sp.projectId, "sprint", "更新冲刺记录", sp.name);
     } else if (type === "sprint.close") {
       if (sp.status !== "active") fail("只能结束进行中的冲刺");
+      if (p.review !== undefined) sp.review = required(p.review, "评审总结");
+      if (p.retro !== undefined) sp.retro = { wentWell: required(p.retro?.wentWell, "做得好的地方"), improve: required(p.retro?.improve, "需要改进的地方"), actions: typeof p.retro?.actions === "string" ? p.retro.actions : "" };
       if (
         !sp.review.trim() ||
         !sp.retro.wentWell.trim() ||
@@ -871,8 +926,14 @@ export function act(s, a) {
       const unfinished = storiesIn(s, sp.id).filter(
         (x) => !terminal(x, projectOf(s, x)),
       );
+      const dispositions = { ...p.dispositions };
+      if (unfinished.some(i => dispositions[i.id] === "new")) {
+        if (!p.nextSprint) fail("请填写后续冲刺计划");
+        const next = act(s, { type: "sprint.create", payload: { ...p.nextSprint, projectId: sp.projectId } });
+        for (const id of Object.keys(dispositions)) if (dispositions[id] === "new") dispositions[id] = next.id;
+      }
       for (const i of unfinished) {
-        const dest = p.dispositions?.[i.id];
+        const dest = dispositions[i.id];
         if (!dest) fail(`请决定未完成故事「${i.title}」的去向`);
         if (
           !["backlog", "cancel"].includes(dest) &&
@@ -891,7 +952,7 @@ export function act(s, a) {
       sp.status = "closed";
       sp.carryover = [];
       for (const i of unfinished) {
-        const dest = p.dispositions[i.id];
+        const dest = dispositions[i.id];
         sp.carryover.push({
           id: i.id,
           title: i.title,
@@ -949,26 +1010,41 @@ export function act(s, a) {
       projectId: p.projectId,
       name: required(p.name, "版本名称"),
       goal: p.goal || "",
+      startDate: p.startDate || "",
       plannedDate: p.plannedDate || "",
       status: "planning",
       createdAt: now(),
     };
+    checkReleasePlan(s, out);
     s.releases.push(out);
     addEvent(s, p.projectId, "release", "创建版本", out.name);
   } else if (type === "release.update") {
     const r = s.releases.find((x) => x.id === p.id);
     if (!r) fail("版本不存在");
     if (r.status === "released") fail("已发布版本不可修改");
+    if (r.archived) fail("请先恢复已归档版本再编辑");
     if (p.status === "released") fail("请通过发布确认操作发布版本");
-    for (const k of ["name", "goal", "plannedDate", "status"])
-      if (p[k] !== undefined) r[k] = p[k];
+    const plan = {...r, ...Object.fromEntries(["name", "goal", "startDate", "plannedDate", "status"].filter(k=>p[k]!==undefined).map(k=>[k,p[k]]))};
+    checkReleasePlan(s, plan);
+    Object.assign(r, plan);
     out = r;
     addEvent(s, r.projectId, "release", "更新版本", r.name);
+  } else if (type === "release.archive") {
+    const r = s.releases.find(x => x.id === p.id);
+    if (!r) fail("版本不存在");
+    if (typeof p.archived !== "boolean") fail("请明确版本归档状态");
+    r.archived = p.archived;
+    out = r;
+    addEvent(s, r.projectId, "release", p.archived ? "归档版本" : "恢复版本", r.name);
   } else if (type === "release.publish") {
     const r = s.releases.find((x) => x.id === p.id);
     if (!r || r.status === "released") fail("版本不存在或已发布");
+    if (r.archived) fail("请先恢复已归档版本再发布");
+    const releasedDate = p.releasedDate || now().slice(0,10);
+    validDate(releasedDate, "实际发布日期");
+    if (r.startDate && releasedDate < r.startDate) fail("实际发布日期不能早于开始日期");
     const items = s.items.filter(
-      (x) => x.releaseId === r.id && work(s, x),
+      (x) => x.releaseId === r.id,
     );
     if (!items.length) fail("请先为版本安排故事");
     if (!items.some((x) => cat(s, x) === "done"))
@@ -986,7 +1062,7 @@ export function act(s, a) {
               x.id === dest &&
               x.projectId === r.projectId &&
               x.id !== r.id &&
-              x.status !== "released",
+              !x.archived && x.status !== "released",
           ))
       )
         fail(`请安排未完成故事「${i.title}」的去向`);
@@ -1004,6 +1080,7 @@ export function act(s, a) {
         p.dispositions[i.id] === "backlog" ? null : p.dispositions[i.id];
     r.status = "released";
     r.publishedAt = now();
+    r.releasedDate = releasedDate;
     r.notes = required(p.notes, "发布说明");
     addEvent(s, r.projectId, "release", "发布版本", r.name);
     out = r;

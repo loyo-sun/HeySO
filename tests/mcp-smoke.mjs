@@ -10,7 +10,7 @@ await c.connect(
   }),
 );
 const tools = await c.listTools();
-assert.equal(tools.tools.length, 5);
+assert.equal(tools.tools.length, 7);
 assert.ok(!tools.tools.some((t) => t.name.includes("review")));
 async function call(name, args = {}) {
   const res = await c.callTool({ name, arguments: args });
@@ -91,5 +91,5 @@ assert.equal(
 );
 await c.close();
 console.log(
-  "PASS: 5 MCP tools, context, permission rejection, progress, delivery, idempotency, pending human review, auth and origin checks.",
+  "PASS: 7 MCP tools, context, permission rejection, progress, delivery, idempotency, pending human review, auth and origin checks.",
 );

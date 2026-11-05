@@ -2,6 +2,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { context } from "./model.mjs";
 import { isWorkItem, terminal } from "../shared/work-config.mjs";
+import { createItemSchema, updateItemSchema } from "./mcp-item-schema.mjs";
 export const toolDefinitions = [
   [
     "list_projects",
@@ -16,6 +17,7 @@ export const toolDefinitions = [
     (s, a) => {
       const items = s.items.filter((i) => i.projectId === a.projectId);
       return {
+        revision: s.revision,
         project: s.projects.find((p) => p.id === a.projectId),
         items,
         releases: s.releases.filter((x) => x.projectId === a.projectId),
@@ -38,6 +40,16 @@ export const toolDefinitions = [
     "执行前必须读取。返回配置、父级层级、执行工作项（story 字段兼容原客户端）、子任务、项目记忆、版本、Sprint 和历史审核。用 story.contentVersion 提交更新。",
     z.object({ itemId: z.string() }),
     (s, a) => context(s, a.itemId),
+  ],
+  [
+    "create_item",
+    "创建工作项（含规划层、故事、任务、缺陷、子任务和自定义类型）。先 query_project 读取配置和 revision，作为 expectedRevision；必须填写项目内的起止日期。返回工作项 ID、编号及内容。requestId 每次操作唯一，重试复用。无需启用 AI，创建后不自动授权 AI。",
+    createItemSchema, null, "mcp.item.create",
+  ],
+  [
+    "update_item",
+    "编辑工作项。先 query_project 获取 revision 作为 expectedRevision；patch 仅传需要修改的字段，parentId/releaseId/sprintId 可用 null 清空。支持同层级类型转换和父级调整，沿用项目校验与活动记录。不能修改状态、AI 权限或人工验收；执行进展和交付使用专用工具。requestId 每次操作唯一，重试复用。",
+    updateItemSchema, null, "mcp.item.update",
   ],
   [
     "update_progress",

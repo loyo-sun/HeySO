@@ -46,3 +46,95 @@
   .sprint-heading .sprint-metrics > div { grid-column: 1 / -1; width: 100%; }
   .sprint-heading .sprint-actions { grid-column: 2; grid-row: 3; justify-self: end; }
 }
+
+/* Project work views share one navigation entry and stable local tabs. */
+.work-page-header { margin-bottom: 24px; }
+.work-page-header .page-heading { margin-bottom: 18px; }
+.work-view-tabs { display: flex; gap: 24px; border-bottom: 1px solid var(--border); }
+.work-view-tabs button { display: inline-flex; align-items: center; gap: 7px; border: 0; border-bottom: 2px solid transparent; border-radius: 0; padding: 11px 2px; margin-bottom: -1px; background: transparent; }
+.work-view-tabs button.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 600; }
+.view-backlog .backlog-sticky-heading, .view-work .backlog-sticky-heading { position: relative; top: auto; margin-top: 24px; padding-top: 0; }
+.work-page-header ~ .backlog-sticky-heading .page-heading h2 { font-size: 16px; }
+
+.work-page-header .page-heading p {color:var(--muted);margin:6px 0 0;font-size:12px;}
+@media(max-width:700px){.work-view-tabs{gap:18px;}.work-page-header .page-heading{gap:12px;flex-wrap:wrap;}}
+/* One tinted search treatment across planning, board and releases. */
+.sprint-plan-toolbar .search,.board-toolbar .search,.version-list-toolbar .search {background:#fff5ee;border:1px solid #efcfba;border-radius:6px;padding:0 10px;color:#cb7544;min-height:34px;}
+.sprint-plan-toolbar .search input,.board-toolbar .search input,.version-list-toolbar .search input {background:transparent;padding:8px 0;color:#654c40;outline:0;min-width:0;}
+.sprint-plan-toolbar .search:focus-within,.board-toolbar .search:focus-within,.version-list-toolbar .search:focus-within {border-color:var(--accent);box-shadow:0 0 0 2px #e8794214;}
+.backlog-toolbar-panel {background:transparent;border:0;border-radius:0;}
+.backlog-toolbar-panel .toolbar {padding:5px 0;min-height:34px;}
+.backlog-sticky-heading>.page-heading {margin-bottom:10px;}
+.backlog-flat-list .story-row {min-height:38px;}
+.backlog-flat-list [role=cell],.backlog-flat-list [role=columnheader] {padding-block:7px;}
+.backlog-active-filters {min-height:34px;}
+.board-move-feedback {display:flex;align-items:center;gap:8px;min-height:0;height:0;overflow:hidden;font-size:12px;color:#906142;}
+.board-move-feedback.is-visible {height:auto;min-height:34px;margin:-6px 0 8px;padding:7px 12px;border:1px solid #efcfba;border-radius:5px;background:#fff5ee;}
+.board-column.is-drop-target {background:#fff7f1;box-shadow:inset 0 0 0 2px #e8794277;}
+.board-column.is-drop-blocked {box-shadow:inset 0 0 0 2px #d8737377;}
+.board-column .story-card.is-dragging {opacity:.35;}
+.board-insert-line {position:relative;height:3px;background:var(--accent);border-radius:2px;margin:3px 0 10px;pointer-events:none;}
+.board-insert-line>i {position:absolute;left:-3px;top:-3px;width:9px;height:9px;background:white;border:2px solid var(--accent);border-radius:50%;}
+/* Reserve the feedback row so starting a drag never shifts its drop targets. */
+.board-move-feedback {height:34px;min-height:34px;margin:-6px 0 8px;padding:7px 12px;border:1px solid transparent;color:var(--muted);font-size:11px;}
+.board-move-feedback.is-visible {height:34px;min-height:34px;color:#906142;}
+/* A single header and a single scrolling surface for the list. */
+.content.view-list {height:calc(100dvh - 44px);min-height:0;box-sizing:border-box;display:flex;flex-direction:column;overflow:hidden;}
+.view-list .backlog-page-header {flex:0 0 auto;margin-bottom:12px;}
+.backlog-page-header>.page-heading {display:flex;align-items:center;gap:16px;margin-bottom:12px;}
+.backlog-page-header h1 {flex:0 0 auto;margin:0;}
+.backlog-heading-filters {display:flex;align-items:center;flex-wrap:wrap;gap:6px;flex:1;min-width:0;}
+.backlog-heading-filters .backlog-filter-chip>span {padding:5px 7px;font-size:11px;color:var(--accent-text);max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.backlog-page-header .backlog-list-actions {margin-left:auto;flex:0 0 auto;white-space:nowrap;}
+.backlog-page-header .backlog-active-filters {margin:0;padding:0;min-height:34px;}
+.backlog-search {width:300px;max-width:100%;}
+.backlog-search input {width:100%;}
+.view-list .backlog-list {flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden;border:1px solid var(--border);border-radius:6px;margin-bottom:0;}
+.view-list .backlog-table-scroll {flex:1;min-height:0;overflow:auto;overscroll-behavior:contain;scrollbar-gutter:stable;position:relative;isolation:isolate;}
+.view-list .backlog-flat-list .table-head {position:sticky;top:0;z-index:5;background:#fafbfc;}
+.view-list .backlog-flat-list .table-head,.view-list .backlog-flat-list .story-row {padding-inline:0;}
+.view-list .backlog-flat-list [data-column=workItem] {left:0;padding-left:14px;padding-right:14px;border-right:1px solid var(--border);}
+.view-list .backlog-flat-list .table-head>[data-column=workItem] {z-index:6;background:#fafbfc;}
+.view-list .backlog-flat-list .story-row>[data-column=workItem] {background:inherit;}
+.backlog-column-label {font-size:11px;}
+@media(max-width:700px){.backlog-page-header>.page-heading{gap:10px;}.backlog-heading-filters{order:3;flex-basis:100%;}.content.view-list{height:calc(100dvh - 40px);}}
+.app:has(.content.view-list) {height:100dvh;min-height:0;overflow:hidden;padding-bottom:0;}
+.app>main:has(.content.view-list) {height:calc(100dvh - 44px);min-height:0;}
+.app>main>.content.view-list {height:100%;padding-bottom:16px;}
+@media(max-width:700px){.app>main:has(.content.view-list){height:calc(100dvh - 40px);}}
+.inherited-planning {grid-column:1 / -1;width:100%;}
+.inherited-planning input[readonly] {background:var(--hover);color:var(--muted);cursor:default;}
+.inherited-planning p {font-size:11px;margin:6px 0 0;}
+/* The board has one shared scrolling surface, never a scrollbar per status. */
+.app:has(.content.view-board) {height:100dvh;min-height:0;overflow:hidden;padding-bottom:0;}
+.app>main:has(.content.view-board) {height:calc(100dvh - 44px);min-height:0;display:flex;flex-direction:column;}
+.content.view-board {flex:1;min-height:0;height:100%;display:flex;flex-direction:column;overflow:hidden;padding-bottom:16px;}
+.view-board>.work-page-header,.view-board>.board-toolbar,.view-board>.board-move-feedback {flex:0 0 auto;}
+.view-board .work-page-header {margin-bottom:12px;}
+.view-board .work-page-header .page-heading {margin-bottom:0;}
+.view-board .board-toolbar {margin-bottom:10px;flex-wrap:wrap;}
+.board-scroll {flex:1;min-height:0;overflow:auto;overscroll-behavior:contain;scrollbar-gutter:stable;position:relative;isolation:isolate;}
+.board-scroll>.board {width:100%;min-width:calc(var(--board-column-count, 6) * 215px - 10px);height:auto;min-height:100%;overflow:visible;align-items:stretch;padding-bottom:0;}
+.board-scroll .board-column {overflow:visible;height:auto;min-height:100%;min-width:0;}
+.board-scroll .column-title {position:sticky;top:0;z-index:3;}
+.board-parent {display:block;color:var(--muted);font-size:10px;margin:0 0 6px;text-align:left;}
+@media(max-width:700px){.app>main:has(.content.view-board){height:calc(100dvh - 40px);}}
+.app>main:has(.content.view-board) {align-items:stretch;}
+.app>main>.content.view-board {width:100%;min-width:0;max-width:100%;box-sizing:border-box;}
+.view-board .board-scroll {width:100%;min-width:0;max-width:100%;}
+.board-scroll>.board {column-gap:10px;}
+.board-move-feedback:not(.is-visible) {height:0;min-height:0;margin:0;padding:0;border:0;}
+.board-move-feedback.is-visible {position:absolute;z-index:8;top:4px;left:50%;transform:translateX(-50%);width:max-content;max-width:90%;margin:0;pointer-events:none;}
+.content.view-board {position:relative;}
+.board-scroll .story-card {padding:10px;margin-bottom:6px;min-width:0;overflow-wrap:anywhere;}
+.board-scroll .story-card h4 {line-height:1.5;margin-block:7px;}
+.board-scroll .story-card p {margin-block:5px;}
+.board-scroll .story-card footer {padding-top:7px;}
+.board-scroll .board-parent {margin-bottom:4px;}
+.view-list .backlog-page-header .toolbar {border-bottom:0;}
+.backlog-page-header .backlog-active-filters {display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+.backlog-page-header .backlog-search {flex:0 1 300px;min-width:180px;}
+.backlog-page-header .backlog-heading-filters {flex:1;order:0;flex-basis:auto;}
+.backlog-page-header .backlog-list-actions {margin-left:auto;}
+.subtask-visibility-filter {display:inline-flex;align-items:center;gap:7px;flex-shrink:0;white-space:nowrap;font-size:12px;color:var(--text);cursor:pointer;min-height:32px;}
+.subtask-visibility-filter input[type=checkbox] {width:14px;height:14px;margin:0;accent-color:var(--accent);cursor:pointer;}

@@ -1437,26 +1437,30 @@ main {
   border-color: #ededf2;
 }
 .toast {
-  background: #fff;
-  border: 1px solid #e1e4e9;
+  background: #111;
+  border: 1px solid #111;
   border-radius: 6px;
   box-shadow: 0 7px 24px #00000014;
-  color: #535365;
-  bottom: 24px;
+  color: #fff;
+  top: 64px;
+  bottom: auto;
   left: auto;
   right: 24px;
   transform: none;
   animation: heyso-toast-in 250ms ease-out both;
   font-size: 12px;
   padding: 15px 18px;
-  max-width: 410px;
+  max-width: min(410px, calc(100vw - 48px));
 }
 .toast > svg {
-  color: #699b7f;
+  color: #fff;
+  flex-shrink: 0;
 }
 .toast .icon-btn {
-  color: #a5a5b0;
+  color: #d4d4d4;
+  flex-shrink: 0;
 }
+.toast .icon-btn:hover { color: #fff; background: #ffffff1a; border-color: transparent; }
 .presence[data-state="closing"] .drawer {
   animation: heyso-drawer-out 200ms ease-in both;
 }
@@ -1566,7 +1570,7 @@ main {
 @keyframes heyso-toast-in {
   from {
     opacity: 0;
-    transform: translateY(10px);
+    transform: translateY(-8px);
   }
   to {
     opacity: 1;
@@ -2032,7 +2036,8 @@ main {
   }
   .toast {
     right: 15px;
-    bottom: 15px;
+    top: 56px;
+    bottom: auto;
     max-width: calc(100vw - 30px);
   }
   .view-settings > .page-footer {

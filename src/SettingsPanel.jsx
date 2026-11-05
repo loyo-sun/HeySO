@@ -1,26 +1,30 @@
 import { memberRole, rolesForMembers, defaultMemberRole } from "../shared/member-roles.mjs";
 import React, { useState, useEffect, useRef } from "react";
 import { useHosting } from './AccessGate.jsx';
-import { Settings, Users, ListChecks, Plug, Database, Download, Upload, Plus, X, ArrowUpRight, Trash2, RefreshCw, CheckCircle2, AlertCircle, Layers, GitBranch, Rows3 } from "lucide-react";
+import { Settings, Users, ListChecks, Plug, Database, Download, Upload, Plus, X, ArrowUpRight, Trash2, RefreshCw, CheckCircle2, AlertCircle, Layers, GitBranch, Rows3, BookOpen, Info } from "lucide-react";
 import { DateFields } from "./Schedule.jsx";
 import Select from "./Select.jsx";
 import InfoTip from "./InfoTip.jsx";
 import "./settings.css";
+import appPackage from "../package.json";
 import WorkConfigSettings from "./WorkConfigSettings.jsx";
 import { configFor, checkWorkConfig, hierarchyConflicts, workflowMigrationGroups, workflowFor, aiReady } from "../shared/work-config.mjs";
 
 export const settingsPages = [
   ["general", "常规", Settings], ["members", "成员", Users], ["roles", "角色", Users],
-  ["types", "工作项类型", Layers], ["hierarchy", "层级关系", GitBranch],
+  ["types", "工作项类型", Layers],
   ["states", "工作流", Rows3], ["workflow", "协作约定", ListChecks], ["integrations", "AI 与 MCP", Plug],
+  ["memory", "记忆", BookOpen],
   ["data", "数据与备份", Database],
+  ["about", "关于", Info],
 ];
 export const settingsDescriptions = {
+  about: "查看产品、版本及当前保存方式。",
   general: "管理项目的基本信息、目标和背景。",
+  memory: "保存项目背景、关键决定和经验，供团队与 AI 共享。",
   members: "维护项目成员、分配角色与指定项目负责人。",
   roles: "独立维护项目角色，供成员选择。",
   types: "定义工作项类型，按项目需要启用或添加类型。",
-  hierarchy: "确定每种类型可以归属哪些父级。",
   states: "自定义流程、复用状态，并按工作类型绑定。",
   workflow: "明确协作方式与所有故事共同遵循的交付标准。",
   integrations: "检查服务，配置外部 AI 工具的连接。",
@@ -30,8 +34,7 @@ const settingsHelp = {
   general: "项目目标与背景会提供给 AI。所有工作项日期须在项目周期内；缩短周期前需处理超出范围的工作项。",
   members: "成员通过下拉选择项目中已创建的角色。角色在角色页面独立维护。成员角色用于记录职责，不改变访问权限；当前在线项目由云账号所有者访问。",
   roles: "创建、重命名角色并维护职责说明。修改角色名称会同步到关联成员；已分配给成员的角色须先重新分配后才能删除。默认成员角色始终保留。",
-  types: "编辑类型名称、图标、颜色和可用性。归档仅收起创建入口，已有工作项保留；仍有数据的类型不能停用。类型所属层级在层级关系中设置。",
-  hierarchy: "将工作类型放入层级分组，同层类型并列。默认结构是 Epic、标准工作项、子任务；故事、任务和缺陷在标准层并列。具体工作项的父子关系在工作项详情或工作项层级中设置。\n拖入归档区仅收起类型创建入口，不改变已有工作项。恢复默认和智能推荐只生成草稿，保存后生效。历史数据需要的扩展层会保留；有冲突时禁止保存。",
+  types: "编辑类型名称、图标、颜色和可用性。归档仅收起创建入口，已有工作项保留；仍有数据的类型不能停用。所属工作项与子项在工作项详情中维护。",
   states: "状态库中的状态归入待办、进行中或完成三种类别。每个工作流独立配置初始状态和单向转换，通过工作流方案映射到工作类型。可新建或复制流程，拖动节点调整图示位置。双击工作流列表进入全屏编辑，保存后应用；如新流程不包含现有状态，须先选择迁移目标。人工验收是 HeySO 的可选扩展规则。",
   workflow: "协作约定和完成定义随工作项上下文提供给 AI，与工作项自身的验收标准共同约束交付。",
   integrations: "AI 通过 MCP 读取上下文、报告进展和提交成果。服务正常表示 HeySO 已就绪，外部 AI 工具仍需单独配置。密钥作用于整个工作空间，只交给信任的工具。",
@@ -50,7 +53,7 @@ function Field({ label, children, hint }) {
   return <label className="field"><span className="field-title">{label}{hint && <InfoTip label={label}>{hint}</InfoTip>}</span>{children}</label>;
 }
 export default function SettingsPanel({
-  project, section, action, data, setData, setToast, busy, onConnect, onDelete, onDirtyChange, cloudPanel,
+  project, section, action, data, setData, setToast, busy, onConnect, onDelete, onDirtyChange, cloudPanel, memoryPanel,
 }) {
   const hosting = useHosting();
   const [form, setForm] = useState(project);
@@ -136,7 +139,7 @@ export default function SettingsPanel({
   }
   async function saveWorkflowConfig(nextConfig, nextMigration = {}) {
     checkWorkConfig(nextConfig);
-    if (hierarchyConflicts(project, data.items, nextConfig).length) throw Error("请先处理现有工作项与新层级的冲突。");
+    if (hierarchyConflicts(project, data.items, nextConfig).length) throw Error("请先处理现有工作项关联与新规则的冲突。");
     if (data.items.some(i => i.projectId === project.id && i.aiEnabled && !aiReady(workflowFor({...project,workConfig:nextConfig},i.kind)))) throw Error("请先补齐 AI 协作节点，或关闭受影响工作项的 AI 执行。");
     if (workflowMigrationGroups(project, data.items, nextConfig).some(g => !g.workflow?.statusIds.includes(nextMigration[g.key]))) throw Error("请选择所有受影响工作项的迁移状态后再保存。");
     const result = await action("project.workConfig", { id: project.id, config: nextConfig, statusMigration: nextMigration }, true);
@@ -202,6 +205,8 @@ export default function SettingsPanel({
     {dirty && <div className="settings-draft-note" role="status"><span>有未保存的修改</span></div>}
     {error && <div className="settings-error" role="alert"><AlertCircle size={16}/><span>{error}</span></div>}
     {saved && <div className="settings-success" role="status"><CheckCircle2 size={16}/>{saved}</div>}
+    {section === "about" && <section className="settings-section settings-about"><h2>合序 HeySO</h2><p className="section-description">Hey, Shared Outcomes.</p><dl><div><dt>当前版本</dt><dd>{appPackage.displayVersion}</dd></div><div><dt>软件版本</dt><dd>{appPackage.version}</dd></div><div><dt>保存方式</dt><dd>{project.cloud?"LoyoCloud 在线项目":hosting.hosted?"在线保存":"本地保存"}</dd></div><div><dt>当前项目</dt><dd>{project.name}</dd></div></dl>{hosting.hosted&&<div className="inline">{hosting.configure&&<button onClick={hosting.configure}>云端存储设置</button>}<button onClick={hosting.logout}>退出工作空间</button></div>}</section>}
+    {section === "memory" && memoryPanel}
     {section === "general" && <>
       <div className="project-identity"><span className="project-glyph">{project.name.slice(0, 1)}</span><div><h2>{project.name}</h2><span>{project.cloud ? "在线项目" : "本地项目"} · {project.code}</span></div></div>
       <form className="settings-section" onSubmit={(e) => { e.preventDefault(); save("general"); }}>
@@ -262,19 +267,19 @@ export default function SettingsPanel({
       }}><input aria-label="新角色名称" placeholder="输入新角色名称" maxLength={40} disabled={busy} value={roleName} onChange={(e) => { setRoleName(e.target.value); setError(""); }}/><button type="submit" disabled={busy || !roleName.trim()}><Plus size={15}/>添加角色</button></form>
       <form onSubmit={(e) => { e.preventDefault(); save("roles"); }}>{saveBar("roles", "保存角色")}</form>
     </section>}
-    {["types", "hierarchy", "states"].includes(section) && <form className="settings-section" onKeyDown={(e) => { if (section === "states" && e.key === "Enter" && e.target.tagName === "INPUT" && e.target.type !== "checkbox") e.preventDefault(); }} onSubmit={async (e) => {
+    {["types", "states"].includes(section) && <form className="settings-section" onKeyDown={(e) => { if (section === "states" && e.key === "Enter" && e.target.tagName === "INPUT" && e.target.type !== "checkbox") e.preventDefault(); }} onSubmit={async (e) => {
       e.preventDefault(); setError(""); setSaved("");
       if (aiWorkflowConflicts.length) { setError("请先补齐 AI 协作节点，或关闭受影响工作项的 AI 执行。"); return; }
       if (pendingWorkflowMigrations.length) { setError("请选择受影响工作项的迁移状态。"); return; }
-      if (conflicts.length) { setError("请先处理现有工作项与新层级的冲突，历史数据未改变。"); return; }
+      if (conflicts.length) { setError("请先处理现有工作项关联与新规则的冲突，历史数据未改变。"); return; }
       try { checkWorkConfig(workDraft); } catch (error) { setError(error.message); return; }
       const result = await action("project.workConfig", { id: project.id, config: workDraft, statusMigration }, true);
       if (result) { setWorkDraft(structuredClone(result.workConfig)); setStatusMigration({}); setSaved("工作项配置已保存"); setToast("工作项配置已保存"); }
       else setError("配置未保存。请按提示检查现有工作项的父级、类型和状态。");
     }}>
       <WorkConfigSettings project={project} items={data.items.filter((i) => i.projectId === project.id)} section={section} config={workDraft} setConfig={setWorkDraft} migration={statusMigration} setMigration={setStatusMigration} busy={busy} onSave={saveWorkflowConfig}/>
-      {configDirty && conflicts.length > 0 && <div className="hierarchy-impact" role="alert"><h3>{conflicts.length} 个现有关联与新规则冲突，暂不能保存</h3><p>已有工作项尚未改变。请撤销层级调整，或先转换、归类相关工作项后再调整层级。</p><ul>{conflicts.slice(0, 8).map(({ item, parent, reason }) => <li key={item.id}><strong>{item.number ? project.code + "-" + item.number + " · " : ""}{item.title}</strong><span>{parent ? "父级：" + parent.title + " · " : ""}{reason}</span></li>)}</ul>{conflicts.length > 8 && <p>另有 {conflicts.length - 8} 个冲突。</p>}</div>}
-      {section !== "states" && <div className={"settings-save" + (section === "states" ? " wf-publish-bar" : "")}><button className="primary" type="submit" disabled={busy || !configDirty || conflicts.length > 0 || pendingWorkflowMigrations.length > 0 || aiWorkflowConflicts.length > 0}>{busy ? "正在保存…" : section === "states" ? "发布更改" : "保存工作项配置"}</button><button type="button" disabled={busy || !configDirty} onClick={() => { setWorkDraft(structuredClone(configFor(project))); setStatusMigration({}); setError(""); }}>撤销配置修改</button><span>{configDirty ? (section === "states" ? "草稿尚未生效，发布后应用到项目" : "三个配置栏目共同保存") : "已与项目数据同步"}</span></div>}
+      {configDirty && conflicts.length > 0 && <div className="hierarchy-impact" role="alert"><h3>{conflicts.length} 个现有关联与新规则冲突，暂不能保存</h3><p>已有工作项尚未改变。请撤销配置调整，或先在工作项详情中处理相关关联。</p><ul>{conflicts.slice(0, 8).map(({ item, parent, reason }) => <li key={item.id}><strong>{item.number ? project.code + "-" + item.number + " · " : ""}{item.title}</strong><span>{parent ? "父级：" + parent.title + " · " : ""}{reason}</span></li>)}</ul>{conflicts.length > 8 && <p>另有 {conflicts.length - 8} 个冲突。</p>}</div>}
+      {section !== "states" && <div className={"settings-save" + (section === "states" ? " wf-publish-bar" : "")}><button className="primary" type="submit" disabled={busy || !configDirty || conflicts.length > 0 || pendingWorkflowMigrations.length > 0 || aiWorkflowConflicts.length > 0}>{busy ? "正在保存…" : section === "states" ? "发布更改" : "保存工作项配置"}</button><button type="button" disabled={busy || !configDirty} onClick={() => { setWorkDraft(structuredClone(configFor(project))); setStatusMigration({}); setError(""); }}>撤销配置修改</button><span>{configDirty ? (section === "states" ? "草稿尚未生效，发布后应用到项目" : "类型和工作流配置共同保存") : "已与项目数据同步"}</span></div>}
     </form>}
     {section === "workflow" && <>
       <form className="settings-section" onSubmit={(e) => { e.preventDefault(); save("workflow"); }}>
