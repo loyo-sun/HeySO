@@ -2,6 +2,7 @@ import {aiExecutionEnabled} from '../shared/work-config.mjs';
 import ActivityDetails from './ActivityDetails.jsx';
 import SprintWorkspace, {SprintStatusCounts} from "./SprintWorkspace.jsx";
 import SubtaskFilter from './SubtaskFilter.jsx';
+import {RoadmapNavigationIcon,SmartNavigationIcon} from './NavigationIcons.jsx';
 import {detailStatusOptions} from './detail-status-options.mjs';
 import {sprintPlanningItems} from './sprint-items.mjs';
 import ReleaseWorkspace from "./ReleaseWorkspace.jsx";
@@ -121,13 +122,13 @@ const kindIcons = {
 };
 const priorities = { high: "高", medium: "中", low: "低" };
 const navs = [
-  ["roadmap", "线路", Calendar, "查看时间安排、工作进度和版本里程碑。"],
+  ["roadmap", "线路", RoadmapNavigationIcon, "查看时间安排、工作进度和版本里程碑。"],
   ["backlog", "冲刺", Timer, "规划冲刺、安排工作项并跟踪交付。"],
   ["board", "看板", Kanban, "按状态推进工作，查看执行进度。"],
   ["list", "清单", Rows3, "查询、筛选和管理全部工作项。"],
   ["releases", "发布", Flag, "管理版本范围、发布与交付记录。"],
   ["reports", "报告", BarChart3, "分析冲刺、流程、工作量和交付趋势。"],
-  ["ai", "智能", Bot, "跟踪 AI 执行，审核成果并完成验收。"],
+  ["ai", "智能", SmartNavigationIcon, "跟踪 AI 执行，审核成果并完成验收。"],
 ];
 const workViews = ["backlog", "board", "list", "sprints"];
 const fmt = (d) =>
