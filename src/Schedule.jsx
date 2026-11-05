@@ -89,12 +89,7 @@ export default function ItemSchedule({
         <h4>计划周期</h4>
         {(!item.startDate || !item.endDate) && <small>日期待设置</small>}
       </div>
-      {ready ? (
-        <p className="schedule-hint">
-          可用周期：{minDate} 至 {maxDate}{parent ? "（受父级周期约束）" : ""}
-          。开始和结束日期均需在此范围内。
-        </p>
-      ) : (
+      {!ready && (
         <p className="schedule-hint">
           请先设置项目起止日期，再安排需求周期。
           <button

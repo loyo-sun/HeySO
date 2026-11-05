@@ -1399,7 +1399,7 @@ function SprintCard({
   );
 }
 function InheritedPlanning({parent,sprints,compact=false}) {
-  return <div className={'inherited-planning'+(compact?' is-compact':' wide')}><Field label="Sprint（随父级）"><input aria-label="继承的 Sprint" readOnly value={parent?(sprints.find(sp=>sp.id===parent.sprintId)?.name||"产品待办池"):"请先选择父级工作项"}/></Field><p className="muted">子任务的冲刺随父级工作项调整；目标版本可独立设置。</p></div>;
+  return <div className={'inherited-planning'+(compact?' is-compact':' wide')}><Field label="Sprint（随父级）"><input aria-label="继承的 Sprint" readOnly value={parent?(sprints.find(sp=>sp.id===parent.sprintId)?.name||"产品待办池"):"请先选择父级工作项"}/></Field></div>;
 }
 function Field({ label, children, wide }) {
   const Container = React.Children.toArray(children).some(child => React.isValidElement(child) && child.type === RichTextEditor) ? "div" : "label";
@@ -1435,6 +1435,7 @@ function Detail({
   setModal,
 }) {
   const update = (p) => action("item.update", { id: i.id, ...p });
+  useEffect(()=>{if(isSubtask(i,project)&&tab==='children')setTab('detail');},[i.id,i.kind,tab,project,setTab]);
   const kinds = typeNames(project);
   const statusNames = statusNamesFor(project);
   const possibleParents = parentCandidates(project, items, i.kind, i.id);
@@ -1492,7 +1493,7 @@ function Detail({
           <div className="tabs">
             {[
               ["detail", "详情"],
-              ["children", isWorkItem(i, project) ? "子任务" : "子项"],
+              ...(!isSubtask(i,project)?[["children", isWorkItem(i, project) ? "子任务" : "子项"]]:[]),
               ...(isExecutionItem(i, project) ? [["runs", "交付与验收"]] : []),
               ["history", "活动记录"],
             ].map(([k, v]) => (
