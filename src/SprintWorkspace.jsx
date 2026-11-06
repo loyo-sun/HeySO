@@ -1,3 +1,4 @@
+import useViewPreferences from './useViewPreferences.jsx';
 import {ReplicaField,ReplicaForm,ReplicaModal,ReplicaInput,ReplicaButton,ReplicaTextArea} from './ReplicaControls.jsx';
 import {AntList,AntAlert,AntCount,AntEmpty} from './AntStructures.jsx';
 import React, {useState,useRef,useEffect} from 'react';
@@ -22,10 +23,11 @@ export function sprintEnd(start, weeks = 2) {
   const d = new Date(start+'T12:00:00');d.setDate(d.getDate()+weeks*7-1);return sprintDate(d);
 }
 export default function SprintWorkspace({project, stories, sprints, releases = [], onRelease, busy, action, onOpen, onOpenSnapshot, onCreate, renderSprint}) {
-  const [query,setQuery]=useState(''),[history,setHistory]=useState(false),[dragging,setDragging]=useState(null),[over,setOver]=useState(undefined),[dialog,setDialog]=useState(null),[backlogExpanded,setBacklogExpanded]=useState(true),[versionsOpen,setVersionsOpen]=useState(false),[versionFilter,setVersionFilter]=useState("all");
+  const prefs=useViewPreferences(project,'backlog',{query:'',history:false,showSubtasks:false,backlogExpanded:true,versionsOpen:false,versionFilter:'all',expandedSprints:{}});
+  const [query,setQuery]=prefs.field('query'),[history,setHistory]=prefs.field('history'),[showSubtasks,setShowSubtasks]=prefs.field('showSubtasks'),[backlogExpanded,setBacklogExpanded]=prefs.field('backlogExpanded'),[versionsOpen,setVersionsOpen]=prefs.field('versionsOpen'),[versionFilter,setVersionFilter]=prefs.field('versionFilter');
+  const [dragging,setDragging]=useState(null),[over,setOver]=useState(undefined),[dialog,setDialog]=useState(null);
   const dragItemRef=useRef(null),gestureRef=useRef(null),suppressClick=useRef(false);
   const [dragPoint,setDragPoint]=useState(null);
-  const [showSubtasks,setShowSubtasks]=useState(false);
   useEffect(()=>()=>gestureRef.current?.cancel(),[]);
   const [insertBefore,setInsertBefore]=useState(null),[moveNotice,setMoveNotice]=useState('');
   const live=sprints.filter(s=>s.status!=='closed');

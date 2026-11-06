@@ -1,3 +1,4 @@
+import useViewPreferences from './useViewPreferences.jsx';
 import {ReplicaForm,ReplicaField,ReplicaModal,ReplicaButton,ReplicaInput,ReplicaTextArea} from './ReplicaControls.jsx';
 import {AntTag,AntList,AntAlert,AntEmpty,AntTabs,AntSegments,AntHtmlTable} from './AntStructures.jsx';
 import {Progress as AntDesignProgress} from 'antd';
@@ -23,7 +24,9 @@ function Meter({stats,project}) {
  return <div className="version-meter-wrap"><AntDesignProgress className="heyso-version-progress" aria-label={segments.map(label).join('，')} percent={stats.total?100:0} steps={{count:Math.max(1,stats.total),gap:0}} strokeColor={steps.length?steps:['#d8dce0']} showInfo={false}/><span>{stats.done.length}/{stats.total}</span></div>;
 }
 export default function ReleaseWorkspace({project,items,releases,sprints,releaseId,onSelect,action,busy,onOpen,onSnapshot,onCreate}){
- const [filter,setFilter]=useState('unreleased'),[query,setQuery]=useState(''),[dialog,setDialog]=useState(null),[tab,setTab]=useState('items'),[notice,setNotice]=useState('');
+ const prefs=useViewPreferences(project,'releases',{filter:'unreleased',query:'',tab:'items'});
+ const [filter,setFilter]=prefs.field('filter'),[query,setQuery]=prefs.field('query'),[tab,setTab]=prefs.field('tab');
+ const [dialog,setDialog]=useState(null),[notice,setNotice]=useState('');
  const selected=releases.find(r=>r.id===releaseId),names=statusNamesFor(project);
  const matches=r=>!query||`${r.name} ${r.goal||''}`.toLowerCase().includes(query.trim().toLowerCase());
  const category=r=>r.archived?'archived':r.status==='released'?'released':'unreleased';

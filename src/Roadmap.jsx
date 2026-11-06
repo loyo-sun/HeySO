@@ -1,3 +1,4 @@
+import useViewPreferences from './useViewPreferences.jsx';
 import {ReplicaNativeSelect,ReplicaButton,ReplicaInput} from './ReplicaControls.jsx';
 import {AntCard,AntSegments,AntDisclosure,AntEmpty} from './AntStructures.jsx';
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
@@ -14,17 +15,15 @@ import {categoryOf} from '../shared/work-config.mjs';
 import {releaseState} from './release-model.mjs';
 
 export default function Roadmap({ project, items, releases, onOpen, onCreate, onReleases, onProjectSettings, onSchedule, busy }) {
-  const today = localDay();
-  const [anchor, setAnchor] = useState(() => today < project.startDate || today > project.endDate ? project.startDate || today : today);
-  const [scale, setScale] = useState('quarter'), [query, setQuery] = useState(''), [status, setStatus] = useState('all'), [owner, setOwner] = useState('all'), [version,setVersion] = useState('all'), [showReleases,setShowReleases] = useState(true);
-  const config=configFor(project);
+  const today = localDay(),config=configFor(project);
   const levels=[...config.levels].sort((a,b)=>b.rank-a.rank).map(l=>({...l,name:config.types.filter(t=>t.level===l.rank&&(t.enabled&&!t.hidden||items.some(i=>i.kind===t.id))).map(t=>t.name).join(' / ')||l.name}));
-  const [top,setTop]=useState(()=>Math.max(...levels.map(l=>l.rank))),[bottom,setBottom]=useState(0);
-  const [fields,setFields]=useState(()=>globalThis.innerWidth<1000?['startDate','endDate']:['startDate','endDate','owner','releaseId']),[barLabels,setBarLabels]=useState(false),[colorBy,setColorBy]=useState('type'),[notice,setNotice]=useState('');
-  const [custom,setCustom]=useState({startDate:project.startDate||today,endDate:project.endDate||today});
+  const prefs=useViewPreferences(project,'roadmap',{anchor:today<project.startDate||today>project.endDate?project.startDate||today:today,scale:'quarter',query:'',status:'all',owner:'all',version:'all',showReleases:true,top:Math.max(...levels.map(l=>l.rank)),bottom:0,fields:globalThis.innerWidth<1000?['startDate','endDate']:['startDate','endDate','owner','releaseId'],barLabels:false,colorBy:'type',custom:{startDate:project.startDate||today,endDate:project.endDate||today},collapsed:[]});
+  const [anchor,setAnchor]=prefs.field('anchor'),[scale,setScale]=prefs.field('scale'),[query,setQuery]=prefs.field('query'),[status,setStatus]=prefs.field('status'),[owner,setOwner]=prefs.field('owner'),[version,setVersion]=prefs.field('version'),[showReleases,setShowReleases]=prefs.field('showReleases');
+  const [top,setTop]=prefs.field('top'),[bottom,setBottom]=prefs.field('bottom'),[fields,setFields]=prefs.field('fields'),[barLabels,setBarLabels]=prefs.field('barLabels'),[colorBy,setColorBy]=prefs.field('colorBy'),[custom,setCustom]=prefs.field('custom');
+  const collapsed=new Set(prefs.values.collapsed),setCollapsed=next=>prefs.set(previous=>({collapsed:[...(typeof next==='function'?next(new Set(previous.collapsed)):next)]}));
+  const [notice,setNotice]=useState(''),[space,setSpace]=useState(650);
   const columns=[{id:'startDate',label:'开始日期',width:88},{id:'endDate',label:'结束日期',width:88},{id:'status',label:'状态',width:100},{id:'owner',label:'负责人',width:100},{id:'releaseId',label:'版本',width:112},{id:'points',label:'故事点',width:72}];
   const shownFields=fields.map(id=>columns.find(c=>c.id===id)).filter(Boolean),fieldsWidth=shownFields.reduce((n,c)=>n+c.width,0);
-  const [collapsed, setCollapsed] = useState(new Set()), [space, setSpace] = useState(650);
   const scroll = useRef(null), headerScroll = useRef(null), dock = useRef(null), panel = useRef(null);
   const [dockBounds, setDockBounds] = useState({ left: 0, width: 0, visible: false });
   const names = statusNamesFor(project), window = roadmapPlanWindow(anchor, scale, project, items, releases, custom);

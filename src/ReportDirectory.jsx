@@ -1,3 +1,4 @@
+import useViewPreferences from './useViewPreferences.jsx';
 import {ReplicaButton,ReplicaInput} from './ReplicaControls.jsx';
 import {AntCard,AntTabs,AntEmpty,AntStatistic} from './AntStructures.jsx';
 import React,{useState} from 'react';
@@ -32,14 +33,12 @@ export const reportCatalog=[
  ['collaboration','AI 交付与验收',Bot,'跟踪提交、验收结果和等待时间，回顾人与 AI 的协作。','AI 协作','执行记录与人工审核'],
 ];
 const readIds=key=>{try{const ids=JSON.parse(localStorage.getItem(key)||'[]');return Array.isArray(ids)?ids.filter(id=>reportCatalog.some(c=>c[0]===id)):[];}catch{return [];}};
-export function rememberReport(projectId,id){try{const key='heyso:reports:recent:'+projectId;localStorage.setItem(key,JSON.stringify([id,...readIds(key).filter(v=>v!==id)].slice(0,4)));}catch{}}
 export default function ReportDirectory({onSelect,project,insights}){
- const [category,setCategory]=useState('全部'),[query,setQuery]=useState('');
- const favoriteKey='heyso:reports:favorites:'+project.id;
- const [favorites,setFavorites]=useState(()=>readIds(favoriteKey));
- const recent=readIds('heyso:reports:recent:'+project.id);
+ const personal=useViewPreferences(project,'reports',{directoryCategory:'全部',directoryQuery:'',favorites:readIds('heyso:reports:favorites:'+project.id),recent:readIds('heyso:reports:recent:'+project.id)});
+ const [category,setCategory]=personal.field('directoryCategory'),[query,setQuery]=personal.field('directoryQuery'),[favorites,setFavorites]=personal.field('favorites');
+ const recent=personal.values.recent.filter(id=>reportCatalog.some(c=>c[0]===id));
  const matching=reportCatalog.filter(c=>(category==='全部'||category==='常用报告'&&favorites.includes(c[0])||c[4]===category)&&`${c[1]} ${c[3]} ${c[4]}`.includes(query.trim()));
- const toggle=id=>{const next=favorites.includes(id)?favorites.filter(v=>v!==id):[...favorites,id];setFavorites(next);try{localStorage.setItem(favoriteKey,JSON.stringify(next));}catch{}};
+ const toggle=id=>setFavorites(old=>old.includes(id)?old.filter(v=>v!==id):[...old,id]);
  const {rows,open,done,risks,ai}=insights;
  const actionable=insights.actionable,completion=actionable.length?Math.round(done.length/actionable.length*100):null;
  const metrics=[['未完成工作',open.length,'项','执行层工作项','distribution'],['完成比例',completion??'—',completion===null?'':'%','按当前工作项数量','distribution'],['已逾期',risks[0].rows.length,'项','结束日期已过且未完成','risks'],['AI 待验收',ai.pending.length,'次','当前等待人工审核的交付','collaboration']];

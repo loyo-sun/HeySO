@@ -1,3 +1,4 @@
+import useViewPreferences,{ViewPreferencesNotice} from './useViewPreferences.jsx';
 import {ReplicaField,ReplicaForm,ReplicaModal,ReplicaDrawer,ReplicaButton,ReplicaInput,ReplicaTextArea} from './ReplicaControls.jsx';
 import {AntTimeline,AntAlert,AntList,AntToast,AntRing,AntCard,AntStatistic,AntBreadcrumb,AntTag,AntAvatar,AntTabs,AntMenu,AntDisclosure} from './AntStructures.jsx';
 import {Empty as AntDesignEmpty,Progress as AntDesignProgress} from 'antd';
@@ -222,15 +223,11 @@ function App() {
   const [data, setData] = useState(null),
     [modal, setModal] = useState(null),
     [toast, setToast] = useState(""),
-    [query, setQuery] = useState(""),
-    [filter, setFilter] = useState("all"),
-    [sprintFilter, setSprintFilter] = useState("all"),
-    [boardReleaseFilter, setBoardReleaseFilter] = useState("all"),
-    [boardShowSubtasks, setBoardShowSubtasks] = useState(false),
-    [ownerFilter, setOwnerFilter] = useState("all"),
     [busy, setBusy] = useState(false),
     [connection, setConnection] = useState(null),
     [online, setOnline] = useState(true);
+  const boardPreferences=useViewPreferences(data?.projects.find(p=>p.id===projectId)||projectId,'board',{query:'',status:'all',sprint:'all',release:'all',showSubtasks:false,owner:'all'});
+  const [query,setQuery]=boardPreferences.field('query'),[filter,setFilter]=boardPreferences.field('status'),[sprintFilter,setSprintFilter]=boardPreferences.field('sprint'),[boardReleaseFilter,setBoardReleaseFilter]=boardPreferences.field('release'),[boardShowSubtasks,setBoardShowSubtasks]=boardPreferences.field('showSubtasks'),[ownerFilter,setOwnerFilter]=boardPreferences.field('owner');
   const [helpOpen, setHelpOpen] = useState(false);
   const [contextMenu, setContextMenu] = useState(null);
   const contextTrigger = useRef(null);
@@ -272,18 +269,10 @@ function App() {
     }
   }, [toast]);
   useEffect(() => {
-    setFilter("all");
-    setBoardReleaseFilter("all");
-    setBoardShowSubtasks(false);
-    setQuery("");
-    setOwnerFilter("all");
-  }, [projectId]);
-  useEffect(() => {
     if (!data || data.projects.some((p) => p.id === projectId)) return;
     const nextId = data.projects[0]?.id || "";
     setProjectId(nextId);
     setSelected(null);
-    setSprintFilter("all");
     if (nextId) localStorage.setItem("heyso-project", nextId);
     else localStorage.removeItem("heyso-project");
   }, [data, projectId]);
@@ -318,9 +307,6 @@ function App() {
     const navigate = () => {
     if (v !== "settings") settingsDirtyRef.current = false;
     setPage("projects");
-    setFilter("all");
-    setOwnerFilter("all");
-    setQuery("");
     setView(v === "work" ? "backlog" : v);
     setSelected(null);
     setReleaseId(null);
@@ -336,10 +322,6 @@ function App() {
     setReleaseId(null);
     localStorage.setItem("heyso-project", id);
     setSelected(null);
-    setQuery("");
-    setFilter("all");
-    setOwnerFilter("all");
-    setSprintFilter("all");
     });
   };
   const openProjectSettings = () => {
@@ -1273,6 +1255,7 @@ function App() {
           </ReplicaModal>
         </div>}
       </Presence>
+      <ViewPreferencesNotice project={project}/>
       {toast && (
         <AntToast className="toast" role="status">
           <CheckCircle2 size={17} />
@@ -1299,7 +1282,9 @@ function SprintCard({
   storyRows, workRows, onStart, onEdit, onClose, onCreate, scopeFilter, busy, activeSprint,
 }) {
   const project = useWorkProject();
-  const [expanded, setExpanded] = useState(sp.status !== "closed");
+  const personal=useViewPreferences(project,'backlog',{expandedSprints:{}});
+  const expanded=personal.values.expandedSprints[sp.id]??sp.status!=='closed';
+  const setExpanded=value=>personal.set(old=>({expandedSprints:{...old.expandedSprints,[sp.id]:value}}));
   const rows =
       sp.status === "closed"
         ? sp.finalStories || []

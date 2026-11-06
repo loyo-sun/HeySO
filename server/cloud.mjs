@@ -92,6 +92,14 @@ export function cloudWorkspace({store,dataDir,persistence,base=process.env.HEYSO
   return {
     read:()=>serial(refresh),dispatch,
     install(app){
+      const personalPreferences=async(req,res,body)=>{
+        const binding=saved.bindings[req.params.fileId];
+        if(!binding||!saved.token||binding.userId!==saved.user?.id)throw failure('请登录此在线项目所属的 LoyoCloud 账号',403);
+        res.json(await api('/api/v1/heyso/files/'+encodeURIComponent(binding.id)+'/view-preferences',body));
+      };
+      app.get('/api/view-preferences/:fileId',(req,res)=>personalPreferences(req,res));
+      app.post('/api/view-preferences/:fileId',(req,res)=>personalPreferences(req,res,req.body));
+
       app.get('/api/cloud/status',async(req,res)=>{
         if(saved.token){try{const session=await api('/api/v1/editor/session');if(session.app!=='heyso')throw failure('登录应用不匹配',403);saved.user=session.user;}catch(e){return res.json({...status(),connected:false,error:e.message});}}
         res.json(status());

@@ -1,3 +1,4 @@
+import useViewPreferences from './useViewPreferences.jsx';
 import {ReplicaInput,ReplicaButton} from './ReplicaControls.jsx';
 import {AntCard,AntEmpty,AntDisclosure,AntAvatar} from './AntStructures.jsx';
 import {Table,Popover} from 'antd';
@@ -9,10 +10,10 @@ import BacklogFilter from './BacklogFilters.jsx';
 import PageTitle from './PageTitle.jsx';
 import {filterBacklogRows,backlogFilterOptions,backlogRangeType,hasBacklogFilter} from './backlog-filters.mjs';
 export default function BacklogTable({rows,project,items,sprints,releases,onOpen,kind,status,priority}){
-  const storageKey='heyso-backlog-columns:'+project.id;
-  const [prefs,setPrefs]=useState(()=>{try{return normalizeBacklogPrefs(JSON.parse(localStorage.getItem(storageKey)));}catch{return defaultBacklogPrefs();}});
-  const [query,setQuery]=useState('');
-  const [filters,setFilters]=useState({}),[activeFilter,setActiveFilter]=useState(null);
+  const personal=useViewPreferences(project,'list',{...defaultBacklogPrefs(),query:'',filters:{}});
+  const prefs=normalizeBacklogPrefs(personal.values),setPrefs=next=>personal.set(previous=>typeof next==='function'?next(normalizeBacklogPrefs(previous)):next);
+  const [query,setQuery]=personal.field('query'),[filters,setFilters]=personal.field('filters');
+  const [activeFilter,setActiveFilter]=useState(null);
   const closeFilter=React.useCallback(()=>setActiveFilter(null),[]);
   const removeFilter=id=>setFilters(old=>{const next={...old};delete next[id];return next;});
   const openFilter=(column,anchor,origin='header')=>{menu.current?.removeAttribute('open');setActiveFilter({column,anchor,origin});};
@@ -20,7 +21,6 @@ export default function BacklogTable({rows,project,items,sprints,releases,onOpen
   const clearDrag=()=>{dragColumn.current=null;setDropTarget(null);};
   const dropEdge=e=>e.clientY<e.currentTarget.getBoundingClientRect().top+e.currentTarget.getBoundingClientRect().height/2?'before':'after';
   const menu=useRef(null),context={project,items,sprints,releases};
-  useEffect(()=>{try{localStorage.setItem(storageKey,JSON.stringify(prefs));}catch{}},[storageKey,prefs]);
 
   const columns=prefs.columns.map(id=>backlogColumns.find(c=>c.id===id)),searched=rows.filter(i=>`${project.code}-${i.number} ${i.title}`.toLowerCase().includes(query.trim().toLowerCase())),filtered=filterBacklogRows(searched,filters,context),sorted=sortBacklog(filtered,prefs.sort,context);
   const move=(id,delta)=>setPrefs(p=>({...p,columns:moveBacklogColumn(p.columns,id,p.columns[p.columns.indexOf(id)+delta])}));

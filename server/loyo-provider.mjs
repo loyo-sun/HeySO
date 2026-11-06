@@ -62,6 +62,12 @@ export async function handleLoyo(request, config, env, input, fetcher = fetch) {
   if (request.method === 'POST' && request.headers.get('x-heyso-client') !== 'local-ui') fail('需要客户端标识', 403);
   if (path === '/api/cloud/status') return json({ connected: true, base: config.base, user: config.user, primary: true, mcpUrl: config.base + '/mcp/heyso' });
   if (path === '/api/connection') return json({ url: config.base + '/mcp/heyso', oauth: true, hosted: true, provider: 'loyocloud', version: 'alpha_0.1', tools: toolDefinitions.map(([name, description]) => ({ name, description })) });
+  const preferenceRoute=path.match(/^\/api\/view-preferences\/([^/]+)$/);
+  if(preferenceRoute){
+    const fileId=decodeURIComponent(preferenceRoute[1]);
+    if(!/^[0-9a-f-]{36}$/i.test(fileId))fail('无效云文件标识');
+    return json(await api('/api/v1/heyso/files/'+encodeURIComponent(fileId)+'/view-preferences',request.method==='POST'?input:undefined));
+  }
   // Version checks read metadata only. Fetch complete content only for changed files.
   if(path==='/api/state' && request.method==='POST' && Array.isArray(input.heads)) {
     const list=await api('/api/v1/heyso/files'), heads=list.files.map(f=>({fileId:f.id,headId:f.head_id||f.headId}));
