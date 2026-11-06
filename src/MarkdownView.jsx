@@ -1,7 +1,7 @@
 import React from 'react';
 import ReactMarkdown from 'react-markdown';
 import { safeMarkdownUrl } from './markdown-policy.mjs';
-import './rich-text.css';
+
 import {WorkspaceLink} from './WorkspaceLinks.jsx';
 import linkifyMarkdown from './linkify-markdown.mjs';
 

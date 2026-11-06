@@ -1,8 +1,10 @@
+import {ReplicaInput} from './ReplicaControls.jsx';
+import {AntAlert} from './AntStructures.jsx';
 import React,{useEffect,useRef,useState} from 'react';
 import {useEditor,EditorContent} from '@tiptap/react';
 import {inlineExtensions,completeBold} from './inline-editor.mjs';
 import {MAX_MARKDOWN_LENGTH,pastedImageData} from './markdown-policy.mjs';
-import './rich-text.css';
+
 import {useWorkspaceLinks} from './WorkspaceLinks.jsx';
 
 export default function RichTextEditor({value,defaultValue='',name,label='多行文本',onSave,onChange,onBusyChange,disabled=false,placeholder=''}) {
@@ -59,9 +61,9 @@ export default function RichTextEditor({value,defaultValue='',name,label='多行
     finally{busy.current=false;setPending(false);latest.current.onBusyChange?.(-1);if(blurred.current)await commit();}
   }
   return <div className="rich-text-editor inline-text-editor">
-    {name&&<input type="hidden" name={name} value={text}/>}
+    {name&&<ReplicaInput type="hidden" name={name} value={text}/>}
     <EditorContent editor={editor}/>
     {pending&&<p className="rich-text-hint" role="status">正在插入图片…</p>}
-    {error&&<p className="rich-text-error" role="alert">{error}</p>}
+    {error&&<AntAlert className="rich-text-error" role="alert">{error}</AntAlert>}
   </div>;
 }

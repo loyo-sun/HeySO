@@ -1,3 +1,8 @@
+import {ReplicaField,ReplicaForm,ReplicaModal,ReplicaDrawer,ReplicaButton,ReplicaInput,ReplicaTextArea} from './ReplicaControls.jsx';
+import {AntTimeline,AntAlert,AntList,AntToast,AntRing,AntCard,AntStatistic,AntBreadcrumb,AntTag,AntAvatar,AntTabs,AntMenu,AntDisclosure} from './AntStructures.jsx';
+import {Empty as AntDesignEmpty,Progress as AntDesignProgress} from 'antd';
+import ReplicaTheme from './ReplicaTheme.jsx';
+import './app.css';
 import {aiExecutionEnabled} from '../shared/work-config.mjs';
 import ActivityDetails from './ActivityDetails.jsx';
 import SprintWorkspace, {SprintStatusCounts} from "./SprintWorkspace.jsx";
@@ -59,8 +64,8 @@ import {
   CircleHelp,
   BarChart3,
 } from "lucide-react";
-import "./style.css";
-import "./plane.css";
+
+
 import SettingsPanel, {
   settingsPages,
   settingsDescriptions,
@@ -71,7 +76,7 @@ import DeleteProjectDialog from "./DeleteProjectDialog.jsx";
 import ItemSchedule, { DateFields } from "./Schedule.jsx";
 import Select, { StatusIcon, PriorityIcon } from "./Select.jsx";
 import Sidebar from "./Sidebar.jsx";
-import "./brand.css";
+
 import heysoIcon from "./assets/heyso-icon.svg";
 import { WorkConfigContext, useWorkProject } from "./WorkConfigContext.jsx";
 import Kind from "./WorkType.jsx";
@@ -81,8 +86,8 @@ import HelpCenter from "./HelpCenter.jsx";
 import ContextMenu from "./ContextMenu.jsx";
 import Dashboard from "./Dashboard.jsx";
 import useWorkspaceRoute from "./useWorkspaceRoute.jsx";
-import "./dashboard.css";
-import "./page-layout.css";
+
+
 import WorkItemDialog from "./WorkItemDialog.jsx";
 import WorkItemTitle from "./WorkItemTitle.jsx";
 import RichTextEditor from "./RichTextEditor.jsx";
@@ -155,7 +160,7 @@ function Badge({ status, workflow = true }) {
   const category = workflow ? ({todo:"todo",in_progress:"active",done:"done"}[progressCategory(project,status)] || status) : status;
   const names = workflow ? { ...statusNames, ...statusNamesFor(project) } : statusNames;
   return (
-    <span className={"badge " + category}>
+    <AntTag className={"badge " + category}>
       <StatusIcon value={status} />
       {names[status] ||
         {
@@ -168,7 +173,7 @@ function Badge({ status, workflow = true }) {
           changes: "需修改",
         }[status] ||
         status}
-    </span>
+    </AntTag>
   );
 }
 function Empty({
@@ -176,22 +181,10 @@ function Empty({
   text = "从一个清晰的目标开始，逐步推进工作。",
   action,
 }) {
-  return (
-    <div className="empty">
-      <Box size={30} />
-      <h3>{title}</h3>
-      <p>{text}</p>
-      {action}
-    </div>
-  );
+  return <AntDesignEmpty className="empty heyso-empty-state" image={<Box size={30}/>} description={<><h3>{title}</h3><p>{text}</p></>}>{action}</AntDesignEmpty>;
 }
-function Progress({ value }) {
-  return (
-    <div className="progress">
-      <div style={{ width: value + "%" }} />
-    </div>
-  );
-}
+function Progress({value}) {return <AntDesignProgress className="heyso-progress" percent={value} showInfo={false} strokeWidth={4}/>;}
+
 function App() {
   const hosting = useHosting();
   const routeGuard = useRef(null);
@@ -376,7 +369,7 @@ function App() {
             ? "正在打开你的工作空间…"
             : "服务暂时不可用，请稍后重试。"}
         </p>
-        <button onClick={refresh}>重新连接</button>
+        <ReplicaButton onClick={refresh}>重新连接</ReplicaButton>
       </div>
     );
   const project =
@@ -390,21 +383,21 @@ function App() {
           <b>HeySO</b>
           <span>合序</span>
         </div>
-        <button className="help-entry empty-help-entry" aria-label="帮助中心" title="帮助中心" onClick={() => setHelpOpen(true)}><CircleHelp size={19}/></button>
+        <ReplicaButton className="help-entry empty-help-entry" aria-label="帮助中心" title="帮助中心" onClick={() => setHelpOpen(true)}><CircleHelp size={19}/></ReplicaButton>
         <section>
           <FolderKanban size={36} />
           <h1>创建你的第一个项目</h1>
           <p>从一个项目开始，规划需求、冲刺与版本，记录每一次交付。</p>
-          <button
+          <ReplicaButton
             className="primary"
             onClick={() => setModal({ type: "project" })}
           >
             <Plus size={16} />
             创建项目
-          </button>
+          </ReplicaButton>
         </section>
         <CloudPanel busy={busy} onState={receiveCloudState} setToast={setToast}/>
-        <footer>{hosting.hosted ? "在线保存" : "本地保存"} · alpha_0.1 {hosting.hosted && <><button className="text-btn" onClick={hosting.configure}>云端存储</button><button className="text-btn" onClick={hosting.logout}>退出工作空间</button></>}</footer>
+        <footer>{hosting.hosted ? "在线保存" : "本地保存"} · alpha_0.1 {hosting.hosted && <><ReplicaButton className="text-btn" onClick={hosting.configure}>云端存储</ReplicaButton><ReplicaButton className="text-btn" onClick={hosting.logout}>退出工作空间</ReplicaButton></>}</footer>
         <Presence
           present={modal?.type === "project"}
           onClose={() => setModal(null)}
@@ -425,9 +418,9 @@ function App() {
           )}
         </Presence>
       {toast && (
-          <div className="toast" role="status">
+          <AntToast className="toast" role="status">
             {toast}
-          </div>
+          </AntToast>
         )}
       </div>
       {helpOpen && <HelpCenter onClose={() => setHelpOpen(false)}/>}
@@ -527,7 +520,7 @@ function App() {
       </div>
       {rows.length ? (
         rows.map((i) => (
-          <button className="story-row" key={i.id} data-work-item-id={i.id} data-history={historical} onClick={() => historical ? setModal({type:"workSnapshot",item:i}) : open(i)}>
+          <ReplicaButton className="story-row" key={i.id} data-work-item-id={i.id} data-history={historical} onClick={() => historical ? setModal({type:"workSnapshot",item:i}) : open(i)}>
             <div className="story-name">
               <Kind kind={i.kind} iconOnly />
               <small>{project.code}-{i.number}</small>
@@ -539,11 +532,11 @@ function App() {
               <PriorityIcon value={i.priority} /> {priorities[i.priority]}
             </span>
             <span className="person">
-              <span className="avatar">{i.owner?.slice(0, 1) || "?"}</span>
+              <AntAvatar className="avatar">{i.owner?.slice(0, 1) || "?"}</AntAvatar>
               {i.owner}
             </span>
             <span className="points">{i.points || "—"}</span>
-          </button>
+          </ReplicaButton>
         ))
       ) : (
         <Empty title="没有符合条件的工作项" />
@@ -554,7 +547,7 @@ function App() {
     <div className="toolbar">
       <div className="search">
         <Search size={16} />
-        <input
+        <ReplicaInput
           aria-label="搜索工作项"
           placeholder="搜索工作项标题或编号…"
           value={query}
@@ -600,11 +593,11 @@ function App() {
     </div>
   );
   function renderMemory() {
-    return <><div className="inline" style={{justifyContent:"flex-end",marginBottom:20}}><button className="primary" onClick={() => setModal({type:"note"})}><Plus size={16}/>记录记忆</button></div>
+    return <><div className="inline" style={{justifyContent:"flex-end",marginBottom:20}}><ReplicaButton className="primary" onClick={() => setModal({type:"note"})}><Plus size={16}/>记录记忆</ReplicaButton></div>
               <div className="memory-grid">
                 {notes.map((n) => (
-                  <article className="panel memory-card" key={n.id}>
-                    <span
+                  <AntCard className="panel memory-card" key={n.id}>
+                    <AntTag
                       className={
                         "kind " + (n.type === "decision" ? "epic" : "feature")
                       }
@@ -621,11 +614,11 @@ function App() {
                           learning: "经验与复盘",
                         }[n.type]
                       }
-                    </span>
+                    </AntTag>
                     <h3>{n.title}</h3>
                     <MarkdownPreview value={n.body}/>
                     <footer>
-                      <span className="avatar">我</span>
+                      <AntAvatar className="avatar">我</AntAvatar>
                       <span>
                         {n.author} · {fmt(n.createdAt)}
                       </span>
@@ -633,7 +626,7 @@ function App() {
                         <CheckCircle2 size={13} /> 人工记录
                       </span>
                     </footer>
-                  </article>
+                  </AntCard>
                 ))}
               </div>
               {!notes.length && <Empty title="记录第一个共识" />}
@@ -649,8 +642,8 @@ function App() {
           project.name,
           project.description || "查看项目进度、当前冲刺和待验收成果。",
         )}
-        <div className="inline" style={{marginBottom:16,gap:12}}><span>{project.cloud ? '在线项目 · LoyoCloud' : hosting.hosted ? '工作空间项目' : '本地项目'}</span><button onClick={()=>{go('settings');setSettingsSection('integrations');}}>{project.cloud ? '云空间与 AI 连接' : hosting.hosted ? '保存至 LoyoCloud' : '转为在线项目'}</button></div>
-        {project.cloud?.error&&<div className="settings-error" role="alert">{project.cloud.error}。当前显示最近读取的内容，联网后刷新。</div>}
+        <div className="inline" style={{marginBottom:16,gap:12}}><span>{project.cloud ? '在线项目 · LoyoCloud' : hosting.hosted ? '工作空间项目' : '本地项目'}</span><ReplicaButton onClick={()=>{go('settings');setSettingsSection('integrations');}}>{project.cloud ? '云空间与 AI 连接' : hosting.hosted ? '保存至 LoyoCloud' : '转为在线项目'}</ReplicaButton></div>
+        {project.cloud?.error&&<AntAlert className="settings-error" role="alert">{project.cloud.error}。当前显示最近读取的内容，联网后刷新。</AntAlert>}
         <div className="project-goal-strip">
           <Target size={18} />
           <div>
@@ -660,10 +653,10 @@ function App() {
                 "在项目设置中补充目标，为团队与 AI 提供共同方向。"}
             </p>
           </div>
-          <button className="text-btn" onClick={() => go("list")}>
+          <ReplicaButton className="text-btn" onClick={() => go("list")}>
             工作项全景
             <ArrowRight size={14} />
-          </button>
+          </ReplicaButton>
         </div>
         <div className="project-period">
           <Calendar size={14} />
@@ -674,9 +667,9 @@ function App() {
               : "待设置"}
           </span>
           {(!project.startDate || !project.endDate) && (
-            <button className="text-btn" onClick={openProjectSettings}>
+            <ReplicaButton className="text-btn" onClick={openProjectSettings}>
               设置日期
-            </button>
+            </ReplicaButton>
           )}
         </div>
         <div className="stats">
@@ -704,7 +697,7 @@ function App() {
               "purple",
             ],
           ].map(([n, label, sub, I, color]) => (
-            <button
+            <AntCard
               className="stat"
               key={label}
               onClick={() => {
@@ -724,24 +717,24 @@ function App() {
                 <span>{label}</span>
                 <I className={color} size={18} />
               </div>
-              <strong>
+              <AntStatistic>
                 {n}
                 <small>个</small>
-              </strong>
+              </AntStatistic>
               <p>{sub}</p>
-            </button>
+            </AntCard>
           ))}
         </div>
         <div className="overview-grid">
-          <section className="panel">
+          <AntCard className="panel">
             <div className="panel-title">
               <h3>
                 <Timer size={18} />
                 当前冲刺
               </h3>
-              <button className="text-btn" onClick={() => go("sprints")}>
+              <ReplicaButton className="text-btn" onClick={() => go("sprints")}>
                 管理冲刺 <ArrowUpRight size={14} />
-              </button>
+              </ReplicaButton>
             </div>
             {activeSprint ? (
               <>
@@ -758,7 +751,7 @@ function App() {
                       {sprintStories.length} 个工作项
                     </div>
                   </div>
-                  <div
+                  <AntRing
                     className="ring"
                     style={{
                       "--p":
@@ -780,7 +773,7 @@ function App() {
                       </strong>
                       <span>验收完成</span>
                     </div>
-                  </div>
+                  </AntRing>
                 </div>
                 <div className="sprint-footer">
                   <span>
@@ -788,7 +781,7 @@ function App() {
                     {sum(sprintStories.filter((x) => hasStatus(x, project, "done")))} SP
                   </span>
                   <span>计划容量 {activeSprint.capacity} SP</span>
-                  <button
+                  <ReplicaButton
                     className="text-btn"
                     onClick={() => {
                       go("board");
@@ -796,29 +789,29 @@ function App() {
                     }}
                   >
                     进入看板 <ArrowRight size={14} />
-                  </button>
+                  </ReplicaButton>
                 </div>
               </>
             ) : (
               <Empty
                 title="开始你的第一次冲刺"
                 action={
-                  <button onClick={() => setModal({ type: "sprint" })}>
+                  <ReplicaButton onClick={() => setModal({ type: "sprint" })}>
                     创建 Sprint
-                  </button>
+                  </ReplicaButton>
                 }
               />
             )}
-          </section>
-          <section className="panel">
+          </AntCard>
+          <AntCard className="panel">
             <div className="panel-title">
               <h3>
                 <Flag size={18} />
                 版本计划
               </h3>
-              <button className="text-btn" onClick={() => go("releases")}>
+              <ReplicaButton className="text-btn" onClick={() => go("releases")}>
                 全部 <ArrowUpRight size={14} />
-              </button>
+              </ReplicaButton>
             </div>
             {releases.slice(0, 2).map((r) => {
               const a = stories.filter((x) => x.releaseId === r.id),
@@ -839,27 +832,27 @@ function App() {
               );
             })}
             {!releases.length && <Empty title="还没有版本" />}
-          </section>
+          </AntCard>
         </div>
         <div className="overview-grid bottom-grid">
-          <section className="panel">
+          <AntCard className="panel">
             <div className="panel-title">
               <h3>
                 <Clock size={18} />
                 待你验收 <span className="count">{review.length}</span>
               </h3>
-              <button
+              <ReplicaButton
                 className="text-btn"
                 onClick={() => {
                   go("ai");
                 }}
               >
                 查看全部 <ArrowUpRight size={14} />
-              </button>
+              </ReplicaButton>
             </div>
             {review.length ? (
               review.map((i) => (
-                <button
+                <ReplicaButton
                   className="review-row" data-work-item-id={i.id}
                   key={i.id}
                   onClick={() => {
@@ -878,7 +871,7 @@ function App() {
                     <p>成果已准备好，等待你的确认</p>
                   </div>
                   <ArrowRight size={17} />
-                </button>
+                </ReplicaButton>
               ))
             ) : (
               <Empty
@@ -886,15 +879,15 @@ function App() {
                 text="AI 提交的成果会出现在这里。"
               />
             )}
-          </section>
-          <section className="panel">
+          </AntCard>
+          <AntCard className="panel">
             <div className="panel-title">
               <h3>
                 <Activity size={18} />
                 最近动态
               </h3>
             </div>
-            <div className="activity">
+            <AntTimeline className="activity">
               {events.slice(0, 5).map((e) => (
                 <div key={e.id}>
                   <i />
@@ -905,8 +898,8 @@ function App() {
                   </section>
                 </div>
               ))}
-            </div>
-          </section>
+            </AntTimeline>
+          </AntCard>
         </div>
       </>
     );
@@ -916,7 +909,7 @@ function App() {
     <>
     <div inert={helpOpen ? true : undefined} className={`app${sidebarCompact ? " sidebar-compact" : ""}`}>
       <header className="appbar">
-        <button
+        <ReplicaButton
           className="app-brand"
           onClick={() => switchPage("dashboard")}
           aria-label="HeySO 首页"
@@ -924,10 +917,10 @@ function App() {
           <img className="mark" src={heysoIcon} alt="" />
           <b>HeySO</b>
           <span>合序</span>
-        </button>
-        <div className="appbar-tabs" role="tablist" aria-label="工作空间页面">
+        </ReplicaButton>
+        <AntTabs className="appbar-tabs" role="tablist" aria-label="工作空间页面">
           {[["dashboard", "仪表盘", LayoutDashboard], ["projects", "项目", FolderKanban]].map(([id, label, Icon]) => (
-            <button key={id} id={`tab-${id}`} role="tab" aria-selected={page === id} aria-controls={`panel-${id}`} tabIndex={page === id ? 0 : -1}
+            <ReplicaButton key={id} id={`tab-${id}`} role="tab" aria-selected={page === id} aria-controls={`panel-${id}`} tabIndex={page === id ? 0 : -1}
               className={page === id ? "active" : ""} onClick={() => switchPage(id)}
               onKeyDown={(event) => {
                 if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
@@ -935,13 +928,13 @@ function App() {
                 const next = event.key === "Home" ? "dashboard" : event.key === "End" ? "projects" : id === "dashboard" ? "projects" : "dashboard";
                 document.getElementById(`tab-${next}`)?.focus();
                 switchPage(next);
-              }}><Icon size={15}/><span>{label}</span></button>
+              }}><Icon size={15}/><span>{label}</span></ReplicaButton>
           ))}
-        </div>
+        </AntTabs>
         <div className="appbar-actions">
-        <button className="help-entry" aria-label="复制当前页面链接" title="复制当前页面链接" onClick={() => copy(window.location.href)}><Link size={18}/></button>
-        <button className="help-entry" aria-label="帮助中心" title="帮助中心" onClick={() => setHelpOpen(true)}><CircleHelp size={19}/></button>
-        <button
+        <ReplicaButton className="help-entry" aria-label="复制当前页面链接" title="复制当前页面链接" onClick={() => copy(window.location.href)}><Link size={18}/></ReplicaButton>
+        <ReplicaButton className="help-entry" aria-label="帮助中心" title="帮助中心" onClick={() => setHelpOpen(true)}><CircleHelp size={19}/></ReplicaButton>
+        <ReplicaButton
           className="global-search"
           aria-label="搜索工作项"
           title="搜索工作项"
@@ -953,10 +946,10 @@ function App() {
           }}
         >
           <Search size={18} />
-        </button></div>
+        </ReplicaButton></div>
       </header>
-      {page === "dashboard" && <main className="dashboard-main" id="panel-dashboard" role="tabpanel" aria-labelledby="tab-dashboard">
-        {!online && <div className="offline-banner">服务连接已断开，恢复连接后可继续保存。</div>}
+      {page === "dashboard" && <main className="dashboard-main" id="panel-dashboard" role="tabpanel" aria-labelledby="heyso-workspace-tabs-tab-dashboard">
+        {!online && <AntAlert className="offline-banner">服务连接已断开，恢复连接后可继续保存。</AntAlert>}
         <Dashboard data={data} onRefresh={refresh} onProject={(id) => { switchProject(id); go("roadmap"); }}
           onOpen={(item) => { switchProject(item.projectId); go("backlog"); open(item); }}
           onCreateProject={() => setModal({ type: "project" })}/>
@@ -970,7 +963,7 @@ function App() {
       >
         {view === "settings" && (
           <div className="sidebar-title">
-            <button
+            <ReplicaButton
               className="back-to-project"
               aria-label="返回项目"
               data-sidebar-tooltip="返回项目"
@@ -979,7 +972,7 @@ function App() {
             >
               <ArrowLeft size={16} />
               <span>返回项目</span>
-            </button>
+            </ReplicaButton>
           </div>
         )}
         <div className="workspace">
@@ -1009,7 +1002,7 @@ function App() {
           </Select>
         </div>
         {view !== "settings" && (
-          <button
+          <ReplicaButton
             className="sidebar-create primary"
             aria-label="新建工作项"
             data-sidebar-tooltip="新建工作项"
@@ -1018,16 +1011,16 @@ function App() {
           >
             <Plus size={15} />
             <span>新建工作项</span>
-          </button>
+          </ReplicaButton>
         )}
         {view === "settings" && <div className="nav-label">项目设置</div>}
-        <nav
+        <AntMenu
           key={view === "settings" ? "settings" : "management"}
           className="sidebar-nav"
         >
           {(view === "settings" ? settingsPages : navs).map(
             ([id, label, I, description]) => (
-              <button
+              <ReplicaButton
                 key={id}
                 aria-label={label}
                 data-sidebar-tooltip={label}
@@ -1054,13 +1047,13 @@ function App() {
                 {id === "ai" && review.length > 0 && (
                   <small>{review.length}</small>
                 )}
-              </button>
+              </ReplicaButton>
             ),
           )}
-        </nav>
+        </AntMenu>
         <div className="sidebar-bottom">
           {view !== "settings" && (
-            <button
+            <ReplicaButton
               className="settings-entry"
               aria-label="项目设置"
               data-sidebar-tooltip="项目设置"
@@ -1073,10 +1066,10 @@ function App() {
               <Settings size={16} />
               <span>项目设置</span>
               <ChevronRight size={14} />
-            </button>
+            </ReplicaButton>
           )}
         </div>
-        <button
+        <ReplicaButton
           type="button"
           className="sidebar-toggle"
           aria-label={sidebarCollapsed ? "展开左侧菜单" : "收起左侧菜单"}
@@ -1093,14 +1086,14 @@ function App() {
           ) : (
             <ChevronLeft size={16} strokeWidth={1.6} />
           )}
-        </button>
+        </ReplicaButton>
       </Sidebar>
-      <main id="panel-projects" role="tabpanel" aria-labelledby="tab-projects">
+      <main id="panel-projects" role="tabpanel" aria-labelledby="heyso-workspace-tabs-tab-projects">
 
         {!online && (
-          <div className="offline-banner">
+          <AntAlert className="offline-banner">
             服务连接已断开，恢复连接后可继续保存。
-          </div>
+          </AntAlert>
         )}
         <div className={"content view-" + view} key={project.id + view} onContextMenu={handleContextMenu} onKeyDown={handleContextMenu}>
           {inWork && view!=="list" && <section className="work-page-header">
@@ -1141,7 +1134,7 @@ function App() {
               {header(
                 "AI 交付",
                 "跟踪执行进展、查看交付结果，并完成人工验收。",
-                <button
+                <ReplicaButton
                   onClick={() => {
                     setSettingsSection("integrations");
                     go("settings");
@@ -1149,7 +1142,7 @@ function App() {
                 >
                   <Settings size={15} />
                   管理 AI 连接
-                </button>,
+                </ReplicaButton>,
               )}
               <div className="stats three">
                 {[
@@ -1165,11 +1158,11 @@ function App() {
                 ].map(([n, l]) => (
                   <div className="stat" key={l}>
                     <span>{l}</span>
-                    <strong>{n}</strong>
+                    <AntStatistic>{n}</AntStatistic>
                   </div>
                 ))}
               </div>
-              <section className="panel">
+              <AntCard className="panel">
                 <div className="panel-title">
                   <h3>执行与交付</h3>
                   <span className="muted">成果由人确认</span>
@@ -1181,7 +1174,7 @@ function App() {
                     .map((r) => {
                       const i = items.find((x) => x.id === runTargetId(r));
                       return (
-                        <button
+                        <ReplicaButton
                           className="run-row" data-work-item-id={i?.id} data-work-run-id={r.id}
                           key={r.id}
                           onClick={() => {
@@ -1200,7 +1193,7 @@ function App() {
                           </div>
                           <Badge status={r.status} workflow={false} />
                           <ChevronRight size={16} />
-                        </button>
+                        </ReplicaButton>
                       );
                     })
                 ) : (
@@ -1209,7 +1202,7 @@ function App() {
                     text="在工作项中启用 AI，然后复制执行指令到已连接的 AI 工具。"
                   />
                 )}
-              </section>
+              </AntCard>
             </>
           )}
           {view === "settings" && (
@@ -1303,27 +1296,27 @@ function App() {
       </Presence>
       {contextMenu && <ContextMenu key={`${contextMenu.x}:${contextMenu.y}:${contextMenu.item?.id || contextMenu.scopeId || contextMenu.scope}`} menu={contextMenu} entries={contextEntries()} onClose={closeContextMenu}/>}
         <Presence present={!!settingsNavigation} onClose={() => setSettingsNavigation(null)}>
-        {settingsNavigation && <div className="modal-layer">
-          <section className="modal unsaved-settings-modal" role="dialog" aria-modal="true" aria-labelledby="unsaved-settings-title" aria-describedby="unsaved-settings-description">
-            <header><span className="unsaved-settings-icon"><AlertCircle size={23}/></span><h2 id="unsaved-settings-title">设置尚未保存</h2><button className="icon-btn" aria-label="继续编辑设置" onClick={() => setSettingsNavigation(null)}><X size={18}/></button></header>
+        {settingsNavigation && <div className="replica-dialog-host">
+          <ReplicaModal className="modal unsaved-settings-modal" role="dialog" aria-modal="true" aria-labelledby="unsaved-settings-title" aria-describedby="unsaved-settings-description">
+            <header><span className="unsaved-settings-icon"><AlertCircle size={23}/></span><h2 id="unsaved-settings-title">设置尚未保存</h2><ReplicaButton className="icon-btn" aria-label="继续编辑设置" onClick={() => setSettingsNavigation(null)}><X size={18}/></ReplicaButton></header>
             <div className="modal-body"><p id="unsaved-settings-description">离开将丢失本次修改。你可以继续编辑，保存后再离开。</p></div>
-            <footer><button className="discard-settings-button" onClick={() => {
+            <footer><ReplicaButton className="discard-settings-button" onClick={() => {
               const navigate = settingsNavigation;
               settingsDirtyRef.current = false;
               setSettingsNavigation(null);
               navigate();
-            }}>放弃并离开</button><button className="primary" autoFocus onClick={() => setSettingsNavigation(null)}>继续编辑</button></footer>
-          </section>
+            }}>放弃并离开</ReplicaButton><ReplicaButton className="primary" autoFocus onClick={() => setSettingsNavigation(null)}>继续编辑</ReplicaButton></footer>
+          </ReplicaModal>
         </div>}
       </Presence>
       {toast && (
-        <div className="toast" role="status">
+        <AntToast className="toast" role="status">
           <CheckCircle2 size={17} />
           {toast}
-          <button className="icon-btn" aria-label="关闭提示" onClick={() => setToast("")}>
+          <ReplicaButton className="icon-btn" aria-label="关闭提示" onClick={() => setToast("")}>
             <X size={14} />
-          </button>
-        </div>
+          </ReplicaButton>
+        </AntToast>
       )}
     </div>
     {helpOpen && <HelpCenter initialArticle={page === "dashboard" ? "start" : view === "settings" ? ({types:"types",hierarchy:"hierarchy",states:"workflows",memory:"memory",integrations:"ai",data:"data",general:"projects",members:"projects",roles:"projects",workflow:"projects"}[settingsSection] || "start") : ({roadmap:"roadmap",backlog:"sprints",sprints:"sprints",board:"list",list:"list",releases:"releases",reports:"reports",ai:"ai"}[view] || "start")} onClose={() => setHelpOpen(false)}/>}
@@ -1350,31 +1343,26 @@ function SprintCard({
     done = rows.filter((x) => hasStatus(x, project, "done"));
   const visibleRows = scopeFilter ? rows.filter(scopeFilter) : rows;
   const menuRef = useRef(null);
-  useEffect(() => {
-    const close = e => { if (e.type === "keydown" ? e.key === "Escape" : !menuRef.current?.contains(e.target)) menuRef.current?.removeAttribute("open"); };
-    document.addEventListener("pointerdown", close); document.addEventListener("keydown", close);
-    return () => {document.removeEventListener("pointerdown", close); document.removeEventListener("keydown", close);};
-  }, []);
   return (
-    <section className="panel sprint-card" data-work-scope="sprint" data-scope-id={sp.id} tabIndex={0}>
+    <AntCard className="panel sprint-card" data-work-scope="sprint" data-scope-id={sp.id} tabIndex={0}>
       <div className="sprint-heading">
-        <button className="icon-btn" aria-label={(expanded ? "收起" : "展开") + sp.name} aria-expanded={expanded} onClick={() => setExpanded(!expanded)}>{expanded ? <ChevronDown size={16}/> : <ChevronRight size={16}/>}</button>
-        <div className="sprint-heading-info"><h2 title={sp.name}>{sp.name}</h2><button className="sprint-date-link" disabled={busy || sp.status === "closed"} aria-label={"编辑" + sp.name + "日期"} onClick={onEdit}><Calendar size={12}/>{fmt(sp.startDate)} — {fmt(sp.endDate)}</button><span className="sprint-item-count">（{visibleRows.length} 个工作项）</span></div>
+        <ReplicaButton className="icon-btn" aria-label={(expanded ? "收起" : "展开") + sp.name} aria-expanded={expanded} onClick={() => setExpanded(!expanded)}>{expanded ? <ChevronDown size={16}/> : <ChevronRight size={16}/>}</ReplicaButton>
+        <div className="sprint-heading-info"><h2 title={sp.name}>{sp.name}</h2><ReplicaButton className="sprint-date-link" disabled={busy || sp.status === "closed"} aria-label={"编辑" + sp.name + "日期"} onClick={onEdit}><Calendar size={12}/>{fmt(sp.startDate)} — {fmt(sp.endDate)}</ReplicaButton><span className="sprint-item-count">（{visibleRows.length} 个工作项）</span></div>
         <div className="inline sprint-actions">
           <SprintStatusCounts rows={visibleRows} project={project}/>
-          {sp.status === "planned" && <button className="primary" disabled={busy || !rows.length || !!activeSprint} title={activeSprint ? "请先完成当前冲刺" : !rows.length ? "先从待办池安排工作项" : "确认目标和周期后启动"} onClick={onStart}>启动冲刺</button>}
-          {sp.status === "active" && <button className="primary" disabled={busy} onClick={onClose}>完成冲刺</button>}
-          {sp.status!=="closed"&&<details className="sprint-more-menu" ref={menuRef}><summary aria-label={sp.name + "更多操作"}><MoreHorizontal size={17}/></summary><div className="sprint-more-options">
-            {sp.status !== "closed" && <button disabled={busy} onClick={() => {menuRef.current?.removeAttribute("open");onEdit();}}>编辑冲刺</button>}
-            {sp.status === "active" && <button onClick={() => {go("board");setSprintFilter(sp.id);}}>打开看板</button>}
+          {sp.status === "planned" && <ReplicaButton className="primary" disabled={busy || !rows.length || !!activeSprint} title={activeSprint ? "请先完成当前冲刺" : !rows.length ? "先从待办池安排工作项" : "确认目标和周期后启动"} onClick={onStart}>启动冲刺</ReplicaButton>}
+          {sp.status === "active" && <ReplicaButton className="primary" disabled={busy} onClick={onClose}>完成冲刺</ReplicaButton>}
+          {sp.status!=="closed"&&<AntDisclosure className="sprint-more-menu" ref={menuRef}><summary aria-label={sp.name + "更多操作"}><MoreHorizontal size={17}/></summary><div className="sprint-more-options">
+            {sp.status !== "closed" && <ReplicaButton disabled={busy} onClick={() => {menuRef.current?.removeAttribute("open");onEdit();}}>编辑冲刺</ReplicaButton>}
+            {sp.status === "active" && <ReplicaButton onClick={() => {go("board");setSprintFilter(sp.id);}}>打开看板</ReplicaButton>}
 
-          </div></details>}
+          </div></AntDisclosure>}
         </div>
       </div>
       {expanded && (
         <>
               {workRows(rows)}
-              {sp.status !== "closed" && <div className="sprint-create-row"><button className="text-btn" disabled={busy} onClick={onCreate}><Plus size={15}/>新建工作项</button></div>}
+              {sp.status !== "closed" && <div className="sprint-create-row"><ReplicaButton className="text-btn" disabled={busy} onClick={onCreate}><Plus size={15}/>新建工作项</ReplicaButton></div>}
               {sp.status === "closed" && sp.carryover?.length > 0 && (
                 <div className="section-pad">
                   <h4>未完成故事的去向</h4>
@@ -1396,14 +1384,14 @@ function SprintCard({
 
         </>
       )}
-    </section>
+    </AntCard>
   );
 }
 function InheritedPlanning({parent,sprints,compact=false}) {
-  return <div className={'inherited-planning'+(compact?' is-compact':' wide')}><Field label="Sprint（随父级）"><input aria-label="继承的 Sprint" readOnly value={parent?(sprints.find(sp=>sp.id===parent.sprintId)?.name||"产品待办池"):"请先选择父级工作项"}/></Field></div>;
+  return <div className={'inherited-planning'+(compact?' is-compact':' wide')}><Field label="Sprint（随父级）"><ReplicaInput aria-label="继承的 Sprint" readOnly value={parent?(sprints.find(sp=>sp.id===parent.sprintId)?.name||"产品待办池"):"请先选择父级工作项"}/></Field></div>;
 }
 function Field({ label, children, wide }) {
-  const Container = React.Children.toArray(children).some(child => React.isValidElement(child) && child.type === RichTextEditor) ? "div" : "label";
+  const Container = ReplicaField;
   return (
     <Container className={"field " + (wide ? "wide" : "")}>
       <span>{label}</span>
@@ -1458,9 +1446,9 @@ function Detail({
   const prompt = executionInstruction(project, i);
   const aiOn=aiExecutionEnabled(i,items);
   return (
-    <div className="drawer-layer">
+    <div className="replica-dialog-host">
       <div className="drawer-scrim" onClick={close} />
-      <aside
+      <ReplicaDrawer onClose={close}
         className="drawer"
         role="dialog"
         aria-modal="true"
@@ -1469,15 +1457,15 @@ function Detail({
         <header>
           <div>
             <Kind kind={i.kind} />
-            <button className="work-item-code" aria-label="复制工作项 ID" title="点击复制工作项 ID" onClick={() => { const code = i.number ? project.code + "-" + i.number : i.id; copy(code, "已复制工作项 ID：" + code); }}>{i.number ? project.code + "-" + i.number : i.id}</button>
+            <ReplicaButton className="work-item-code" aria-label="复制工作项 ID" title="点击复制工作项 ID" onClick={() => { const code = i.number ? project.code + "-" + i.number : i.id; copy(code, "已复制工作项 ID：" + code); }}>{i.number ? project.code + "-" + i.number : i.id}</ReplicaButton>
           </div>
           <div>
-            <button className="icon-btn" aria-label="复制工作项链接" title="复制工作项链接" onClick={() => copy(window.location.href)}><Link size={17}/></button>
-            {isExecutionItem(i,project)&&<button className={'icon-btn detail-ai-button'+(aiOn?' on':'')} aria-label={aiOn?'停用 AI 执行':'启用 AI 执行'} aria-pressed={aiOn} title={!aiOn&&!aiReady(workflowFor(project,i.kind))?'请先配置执行、验收和完成节点':aiOn?'停用当前工作项的 AI 执行':'启用当前工作项的 AI 执行'} disabled={busy||(!aiOn&&!aiReady(workflowFor(project,i.kind)))} onClick={()=>update({aiEnabled:!aiOn,aiDisabled:aiOn})}><Bot size={18}/></button>}
+            <ReplicaButton className="icon-btn" aria-label="复制工作项链接" title="复制工作项链接" onClick={() => copy(window.location.href)}><Link size={17}/></ReplicaButton>
+            {isExecutionItem(i,project)&&<ReplicaButton className={'icon-btn detail-ai-button'+(aiOn?' on':'')} aria-label={aiOn?'停用 AI 执行':'启用 AI 执行'} aria-pressed={aiOn} title={!aiOn&&!aiReady(workflowFor(project,i.kind))?'请先配置执行、验收和完成节点':aiOn?'停用当前工作项的 AI 执行':'启用当前工作项的 AI 执行'} disabled={busy||(!aiOn&&!aiReady(workflowFor(project,i.kind)))} onClick={()=>update({aiEnabled:!aiOn,aiDisabled:aiOn})}><Bot size={18}/></ReplicaButton>}
           </div>
         </header>
         <div className="drawer-body">
-          {ancestors.length > 0 && <nav className="item-parent-path" aria-label="所属工作项路径">{ancestors.map((parent) => <React.Fragment key={parent.id}><button onClick={() => open(parent)} title={parent.title}><Kind kind={parent.kind} iconOnly/><span>{parent.title}</span></button><ChevronRight size={12}/></React.Fragment>)}<span>当前工作项</span></nav>}
+          {ancestors.length > 0 && <AntBreadcrumb className="item-parent-path" aria-label="所属工作项路径">{ancestors.map((parent) => <React.Fragment key={parent.id}><ReplicaButton onClick={() => open(parent)} title={parent.title}><Kind kind={parent.kind} iconOnly/><span>{parent.title}</span></ReplicaButton><ChevronRight size={12}/></React.Fragment>)}<span>当前工作项</span></AntBreadcrumb>}
           <div className="detail-heading">
             <div className="detail-title-row">
               <Select className="detail-status-icon detail-status-picker" aria-label="变更工作项状态" kind="status" value={i.status} searchable={false} disabled={busy} onChange={e=>update({status:e.target.value})}>
@@ -1491,22 +1479,22 @@ function Detail({
             </div>
 
           </div>
-          <div className="tabs">
+          <AntTabs className="tabs">
             {[
               ["detail", "详情"],
               ...(!isSubtask(i,project)?[["children", isWorkItem(i, project) ? "子任务" : "子项"]]:[]),
               ...(isExecutionItem(i, project) ? [["runs", "交付与验收"]] : []),
               ["history", "活动记录"],
             ].map(([k, v]) => (
-              <button
+              <ReplicaButton
                 key={k}
                 className={tab === k ? "active" : ""}
                 onClick={() => setTab(k)}
               >
                 {v}
-              </button>
+              </ReplicaButton>
             ))}
-          </div>
+          </AntTabs>
           {tab === "detail" && (
             <>
               <div className="form-grid detail-fields">
@@ -1648,13 +1636,13 @@ function Detail({
                     先连接项目 MCP，再复制执行指令。AI
                     会读取最新上下文，并将成果交回这里。
                   </p>
-                  <button
+                  <ReplicaButton
                     disabled={!aiOn}
                     onClick={() => copy(prompt)}
                   >
                     <Copy size={15} />
                     复制执行指令
-                  </button>
+                  </ReplicaButton>
                   {!aiOn && (
                     <small>请先为所属工作项启用 AI 执行</small>
                   )}
@@ -1662,7 +1650,7 @@ function Detail({
               )}
               <div className="detail-actions">
                 {isExecutionItem(i, project) && hasStatus(i, project, "review") && (
-                  <button
+                  <ReplicaButton
                     className="primary"
                     onClick={() =>
                       setModal({
@@ -1673,15 +1661,15 @@ function Detail({
                     }
                   >
                     人工验收
-                  </button>
+                  </ReplicaButton>
                 )}
                 {isExecutionItem(i, project) &&
                   !terminal(i, project) && statusFor(project,"review",i.kind) && allowedTransition(project,i.status,statusFor(project,"review",i.kind),i.kind) && (
-                    <button onClick={() => update({ status: statusFor(project, "review", i.kind) })}>
+                    <ReplicaButton onClick={() => update({ status: statusFor(project, "review", i.kind) })}>
                       提交人工交付
-                    </button>
+                    </ReplicaButton>
                   )}
-                <button
+                <ReplicaButton
                   className="danger text-btn ml-auto"
                   onClick={() =>
                     setModal({ type: "delete", item: i, after: close })
@@ -1689,7 +1677,7 @@ function Detail({
                 >
                   <Trash2 size={14} />
                   删除条目
-                </button>
+                </ReplicaButton>
               </div>
             </>
           )}
@@ -1698,19 +1686,19 @@ function Detail({
               <div className="panel-title">
                 <h3>{isWorkItem(i, project) ? "子任务" : "下级条目"}</h3>
                 {childTypes(project, i.kind).length > 0 && (
-                  <button
+                  <ReplicaButton
                     onClick={() =>
                       create(childTypes(project, i.kind)[0]?.id, i.id)
                     }
                   >
                     <Plus size={14} />
                     添加
-                  </button>
+                  </ReplicaButton>
                 )}
               </div>
               {tasks.length ? (
                 tasks.map((t) => (
-                  <button
+                  <ReplicaButton
                     key={t.id}
                     className="child-row"
                     onClick={() => open(t)}
@@ -1718,7 +1706,7 @@ function Detail({
                     <Kind kind={t.kind} iconOnly />
                     <span>{t.title}</span>
                     <Badge status={t.status} />
-                  </button>
+                  </ReplicaButton>
                 ))
               ) : (
                 <Empty
@@ -1737,12 +1725,12 @@ function Detail({
               <div className="panel-title">
                 <h3>交付与人工验收</h3>
                 {!terminal(i, project) && aiOn && (
-                  <button
+                  <ReplicaButton
                     onClick={() => setModal({ type: "delivery", story: i })}
                   >
                     <Plus size={14} />
                     记录交付
-                  </button>
+                  </ReplicaButton>
                 )}
               </div>
               {runs.length ? (
@@ -1761,9 +1749,9 @@ function Detail({
                       <Badge status={r.status} workflow={false} />
                     </div>
                     {((r.itemVersion !== undefined && r.itemVersion !== i.contentVersion) || r.storyVersion !== story?.contentVersion) && (
-                      <div className="warning">
+                      <AntAlert className="warning">
                         此交付依据的要求已变化，请核对当前工作项及所属任务的要求。
-                      </div>
+                      </AntAlert>
                     )}
                     <MarkdownPreview value={r.summary || "正在执行…"}/>
                     {r.progress?.map((p, n) => (
@@ -1801,21 +1789,21 @@ function Detail({
                       </div>
                     ))}
                     {r.status === "review" && (
-                      <button
+                      <ReplicaButton
                         className="primary"
                         onClick={() =>
                           setModal({ type: "review", story: i, run: r })
                         }
                       >
                         审核交付 <ArrowRight size={14} />
-                      </button>
+                      </ReplicaButton>
                     )}
                     {["active", "blocked"].includes(r.status) && (
-                      <button
+                      <ReplicaButton
                         onClick={() => action("run.cancel", { id: r.id })}
                       >
                         取消此次执行
-                      </button>
+                      </ReplicaButton>
                     )}
                   </article>
                 ))
@@ -1828,7 +1816,7 @@ function Detail({
             </>
           )}
           {tab === "history" && (
-            <div className="activity detail-activity">
+            <AntTimeline className="activity detail-activity">
               {events.map((e) => (
                 <div key={e.id}>
                   <i />
@@ -1840,10 +1828,10 @@ function Detail({
                 </div>
               ))}
               {!events.length && <Empty title="暂无变更记录" />}
-            </div>
+            </AntTimeline>
           )}
         </div>
-      </aside>
+      </ReplicaDrawer>
     </div>
   );
 }
@@ -2025,12 +2013,12 @@ function EditorModal({
   const maxDate = [project.endDate, parentItem?.endDate].filter(Boolean).sort()[0];
   return (
     <div
-      className="modal-layer"
+      className="replica-dialog-host"
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) close();
       }}
     >
-      <section
+      <ReplicaModal
         className="modal"
         role="dialog"
         aria-modal="true"
@@ -2040,14 +2028,14 @@ function EditorModal({
           <div>
             <h2>{titles[m.type]}</h2>
           </div>
-          <button
+          <ReplicaButton
             type="button"
             className="icon-btn"
             title="关闭弹窗"
             onClick={close}
           >
             <X size={20} />
-          </button>
+          </ReplicaButton>
         </header>
         {m.type === "connection" ? (
           <div className="modal-body">
@@ -2057,9 +2045,9 @@ function EditorModal({
             <Field label="MCP 地址">
               <div className="copy-row">
                 <code>{connection?.url}</code>
-                <button onClick={() => copy(connection.url)}>
+                <ReplicaButton onClick={() => copy(connection.url)}>
                   <Copy size={14} />
-                </button>
+                </ReplicaButton>
               </div>
             </Field>
             {!connection?.oauth && <><Field label="Authorization 请求头">
@@ -2069,24 +2057,24 @@ function EditorModal({
                     ? "Bearer " + connection?.token
                     : "Bearer ••••••••••••••••••••••••"}
                 </code>
-                <button onClick={() => copy("Bearer " + connection.token)}>
+                <ReplicaButton onClick={() => copy("Bearer " + connection.token)}>
                   <Copy size={14} />
-                </button>
+                </ReplicaButton>
               </div>
             </Field>
-            <button
+            <ReplicaButton
               className="text-btn"
               onClick={() => setShowToken(!showToken)}
             >
               {showToken ? "隐藏密钥" : "显示密钥"}
-            </button></>}
+            </ReplicaButton></>}
             <div className="instruction-box">
               <h4>可直接复制的连接配置</h4>
               <p>
                 各 AI 客户端的配置格式可能不同，请按对应工具要求填写 URL
                 {connection?.oauth ? '并完成 OAuth 授权。' : '与请求头。'}
               </p>
-              <button
+              <ReplicaButton
                 onClick={() =>
                   copy(
                     JSON.stringify(
@@ -2108,7 +2096,7 @@ function EditorModal({
               >
                 <Copy size={15} />
                 复制 JSON 配置
-              </button>
+              </ReplicaButton>
             </div>
             <h4>已提供的 MCP 工具</h4>
             {connection?.tools.map((t) => (
@@ -2123,28 +2111,28 @@ function EditorModal({
             </p>
           </div>
         ) : (
-          <form onSubmit={submit}>
+          <ReplicaForm onSubmit={submit}>
             <div className="modal-body">
               {m.type === "item" && (
                 <>
                   {(!project.startDate || !project.endDate) && (
-                    <div className="warning">
+                    <AntAlert className="warning">
                       请先设置项目周期，才能安排需求日期。
-                      <button
+                      <ReplicaButton
                         type="button"
                         className="text-btn"
                         onClick={onProjectSettings}
                       >
                         设置项目周期
-                      </button>
-                    </div>
+                      </ReplicaButton>
+                    </AntAlert>
                   )}
                   <Field label="工作项类型"><Select name="kind" value={itemKind} required onChange={(e) => {
                     const kind = e.target.value; setItemKind(kind);
                     if (!possibleParents.some((p) => p.id === itemParent && canParent(project, kind, p))) setItemParent("");
                   }}>{configFor(project).types.filter((t) => t.enabled && !t.hidden).map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}</Select></Field>
                   <Field label="标题">
-                    <input
+                    <ReplicaInput
                       name="title"
                       autoFocus
                       required
@@ -2218,7 +2206,7 @@ function EditorModal({
                         <RichTextEditor name="acceptance" label="验收标准" onBusyChange={imageBusy} disabled={busy} placeholder="达到什么条件，才能确认完成？"/>
                       </Field>
                       {isWorkItem({kind:itemKind}, project) && <Field label="故事点">
-                        <input
+                        <ReplicaInput
                           name="points"
                           type="number"
                           min="0"
@@ -2233,22 +2221,22 @@ function EditorModal({
               {m.type === "project" && (
                 <>
                   <Field label="项目名称">
-                    <input
+                    <ReplicaInput
                       name="name"
                       autoFocus
                       required
                       placeholder="例如：产品研发、网站重构"
                     />
                   </Field>
-                  <Field label="项目 ID"><input name="code" required minLength={2} maxLength={8} pattern="[A-Za-z][A-Za-z0-9]{1,7}" placeholder="例如：HS；创建后固定" style={{textTransform:"uppercase"}}/><small>2 至 8 位字母或数字，以字母开头。工作项编号示例：HS-928。</small></Field>
+                  <Field label="项目 ID"><ReplicaInput name="code" required minLength={2} maxLength={8} pattern="[A-Za-z][A-Za-z0-9]{1,7}" placeholder="例如：HS；创建后固定" style={{textTransform:"uppercase"}}/><small>2 至 8 位字母或数字，以字母开头。工作项编号示例：HS-928。</small></Field>
                   <Field label="项目简介">
-                    <textarea
+                    <ReplicaTextArea
                       name="description"
                       placeholder="这个项目准备实现什么？"
                     />
                   </Field>
                   <Field label="项目目标">
-                    <textarea
+                    <ReplicaTextArea
                       name="goal"
                       required
                       placeholder="描述项目希望达成的结果与验收方向"
@@ -2269,7 +2257,7 @@ function EditorModal({
                   <Field
                     label={m.type === "sprint" ? "Sprint 名称" : "版本名称"}
                   >
-                    <input
+                    <ReplicaInput
                       name="name"
                       required
                       autoFocus
@@ -2279,7 +2267,7 @@ function EditorModal({
                     />
                   </Field>
                   <Field label="目标">
-                    <textarea
+                    <ReplicaTextArea
                       name="goal"
                       required
                       placeholder="本次准备达成什么成果？"
@@ -2288,13 +2276,13 @@ function EditorModal({
                   {m.type === "sprint" ? (
                     <div className="form-grid">
                       <Field label="开始日期">
-                        <input type="date" name="startDate" required />
+                        <ReplicaInput type="date" name="startDate" required />
                       </Field>
                       <Field label="结束日期">
-                        <input type="date" name="endDate" required />
+                        <ReplicaInput type="date" name="endDate" required />
                       </Field>
                       <Field label="计划容量（SP）">
-                        <input
+                        <ReplicaInput
                           name="capacity"
                           type="number"
                           min="0"
@@ -2304,7 +2292,7 @@ function EditorModal({
                     </div>
                   ) : (
                     <Field label="计划发布日期">
-                      <input type="date" name="plannedDate" />
+                      <ReplicaInput type="date" name="plannedDate" />
                     </Field>
                   )}
                 </>
@@ -2319,7 +2307,7 @@ function EditorModal({
                     </Select>
                   </Field>
                   <Field label="标题">
-                    <input name="title" required autoFocus />
+                    <ReplicaInput name="title" required autoFocus />
                   </Field>
                   <Field label="内容">
                     <RichTextEditor name="body" label="内容" onBusyChange={imageBusy} disabled={busy}/>
@@ -2345,7 +2333,7 @@ function EditorModal({
                   </Field>
                   {m.run && ((m.run.itemVersion !== undefined && m.run.itemVersion !== m.story.contentVersion) || m.run.storyVersion !== (isSubtask(m.story, project) ? items.find(i => i.id === m.story.parentId) : m.story).contentVersion) && (
                     <label className="check-label">
-                      <input type="checkbox" name="acknowledge" />
+                      <ReplicaInput type="checkbox" name="acknowledge" />
                       我已核对旧版交付与当前工作项要求的差异
                     </label>
                   )}
@@ -2358,7 +2346,7 @@ function EditorModal({
                     submit_result。
                   </p>
                   <Field label="执行者">
-                    <input
+                    <ReplicaInput
                       name="agent"
                       required
                       placeholder="例如：我的 AI 工具"
@@ -2372,10 +2360,10 @@ function EditorModal({
                   </Field>
                   <div className="form-grid">
                     <Field label="成果名称">
-                      <input name="artifactTitle" />
+                      <ReplicaInput name="artifactTitle" />
                     </Field>
                     <Field label="成果链接或文件路径">
-                      <input
+                      <ReplicaInput
                         name="url"
                         placeholder="https://… 或本地文件路径"
                       />
@@ -2392,9 +2380,9 @@ function EditorModal({
                   {(!m.sprint.review ||
                     !m.sprint.retro.wentWell ||
                     !m.sprint.retro.improve) && (
-                    <div className="warning">
+                    <AntAlert className="warning">
                       请先在「评审与复盘」中保存评审总结、做得好的地方和需要改进的地方。
-                    </div>
+                    </AntAlert>
                   )}
                   <h4>安排未完成故事</h4>
                   {items
@@ -2429,7 +2417,7 @@ function EditorModal({
                     ))}
                   {m.sprint.retro.actions && (
                     <label className="check-label">
-                      <input
+                      <ReplicaInput
                         type="checkbox"
                         name="improvement"
                         defaultChecked
@@ -2488,10 +2476,10 @@ function EditorModal({
               {error && <p className="danger">{error}</p>}
             </div>
             <footer>
-              <button type="button" onClick={close}>
+              <ReplicaButton type="button" onClick={close}>
                 取消
-              </button>
-              <button
+              </ReplicaButton>
+              <ReplicaButton
                 className={m.type === "delete" ? "danger-button" : "primary"}
                 disabled={
                   busy || imagePending > 0 ||
@@ -2509,14 +2497,14 @@ function EditorModal({
                       delete: "删除",
                       delivery: "提交成果",
                     }[m.type] || "保存"}
-              </button>
+              </ReplicaButton>
             </footer>
-          </form>
+          </ReplicaForm>
         )}
-      </section>
+      </ReplicaModal>
     </div>
   );
 }
-createRoot(document.getElementById("root")).render(<AccessGate><App /></AccessGate>);
-
-import "./search.css";
+const appContainer=document.getElementById("root");
+const appRoot=appContainer.__heysoRoot ||= createRoot(appContainer);
+appRoot.render(<ReplicaTheme><AccessGate><App /></AccessGate></ReplicaTheme>);

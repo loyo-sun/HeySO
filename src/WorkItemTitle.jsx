@@ -1,3 +1,5 @@
+import {ReplicaTextArea} from './ReplicaControls.jsx';
+import {AntAlert} from './AntStructures.jsx';
 import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 
 export default function WorkItemTitle({ value, save }) {
@@ -35,7 +37,7 @@ export default function WorkItemTitle({ value, save }) {
   }, []);
 
   return (
-    <div className="detail-title-editor"><textarea
+    <div className="detail-title-editor"><ReplicaTextArea
       ref={input}
       className="detail-title"
       aria-label="工作项标题"
@@ -51,6 +53,6 @@ export default function WorkItemTitle({ value, save }) {
           event.currentTarget.blur();
         }
       }}
-    />{conflict&&<p role="alert" className="error">标题已有更新。请复制草稿，刷新后核对再保存。</p>}</div>
+    />{conflict&&<AntAlert role="alert" className="error">标题已有更新。请复制草稿，刷新后核对再保存。</AntAlert>}</div>
   );
 }

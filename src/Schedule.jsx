@@ -1,3 +1,5 @@
+import {ReplicaField,ReplicaInput,ReplicaButton} from './ReplicaControls.jsx';
+import {AntAlert} from './AntStructures.jsx';
 import React, { useEffect, useRef, useState } from "react";
 import { Calendar } from "lucide-react";
 
@@ -15,9 +17,9 @@ export function DateFields({
   const endMin = [start, min].filter(Boolean).sort().at(-1);
   return (
     <div className="form-grid date-range-fields">
-      <label className="field">
+      <ReplicaField className="field">
         <span>{prefix}开始日期</span>
-        <input
+        <ReplicaInput
           type="date"
           name="startDate"
           value={start || ""}
@@ -28,10 +30,10 @@ export function DateFields({
           required
           disabled={disabled}
         />
-      </label>
-      <label className="field">
+      </ReplicaField>
+      <ReplicaField className="field">
         <span>{prefix}结束日期</span>
-        <input
+        <ReplicaInput
           type="date"
           name="endDate"
           value={end || ""}
@@ -42,7 +44,7 @@ export function DateFields({
           required
           disabled={disabled}
         />
-      </label>
+      </ReplicaField>
     </div>
   );
 }
@@ -92,13 +94,13 @@ export default function ItemSchedule({
       {!ready && (
         <p className="schedule-hint">
           请先设置项目起止日期，再安排需求周期。
-          <button
+          <ReplicaButton
             type="button"
             className="text-btn"
             onClick={onProjectSettings}
           >
             设置项目周期
-          </button>
+          </ReplicaButton>
         </p>
       )}
       <DateFields
@@ -110,9 +112,9 @@ export default function ItemSchedule({
         max={maxDate}
         disabled={!ready || busy}
       />
-      {conflict&&<p role="alert" className="error">日期已有更新。请记录当前日期，刷新后核对再保存。</p>}
+      {conflict&&<AntAlert role="alert" className="error">日期已有更新。请记录当前日期，刷新后核对再保存。</AntAlert>}
       {busy&&changed&&<small role="status">正在保存日期…</small>}
-      {saveError&&!conflict&&<p role="alert" className="error">{saveError}<button className="text-btn" type="button" disabled={busy} onClick={()=>{attempted.current='';saveDates();}}>重试</button></p>}
+      {saveError&&!conflict&&<AntAlert role="alert" className="error">{saveError}<ReplicaButton className="text-btn" type="button" disabled={busy} onClick={()=>{attempted.current='';saveDates();}}>重试</ReplicaButton></AntAlert>}
     </section>
   );
 }

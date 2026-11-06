@@ -1,3 +1,5 @@
+import {ReplicaUpload,ReplicaField,ReplicaForm,ReplicaButton,ReplicaInput,ReplicaTextArea} from './ReplicaControls.jsx';
+import {AntAlert,AntAvatar,AntHtmlTable} from './AntStructures.jsx';
 import { memberRole, rolesForMembers, defaultMemberRole } from "../shared/member-roles.mjs";
 import React, { useState, useEffect, useRef } from "react";
 import { useHosting } from './AccessGate.jsx';
@@ -5,7 +7,7 @@ import { Settings, Users, ListChecks, Plug, Database, Download, Upload, Plus, X,
 import { DateFields } from "./Schedule.jsx";
 import Select from "./Select.jsx";
 import InfoTip from "./InfoTip.jsx";
-import "./settings.css";
+
 import appPackage from "../package.json";
 import WorkConfigSettings from "./WorkConfigSettings.jsx";
 import { configFor, checkWorkConfig, hierarchyConflicts, workflowMigrationGroups, workflowFor, aiReady } from "../shared/work-config.mjs";
@@ -50,7 +52,7 @@ const keys = Object.values(groups).flat();
 const same = (a, b) => JSON.stringify(a ?? "") === JSON.stringify(b ?? "");
 const countNames = { projects: "项目", items: "需求与任务", sprints: "冲刺", releases: "版本", notes: "项目记忆", runs: "执行与交付", events: "活动记录" };
 function Field({ label, children, hint }) {
-  return <label className="field"><span className="field-title">{label}{hint && <InfoTip label={label}>{hint}</InfoTip>}</span>{children}</label>;
+  return <ReplicaField className="field"><span className="field-title">{label}{hint && <InfoTip label={label}>{hint}</InfoTip>}</span>{children}</ReplicaField>;
 }
 export default function SettingsPanel({
   project, section, action, data, setData, setToast, busy, onConnect, onDelete, onDirtyChange, cloudPanel, memoryPanel,
@@ -106,7 +108,7 @@ export default function SettingsPanel({
     if (section === "integrations") checkService();
   }, [section]);
   const change = (key, value) => { setForm((old) => ({ ...old, [key]: value })); setError(""); setSaved(""); };
-  const field = (key) => ({ value: form[key] || "", maxLength: 20000, onChange: (e) => change(key, e.target.value) });
+  const field = (key) => ({ name:key, value: form[key] || "", maxLength: 20000, onChange: (e) => change(key, e.target.value) });
   const changed = (sectionKey) => groups[sectionKey]?.some((key) => !same(form[key], project[key]));
   const reset = (sectionKey) => {
     setForm((old) => ({ ...old, ...Object.fromEntries(groups[sectionKey].map((key) => [key, project[key]])) }));
@@ -132,8 +134,8 @@ export default function SettingsPanel({
     const hasChanges = changed(sectionKey);
     const hasDraft = hasChanges || (sectionKey === "members" && (!!member.trim() || newMemberRole !== defaultMemberRole)) || (sectionKey === "roles" && !!roleName.trim());
     return <div className="settings-save">
-      <button className="primary" type="submit" disabled={busy || !hasChanges}>{busy ? "正在保存…" : label}</button>
-      <button type="button" disabled={busy || !hasDraft} onClick={() => reset(sectionKey)}>撤销修改</button>
+      <ReplicaButton className="primary" type="submit" disabled={busy || !hasChanges}>{busy ? "正在保存…" : label}</ReplicaButton>
+      <ReplicaButton type="button" disabled={busy || !hasDraft} onClick={() => reset(sectionKey)}>撤销修改</ReplicaButton>
       <span>{hasDraft ? "有未保存的修改" : "已与项目数据同步"}</span>
     </div>;
   }
@@ -203,20 +205,20 @@ export default function SettingsPanel({
   return <div className={"settings-content" + (section === "states" ? " workflow-settings-content" : "")}>
     <div className="settings-heading"><div className="heading-with-info"><h1>{title}</h1><InfoTip key={section} label={title}>{settingsHelp[section] || settingsDescriptions[section]}</InfoTip></div></div>
     {dirty && <div className="settings-draft-note" role="status"><span>有未保存的修改</span></div>}
-    {error && <div className="settings-error" role="alert"><AlertCircle size={16}/><span>{error}</span></div>}
+    {error && <AntAlert className="settings-error" role="alert"><AlertCircle size={16}/><span>{error}</span></AntAlert>}
     {saved && <div className="settings-success" role="status"><CheckCircle2 size={16}/>{saved}</div>}
-    {section === "about" && <section className="settings-section settings-about"><h2>合序 HeySO</h2><p className="section-description">Hey, Shared Outcomes.</p><dl><div><dt>当前版本</dt><dd>{appPackage.displayVersion}</dd></div><div><dt>软件版本</dt><dd>{appPackage.version}</dd></div><div><dt>保存方式</dt><dd>{project.cloud?"LoyoCloud 在线项目":hosting.hosted?"在线保存":"本地保存"}</dd></div><div><dt>当前项目</dt><dd>{project.name}</dd></div></dl>{hosting.hosted&&<div className="inline">{hosting.configure&&<button onClick={hosting.configure}>云端存储设置</button>}<button onClick={hosting.logout}>退出工作空间</button></div>}</section>}
+    {section === "about" && <section className="settings-section settings-about"><h2>合序 HeySO</h2><p className="section-description">Hey, Shared Outcomes.</p><dl><div><dt>当前版本</dt><dd>{appPackage.displayVersion}</dd></div><div><dt>软件版本</dt><dd>{appPackage.version}</dd></div><div><dt>保存方式</dt><dd>{project.cloud?"LoyoCloud 在线项目":hosting.hosted?"在线保存":"本地保存"}</dd></div><div><dt>当前项目</dt><dd>{project.name}</dd></div></dl>{hosting.hosted&&<div className="inline">{hosting.configure&&<ReplicaButton onClick={hosting.configure}>云端存储设置</ReplicaButton>}<ReplicaButton onClick={hosting.logout}>退出工作空间</ReplicaButton></div>}</section>}
     {section === "memory" && memoryPanel}
     {section === "general" && <>
       <div className="project-identity"><span className="project-glyph">{project.name.slice(0, 1)}</span><div><h2>{project.name}</h2><span>{project.cloud ? "在线项目" : "本地项目"} · {project.code}</span></div></div>
-      <form className="settings-section" onSubmit={(e) => { e.preventDefault(); save("general"); }}>
-        <Field label="项目 ID"><input value={project.code} readOnly/><small>工作项编号：{project.code}-序号，项目 ID 创建后固定。</small></Field><Field label="项目名称"><input {...field("name")} maxLength={120} placeholder="项目名称" required disabled={busy}/></Field>
-        <Field label="背景与说明"><textarea {...field("description")} placeholder="补充项目背景、受众和工作范围" disabled={busy}/></Field>
-        <Field label="项目目标" hint="项目目标和背景会作为共享上下文提供给执行故事的 AI。"><textarea {...field("goal")} required placeholder="描述项目希望实现的结果" disabled={busy}/></Field>
+      <ReplicaForm className="settings-section" onSubmit={(e) => { e.preventDefault(); save("general"); }}>
+        <Field label="项目 ID"><ReplicaInput value={project.code} readOnly/><small>工作项编号：{project.code}-序号，项目 ID 创建后固定。</small></Field><Field label="项目名称"><ReplicaInput {...field("name")} maxLength={120} placeholder="项目名称" required disabled={busy}/></Field>
+        <Field label="背景与说明"><ReplicaTextArea {...field("description")} placeholder="补充项目背景、受众和工作范围" disabled={busy}/></Field>
+        <Field label="项目目标" hint="项目目标和背景会作为共享上下文提供给执行故事的 AI。"><ReplicaTextArea {...field("goal")} required placeholder="描述项目希望实现的结果" disabled={busy}/></Field>
         <DateFields prefix="项目" start={form.startDate} end={form.endDate} setStart={(v) => change("startDate", v)} setEnd={(v) => change("endDate", v)} disabled={busy}/>
         {saveBar("general", "保存更改")}
-      </form>
-      <section className="settings-section project-danger-zone"><div><h3>删除项目</h3><p>{project.cloud ? "请在 LoyoCloud 云空间管理或删除此 .heyso 文件。" : "永久删除本项目及其需求、冲刺、版本、记忆和交付记录。"}</p></div><button className="danger-button" disabled={busy || dirty || !!project.cloud} onClick={onDelete}><Trash2 size={14}/>删除项目</button></section>
+      </ReplicaForm>
+      <section className="settings-section project-danger-zone"><div><h3>删除项目</h3><p>{project.cloud ? "请在 LoyoCloud 云空间管理或删除此 .heyso 文件。" : "永久删除本项目及其需求、冲刺、版本、记忆和交付记录。"}</p></div><ReplicaButton className="danger-button" disabled={busy || dirty || !!project.cloud} onClick={onDelete}><Trash2 size={14}/>删除项目</ReplicaButton></section>
     </>}
     {section === "members" && <>
       <section className="settings-section">
@@ -226,12 +228,12 @@ export default function SettingsPanel({
         <div className="member-list">{form.members.map((m) => {
           const assigned = data.items.filter((i) => i.projectId === project.id && i.owner === m).length;
           const reason = m === form.owner ? "请先更换项目负责人" : assigned ? "请先重新分配该成员负责的需求" : form.members.length === 1 ? "至少保留一位成员" : "";
-          return <div className="member-row" key={m}><span className="avatar">{m.slice(0, 1)}</span><div className="member-identity"><b>{m}</b><small>{m === form.owner ? "项目负责人 · " : ""}负责 {assigned} 个需求</small></div><label className="member-role-field"><span>角色 / 职位</span><Select aria-label={`${m}的角色`} value={memberRole(form, m)} disabled={busy} onChange={(e) => change("memberRoles", { ...form.memberRoles, [m]: e.target.value })}>{project.roles.map((role) => <option key={role.id} value={role.id}>{role.name}</option>)}</Select></label><button type="button" className="icon-btn" aria-label={`移除成员 ${m}`} title={reason || "从名册移除"} disabled={busy || !!reason} onClick={() => {
+          return <div className="member-row" key={m}><AntAvatar className="avatar">{m.slice(0, 1)}</AntAvatar><div className="member-identity"><b>{m}</b><small>{m === form.owner ? "项目负责人 · " : ""}负责 {assigned} 个需求</small></div><label className="member-role-field"><span>角色 / 职位</span><Select aria-label={`${m}的角色`} value={memberRole(form, m)} disabled={busy} onChange={(e) => change("memberRoles", { ...form.memberRoles, [m]: e.target.value })}>{project.roles.map((role) => <option key={role.id} value={role.id}>{role.name}</option>)}</Select></label><ReplicaButton type="button" className="icon-btn" aria-label={`移除成员 ${m}`} title={reason || "从名册移除"} disabled={busy || !!reason} onClick={() => {
             const members = form.members.filter((name) => name !== m);
             setForm((old) => ({ ...old, members, memberRoles: rolesForMembers(members, old.memberRoles) })); setError(""); setSaved("");
-          }}><X size={15}/></button></div>;
+          }}><X size={15}/></ReplicaButton></div>;
         })}</div>
-        <form className="add-member" onSubmit={(e) => {
+        <ReplicaForm className="add-member" onSubmit={(e) => {
           e.preventDefault(); const name = member.trim();
           if (!name) return;
           if (form.members.includes(name)) { setError("该成员已在名册中"); return; }
@@ -240,8 +242,8 @@ export default function SettingsPanel({
           const members = [...form.members, name];
           setForm((old) => ({ ...old, members, memberRoles: { ...rolesForMembers(members, old.memberRoles), [name]: newMemberRole.trim() } }));
           setMember(""); setNewMemberRole(defaultMemberRole); setError(""); setSaved("");
-        }}><input aria-label="新成员姓名" placeholder="输入成员姓名" maxLength={80} value={member} disabled={busy} onChange={(e) => { setMember(e.target.value); setError(""); }}/><Select className="new-member-role" aria-label="新成员角色" value={newMemberRole} disabled={busy} onChange={(e) => { setNewMemberRole(e.target.value); setError(""); }}>{project.roles.map((role) => <option key={role.id} value={role.id}>{role.name}</option>)}</Select><button type="submit" disabled={busy || !member.trim() || !newMemberRole.trim()}><Plus size={15}/>添加到名册</button></form>
-        <form onSubmit={(e) => { e.preventDefault(); save("members"); }}>{saveBar("members", "保存成员")}</form>
+        }}><ReplicaInput aria-label="新成员姓名" placeholder="输入成员姓名" maxLength={80} value={member} disabled={busy} onChange={(e) => { setMember(e.target.value); setError(""); }}/><Select className="new-member-role" aria-label="新成员角色" value={newMemberRole} disabled={busy} onChange={(e) => { setNewMemberRole(e.target.value); setError(""); }}>{project.roles.map((role) => <option key={role.id} value={role.id}>{role.name}</option>)}</Select><ReplicaButton type="submit" disabled={busy || !member.trim() || !newMemberRole.trim()}><Plus size={15}/>添加到名册</ReplicaButton></ReplicaForm>
+        <ReplicaForm onSubmit={(e) => { e.preventDefault(); save("members"); }}>{saveBar("members", "保存成员")}</ReplicaForm>
       </section>
     </>}
     {section === "roles" && <section className="settings-section">
@@ -252,22 +254,22 @@ export default function SettingsPanel({
         const pendingAssigned = form.members.some((name) => memberRole(form, name) === role.id);
         const reason = role.id === defaultMemberRole ? "默认成员角色不能删除" : assigned || pendingAssigned ? "请先在成员中重新分配并保存，再删除角色" : "";
         return <div className="project-role-row" key={role.id}>
-          <label><span>角色名称</span><input aria-label={`角色名称 ${role.name}`} value={role.name} maxLength={40} disabled={busy} onChange={(e) => change("roles", form.roles.map((r) => r.id === role.id ? { ...r, name: e.target.value } : r))}/></label>
-          <label><span>职责说明</span><input aria-label={`角色说明 ${role.name}`} value={role.description} maxLength={500} placeholder="说明该角色的职责" disabled={busy} onChange={(e) => change("roles", form.roles.map((r) => r.id === role.id ? { ...r, description: e.target.value } : r))}/></label>
+          <label><span>角色名称</span><ReplicaInput aria-label={`角色名称 ${role.name}`} value={role.name} maxLength={40} disabled={busy} onChange={(e) => change("roles", form.roles.map((r) => r.id === role.id ? { ...r, name: e.target.value } : r))}/></label>
+          <label><span>职责说明</span><ReplicaInput aria-label={`角色说明 ${role.name}`} value={role.description} maxLength={500} placeholder="说明该角色的职责" disabled={busy} onChange={(e) => change("roles", form.roles.map((r) => r.id === role.id ? { ...r, description: e.target.value } : r))}/></label>
           <span className="role-usage">{assigned} 位成员{role.id === defaultMemberRole ? " · 默认" : ""}</span>
-          <button type="button" className="icon-btn" aria-label={`删除角色 ${role.name}`} title={reason || "删除角色"} disabled={busy || !!reason} onClick={() => change("roles", form.roles.filter((r) => r.id !== role.id))}><Trash2 size={15}/></button>
+          <ReplicaButton type="button" className="icon-btn" aria-label={`删除角色 ${role.name}`} title={reason || "删除角色"} disabled={busy || !!reason} onClick={() => change("roles", form.roles.filter((r) => r.id !== role.id))}><Trash2 size={15}/></ReplicaButton>
         </div>;
       })}</div>
-      <form className="config-add" onSubmit={(e) => {
+      <ReplicaForm className="config-add" onSubmit={(e) => {
         e.preventDefault(); const name = roleName.trim();
         if (!name) return;
         if (form.roles.some((r) => r.name.trim() === name)) { setError("角色名称不能重复"); return; }
         if (form.roles.length >= 50) { setError("最多支持 50 个角色"); return; }
         change("roles", [...form.roles, { id: `role_${crypto.randomUUID()}`, name, description: "" }]); setRoleName("");
-      }}><input aria-label="新角色名称" placeholder="输入新角色名称" maxLength={40} disabled={busy} value={roleName} onChange={(e) => { setRoleName(e.target.value); setError(""); }}/><button type="submit" disabled={busy || !roleName.trim()}><Plus size={15}/>添加角色</button></form>
-      <form onSubmit={(e) => { e.preventDefault(); save("roles"); }}>{saveBar("roles", "保存角色")}</form>
+      }}><ReplicaInput aria-label="新角色名称" placeholder="输入新角色名称" maxLength={40} disabled={busy} value={roleName} onChange={(e) => { setRoleName(e.target.value); setError(""); }}/><ReplicaButton type="submit" disabled={busy || !roleName.trim()}><Plus size={15}/>添加角色</ReplicaButton></ReplicaForm>
+      <ReplicaForm onSubmit={(e) => { e.preventDefault(); save("roles"); }}>{saveBar("roles", "保存角色")}</ReplicaForm>
     </section>}
-    {["types", "states"].includes(section) && <form className="settings-section" onKeyDown={(e) => { if (section === "states" && e.key === "Enter" && e.target.tagName === "INPUT" && e.target.type !== "checkbox") e.preventDefault(); }} onSubmit={async (e) => {
+    {["types", "states"].includes(section) && <ReplicaForm className="settings-section" onKeyDown={(e) => { if (section === "states" && e.key === "Enter" && e.target.tagName === "INPUT" && e.target.type !== "checkbox") e.preventDefault(); }} onSubmit={async (e) => {
       e.preventDefault(); setError(""); setSaved("");
       if (aiWorkflowConflicts.length) { setError("请先补齐 AI 协作节点，或关闭受影响工作项的 AI 执行。"); return; }
       if (pendingWorkflowMigrations.length) { setError("请选择受影响工作项的迁移状态。"); return; }
@@ -278,16 +280,16 @@ export default function SettingsPanel({
       else setError("配置未保存。请按提示检查现有工作项的父级、类型和状态。");
     }}>
       <WorkConfigSettings project={project} items={data.items.filter((i) => i.projectId === project.id)} section={section} config={workDraft} setConfig={setWorkDraft} migration={statusMigration} setMigration={setStatusMigration} busy={busy} onSave={saveWorkflowConfig}/>
-      {configDirty && conflicts.length > 0 && <div className="hierarchy-impact" role="alert"><h3>{conflicts.length} 个现有关联与新规则冲突，暂不能保存</h3><p>已有工作项尚未改变。请撤销配置调整，或先在工作项详情中处理相关关联。</p><ul>{conflicts.slice(0, 8).map(({ item, parent, reason }) => <li key={item.id}><strong>{item.number ? project.code + "-" + item.number + " · " : ""}{item.title}</strong><span>{parent ? "父级：" + parent.title + " · " : ""}{reason}</span></li>)}</ul>{conflicts.length > 8 && <p>另有 {conflicts.length - 8} 个冲突。</p>}</div>}
-      {section !== "states" && <div className={"settings-save" + (section === "states" ? " wf-publish-bar" : "")}><button className="primary" type="submit" disabled={busy || !configDirty || conflicts.length > 0 || pendingWorkflowMigrations.length > 0 || aiWorkflowConflicts.length > 0}>{busy ? "正在保存…" : section === "states" ? "发布更改" : "保存工作项配置"}</button><button type="button" disabled={busy || !configDirty} onClick={() => { setWorkDraft(structuredClone(configFor(project))); setStatusMigration({}); setError(""); }}>撤销配置修改</button><span>{configDirty ? (section === "states" ? "草稿尚未生效，发布后应用到项目" : "类型和工作流配置共同保存") : "已与项目数据同步"}</span></div>}
-    </form>}
+      {configDirty && conflicts.length > 0 && <AntAlert className="hierarchy-impact" role="alert"><h3>{conflicts.length} 个现有关联与新规则冲突，暂不能保存</h3><p>已有工作项尚未改变。请撤销配置调整，或先在工作项详情中处理相关关联。</p><ul>{conflicts.slice(0, 8).map(({ item, parent, reason }) => <li key={item.id}><strong>{item.number ? project.code + "-" + item.number + " · " : ""}{item.title}</strong><span>{parent ? "父级：" + parent.title + " · " : ""}{reason}</span></li>)}</ul>{conflicts.length > 8 && <p>另有 {conflicts.length - 8} 个冲突。</p>}</AntAlert>}
+      {section !== "states" && <div className={"settings-save" + (section === "states" ? " wf-publish-bar" : "")}><ReplicaButton className="primary" type="submit" disabled={busy || !configDirty || conflicts.length > 0 || pendingWorkflowMigrations.length > 0 || aiWorkflowConflicts.length > 0}>{busy ? "正在保存…" : section === "states" ? "发布更改" : "保存工作项配置"}</ReplicaButton><ReplicaButton type="button" disabled={busy || !configDirty} onClick={() => { setWorkDraft(structuredClone(configFor(project))); setStatusMigration({}); setError(""); }}>撤销配置修改</ReplicaButton><span>{configDirty ? (section === "states" ? "草稿尚未生效，发布后应用到项目" : "类型和工作流配置共同保存") : "已与项目数据同步"}</span></div>}
+    </ReplicaForm>}
     {section === "workflow" && <>
-      <form className="settings-section" onSubmit={(e) => { e.preventDefault(); save("workflow"); }}>
+      <ReplicaForm className="settings-section" onSubmit={(e) => { e.preventDefault(); save("workflow"); }}>
         <h3 className="heading-with-info">共同的工作方式<InfoTip label="共同的工作方式">这些约定会随工作项上下文提供给 AI，让每次执行遵循同一套规则。</InfoTip></h3>
-        <Field label="协作约定" hint="例如：先报告计划；阻塞时说明原因；涉及范围变更时先与负责人确认。"><textarea rows={5} {...field("workingAgreements")} disabled={busy} placeholder="补充本项目的协作方式、沟通习惯和执行约定"/></Field>
-        <Field label="完成定义（Definition of Done）" hint="项目内所有故事共同遵循的完成标准，与故事自身的验收标准一起使用。"><textarea rows={5} {...field("definitionOfDone")} required disabled={busy}/></Field>
+        <Field label="协作约定" hint="例如：先报告计划；阻塞时说明原因；涉及范围变更时先与负责人确认。"><ReplicaTextArea rows={5} {...field("workingAgreements")} disabled={busy} placeholder="补充本项目的协作方式、沟通习惯和执行约定"/></Field>
+        <Field label="完成定义（Definition of Done）" hint="项目内所有故事共同遵循的完成标准，与故事自身的验收标准一起使用。"><ReplicaTextArea rows={5} {...field("definitionOfDone")} required disabled={busy}/></Field>
         {saveBar("workflow", "保存工作约定")}
-      </form>
+      </ReplicaForm>
 
     </>}
     {section === "integrations" && <>
@@ -297,28 +299,28 @@ export default function SettingsPanel({
         <div className={"settings-service " + service.state} role="status">
           {service.state === "ready" ? <CheckCircle2 size={18}/> : service.state === "error" ? <AlertCircle size={18}/> : <Plug size={18}/>}
           <div><strong>{({ idle: "尚未检测", checking: "正在检测服务…", ready: "服务正常", error: "无法连接服务" })[service.state]}</strong><small>{service.state === "ready" ? `${service.version} · ${service.tools} 个 MCP 工具 · ${service.checkedAt} 检测` : service.state === "error" ? "请确认 HeySO 服务正在运行，然后重试。" : "检测服务可用性，不读取或显示访问密钥。"}</small></div>
-          <button disabled={service.state === "checking"} onClick={checkService}><RefreshCw size={14}/>重新检测</button>
+          <ReplicaButton disabled={service.state === "checking"} onClick={checkService}><RefreshCw size={14}/>重新检测</ReplicaButton>
         </div>
         <div className="config-facts"><div><span>连接范围</span><b>当前工作空间中的项目</b></div><div><span>写入授权</span><b>逐故事启用 AI 执行</b></div><div><span>成果确认</span><b>人工验收</b></div></div>
-        <button className="primary" disabled={connecting || service.state !== "ready"} onClick={async () => {
+        <ReplicaButton className="primary" disabled={connecting || service.state !== "ready"} onClick={async () => {
           setConnecting(true); setError("");
           try { await onConnect(); } catch (e) { setError(e.message || "无法读取连接配置，请重试。"); }
           finally { if (mounted.current) setConnecting(false); }
-        }}>{connecting ? "读取配置…" : "查看连接配置"}<ArrowUpRight size={15}/></button>
+        }}>{connecting ? "读取配置…" : "查看连接配置"}<ArrowUpRight size={15}/></ReplicaButton>
       </section>
     </>}
     {section === "data" && <>
       <section className="settings-section"><h3>导出备份</h3><p className="section-description">当前工作空间：{data.projects.length} 个项目、{data.items.length} 个需求与任务、{data.runs.length} 条执行与交付。</p><a className="button" href="/api/export" download><Download size={15}/>导出工作空间备份</a></section>
       {hosting.provider === 'loyocloud' ? <section className="settings-section"><h3>恢复云端项目</h3><p>在 LoyoCloud 云空间中恢复项目文件的历史版本。也可以通过「AI 与 MCP」中的导入入口打开 .heyso 项目备份。</p></section> : <section className="settings-section"><h3 className="heading-with-info">从备份恢复<InfoTip label="从备份恢复">先检查文件，再核对项目与记录数量。恢复会替换整个工作空间，请先导出当前数据。</InfoTip></h3>
-        <label className={"button" + (checkingFile || restoring ? " backup-disabled" : "")}><Upload size={15}/>{checkingFile ? "正在检查备份…" : "选择 JSON 备份文件"}<input type="file" accept=".json,application/json" hidden disabled={checkingFile || restoring} onChange={selectBackup}/></label>
+        <ReplicaUpload className={"button" + (checkingFile || restoring ? " backup-disabled" : "")} accept=".json,application/json" disabled={checkingFile || restoring} onChange={selectBackup}><Upload size={15}/>{checkingFile ? "正在检查备份…" : "选择 JSON 备份文件"}</ReplicaUpload>
         {restore && <div className="backup-preview">
           <h4>备份检查通过</h4><p className="backup-filename">{restore.filename}</p>
-          <table><thead><tr><th>记录类型</th><th>当前工作空间</th><th>备份文件</th></tr></thead><tbody>{Object.entries(restore.preview.counts).map(([key, counts]) => <tr key={key}><th>{countNames[key]}</th><td>{counts.current}</td><td>{counts.backup}</td></tr>)}</tbody></table>
+          <AntHtmlTable><thead><tr><th>记录类型</th><th>当前工作空间</th><th>备份文件</th></tr></thead><tbody>{Object.entries(restore.preview.counts).map(([key, counts]) => <tr key={key}><th>{countNames[key]}</th><td>{counts.current}</td><td>{counts.backup}</td></tr>)}</tbody></AntHtmlTable>
           <div className="backup-projects"><strong>恢复后的项目</strong>{restore.preview.projects.length ? <ul>{restore.preview.projects.map((p) => <li key={p.id}>{p.name}</li>)}</ul> : <p>此备份为空，恢复后将移除当前全部项目。</p>}</div>
           <p className="deletion-warning">恢复会覆盖当前工作空间的全部记录，无法直接撤销。MCP 密钥和外部文件保持原样。</p>
           {dirty && <p className="settings-inline-error">请先保存或撤销其他设置栏目的修改，再恢复备份。</p>}
-          <Field label="输入“恢复”以确认替换"><input value={confirmation} onChange={(e) => setConfirmation(e.target.value)} autoComplete="off" disabled={restoring}/></Field>
-          <div className="inline"><button className="danger-button" disabled={busy || restoring || dirty || confirmation !== "恢复"} onClick={restoreBackup}>{restoring ? "正在恢复…" : "确认恢复工作空间"}</button><button disabled={restoring} onClick={() => { setRestore(null); setConfirmation(""); setError(""); }}>取消</button></div>
+          <Field label="输入“恢复”以确认替换"><ReplicaInput value={confirmation} onChange={(e) => setConfirmation(e.target.value)} autoComplete="off" disabled={restoring}/></Field>
+          <div className="inline"><ReplicaButton className="danger-button" disabled={busy || restoring || dirty || confirmation !== "恢复"} onClick={restoreBackup}>{restoring ? "正在恢复…" : "确认恢复工作空间"}</ReplicaButton><ReplicaButton disabled={restoring} onClick={() => { setRestore(null); setConfirmation(""); setError(""); }}>取消</ReplicaButton></div>
         </div>}
       </section>}
     </>}

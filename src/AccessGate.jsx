@@ -1,6 +1,8 @@
+import {ReplicaForm,ReplicaInput,ReplicaButton} from './ReplicaControls.jsx';
+import {AntAlert,AntCard} from './AntStructures.jsx';
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import logo from './assets/heyso-icon.svg';
-import './access.css';
+
 import SetupWizard from './SetupWizard.jsx';
 
 const Hosting = createContext({ hosted: false });
@@ -46,18 +48,18 @@ export default function AccessGate({ children }) {
   }
   if (bootstrap) return <SetupWizard bootstrap={bootstrap} onComplete={async () => { setBootstrap(null); await check(); }} onCancel={session?.authenticated ? () => setBootstrap(null) : null}/>;
   if (session?.authenticated) return <Hosting.Provider value={{ ...session, logout, configure }}>{children}</Hosting.Provider>;
-  return <main className="access-page"><section className="access-card">
+  return <main className="access-page"><AntCard className="access-card">
     <div className="access-brand"><img src={logo} alt=""/><span>HeySO <small>合序</small></span></div>
     <h1>{session ? '打开你的工作空间' : '连接工作空间'}</h1>
     <p>让人与 AI 围绕共同成果协作。</p>
-    {session && <form onSubmit={login}>
+    {session && <ReplicaForm onSubmit={login}>
       <label htmlFor="workspace-password">访问密码</label>
-      <input id="workspace-password" type="password" autoComplete="current-password" required value={password} onChange={e => setPassword(e.target.value)} autoFocus placeholder="输入部署时设置的密码"/>
-      <button className="primary" type="submit" disabled={busy}>{busy ? '正在打开…' : '进入工作空间'}</button>
-    </form>}
-    {error && <p className="access-error" role="alert">{error}</p>}
-    {session?.hosted && <button className="text-btn" type="button" onClick={configure}>重新配置云端存储</button>}
-    {!session && <button onClick={check}>重新连接</button>}
+      <ReplicaInput id="workspace-password" type="password" autoComplete="current-password" required value={password} onChange={e => setPassword(e.target.value)} autoFocus placeholder="输入部署时设置的密码"/>
+      <ReplicaButton className="primary" type="submit" disabled={busy}>{busy ? '正在打开…' : '进入工作空间'}</ReplicaButton>
+    </ReplicaForm>}
+    {error && <AntAlert className="access-error" role="alert">{error}</AntAlert>}
+    {session?.hosted && <ReplicaButton className="text-btn" type="button" onClick={configure}>重新配置云端存储</ReplicaButton>}
+    {!session && <ReplicaButton onClick={check}>重新连接</ReplicaButton>}
     <small>alpha_0.1 · 私人工作空间</small>
-  </section></main>;
+  </AntCard></main>;
 }

@@ -1,3 +1,4 @@
+import {AntTag} from './AntStructures.jsx';
 import React from 'react';
 import {useWorkProject} from './WorkConfigContext.jsx';
 import {typeFor,typeColor,typeIcon} from '../shared/work-config.mjs';
@@ -9,5 +10,5 @@ export function TypeIcon({kind,type,size=14}){
 }
 export default function WorkType({kind,type,iconOnly=false}){
  const project=useWorkProject(),resolved=type||typeFor(project,kind),color=workTypeColor(kind,resolved);
- return iconOnly?<span className="work-type-icon" role="img" aria-label={resolved?.name||kind} title={resolved?.name||kind}><TypeIcon kind={kind} type={resolved}/></span>:<span className="kind work-type" style={{color,backgroundColor:color+'12'}}><TypeIcon kind={kind} type={resolved}/>{resolved?.name||kind}</span>;
+ return iconOnly?<span className="work-type-icon" role="img" aria-label={resolved?.name||kind} title={resolved?.name||kind}><TypeIcon kind={kind} type={resolved}/></span>:<AntTag className="kind work-type" style={{color,backgroundColor:color+'12'}}><TypeIcon kind={kind} type={resolved}/>{resolved?.name||kind}</AntTag>;
 }

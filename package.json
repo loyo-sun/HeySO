@@ -14,12 +14,15 @@
     "check:cloudflare": "npm run build && wrangler deploy --dry-run --outdir .wrangler/check"
   },
   "dependencies": {
+    "@ant-design/cssinjs": "^2.1.2",
     "@modelcontextprotocol/sdk": "^1.32.1",
     "@tiptap/extension-image": "^3.32.2",
     "@tiptap/extension-placeholder": "^3.32.2",
     "@tiptap/markdown": "^3.32.2",
     "@tiptap/react": "^3.32.2",
     "@tiptap/starter-kit": "^3.32.2",
+    "antd": "^6.7.0",
+    "dayjs": "^1.11.23",
     "express": "^5.1.0",
     "lucide-react": "^0.468.0",
     "react": "^19.1.0",

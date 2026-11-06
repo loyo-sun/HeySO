@@ -1,3 +1,5 @@
+import {ReplicaForm,ReplicaField,ReplicaModal,ReplicaButton,ReplicaInput} from './ReplicaControls.jsx';
+import {AntAlert} from './AntStructures.jsx';
 import React, { useRef, useState } from "react";
 import { Download, Trash2, X } from "lucide-react";
 
@@ -39,12 +41,12 @@ export default function DeleteProjectDialog({
   }
   return (
     <div
-      className="modal-layer"
+      className="replica-dialog-host"
       onMouseDown={(e) => {
         if (e.target === e.currentTarget && !busy) onClose();
       }}
     >
-      <section
+      <ReplicaModal
         className="modal delete-project-modal"
         role="dialog"
         aria-modal="true"
@@ -53,7 +55,7 @@ export default function DeleteProjectDialog({
       >
         <header>
           <h2>删除项目</h2>
-          <button
+          <ReplicaButton
             type="button"
             className="icon-btn"
             aria-label="关闭删除确认"
@@ -61,9 +63,9 @@ export default function DeleteProjectDialog({
             onClick={onClose}
           >
             <X size={19} />
-          </button>
+          </ReplicaButton>
         </header>
-        <form onSubmit={submit}>
+        <ReplicaForm onSubmit={submit}>
           <div className="modal-body">
             <p id="delete-project-impact">
               将永久删除「<strong>{project.name}</strong>」及以下项目数据。
@@ -88,9 +90,9 @@ export default function DeleteProjectDialog({
               <Download size={14} />
               导出工作空间备份
             </a>
-            <label className="field">
+            <ReplicaField className="field">
               <span>输入项目名称以确认</span>
-              <input
+              <ReplicaInput
                 autoComplete="off"
                 spellCheck={false}
                 value={name}
@@ -99,28 +101,28 @@ export default function DeleteProjectDialog({
                 disabled={busy}
                 required
               />
-            </label>
+            </ReplicaField>
             {error && (
-              <p className="delete-error" role="alert">
+              <AntAlert className="delete-error" role="alert">
                 {error}
-              </p>
+              </AntAlert>
             )}
           </div>
           <footer>
-            <button type="button" disabled={busy} onClick={onClose}>
+            <ReplicaButton type="button" disabled={busy} onClick={onClose}>
               取消
-            </button>
-            <button
+            </ReplicaButton>
+            <ReplicaButton
               type="submit"
               className="danger-button"
               disabled={busy || name !== project.name}
             >
               <Trash2 size={14} />
               {busy ? "正在删除…" : "永久删除项目"}
-            </button>
+            </ReplicaButton>
           </footer>
-        </form>
-      </section>
+        </ReplicaForm>
+      </ReplicaModal>
     </div>
   );
 }

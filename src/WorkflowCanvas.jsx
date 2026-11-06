@@ -1,3 +1,4 @@
+import {ReplicaInput,ReplicaButton} from './ReplicaControls.jsx';
 import { routeTransition } from "../shared/workflow-routing.mjs";
 import React, { useId, useRef, useState, useEffect } from "react";
 import { ZoomIn, ZoomOut, Maximize2 } from "lucide-react";
@@ -45,5 +46,5 @@ export default function WorkflowCanvas({ workflow, statuses, selection, onSelect
       {workflow.initialStatus===s.id&&<><circle cx="-17" cy="22" r="5" className="wf-start"/><path d="M-12 22 H0" stroke="#8493a6"/><text x="0" y="-12" className="wf-initial-label">初始状态</text></>}
       <rect width="170" height="44" rx="5"/><circle cx="16" cy="22" r="4"/><text x="29" y="27">{s.name.length>11?s.name.slice(0,11)+"…":s.name}</text><title>{s.name} · 点击编辑，拖动布局</title>
     </g>;})}
-  </svg></div><div className="wf-canvas-bottom"><label className="wf-edge-toggle"><input type="checkbox" checked={relatedOnly} onChange={e=>setRelatedOnly(e.target.checked)}/>仅显示关联转换 <small>{visibleEdges.length}/{workflow.transitions.length}</small></label><div><button type="button" aria-label="缩小画布" disabled={zoom<=.08} onClick={()=>setCamera(c=>({...c,zoom:Math.max(.08,c.zoom/1.2)}))}><ZoomOut size={15}/></button><span>{Math.round(zoom*100)}%</span><button type="button" aria-label="放大画布" disabled={zoom>=2} onClick={()=>setCamera(c=>({...c,zoom:Math.min(2,c.zoom*1.2)}))}><ZoomIn size={15}/></button><button type="button" aria-label="适应画布" title="显示完整流程图" onClick={fit}><Maximize2 size={14}/></button></div></div></div>;
+  </svg></div><div className="wf-canvas-bottom"><label className="wf-edge-toggle"><ReplicaInput type="checkbox" checked={relatedOnly} onChange={e=>setRelatedOnly(e.target.checked)}/>仅显示关联转换 <small>{visibleEdges.length}/{workflow.transitions.length}</small></label><div><ReplicaButton type="button" aria-label="缩小画布" disabled={zoom<=.08} onClick={()=>setCamera(c=>({...c,zoom:Math.max(.08,c.zoom/1.2)}))}><ZoomOut size={15}/></ReplicaButton><span>{Math.round(zoom*100)}%</span><ReplicaButton type="button" aria-label="放大画布" disabled={zoom>=2} onClick={()=>setCamera(c=>({...c,zoom:Math.min(2,c.zoom*1.2)}))}><ZoomIn size={15}/></ReplicaButton><ReplicaButton type="button" aria-label="适应画布" title="显示完整流程图" onClick={fit}><Maximize2 size={14}/></ReplicaButton></div></div></div>;
 }

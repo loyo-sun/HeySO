@@ -1,3 +1,4 @@
+import {ReplicaButton} from './ReplicaControls.jsx';
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { fitChildSchedules } from '../shared/schedule.mjs';
@@ -57,9 +58,9 @@ export default function RoadmapBar({ item, items, project, window, progress, col
   return <>
     <div className={`roadmap-bar${compact ? ' is-compact' : ''}${summary ? ' is-summary' : ''}${position.clippedStart ? ' clipped-start' : ''}${position.clippedEnd ? ' clipped-end' : ''}${preview ? ' is-dragging' : ''}${saving ? ' is-saving' : ''}`} style={{ left: `${position.left}%`, width: `${position.width}%`, '--bar-color': color }} title={preview ? undefined : title}>
       <span className="roadmap-bar-progress" style={{ width: `${progress.percent}%` }}/>
-      <button className="roadmap-bar-body" {...events('move')} disabled={blocked} onClick={() => { if (!suppressClick.current) onOpen(item); suppressClick.current = false; }} aria-label={`查看详情：${title.replaceAll('\n', '，')}`} aria-describedby="roadmap-drag-help"><span className="roadmap-bar-title">{overdue && <i aria-label="计划已逾期"/>}{item.title}</span><small>{progress.total ? `${progress.percent}%` : status}</small></button>
-      {!position.clippedStart && <button className="roadmap-resize roadmap-resize-start" {...events('start')} disabled={blocked} onClick={e => e.stopPropagation()} aria-label={'调整开始日期：' + item.title} title="拖动调整开始日期"/>}
-      {!position.clippedEnd && <button className="roadmap-resize roadmap-resize-end" {...events('end')} disabled={blocked} onClick={e => e.stopPropagation()} aria-label={'调整结束日期：' + item.title} title="拖动调整结束日期"/>}
+      <ReplicaButton className="roadmap-bar-body" {...events('move')} disabled={blocked} onClick={() => { if (!suppressClick.current) onOpen(item); suppressClick.current = false; }} aria-label={`查看详情：${title.replaceAll('\n', '，')}`} aria-describedby="roadmap-drag-help"><span className="roadmap-bar-title">{overdue && <i aria-label="计划已逾期"/>}{item.title}</span><small>{progress.total ? `${progress.percent}%` : status}</small></ReplicaButton>
+      {!position.clippedStart && <ReplicaButton className="roadmap-resize roadmap-resize-start" {...events('start')} disabled={blocked} onClick={e => e.stopPropagation()} aria-label={'调整开始日期：' + item.title} title="拖动调整开始日期"/>}
+      {!position.clippedEnd && <ReplicaButton className="roadmap-resize roadmap-resize-end" {...events('end')} disabled={blocked} onClick={e => e.stopPropagation()} aria-label={'调整结束日期：' + item.title} title="拖动调整结束日期"/>}
     </div>
     {preview && !saving && createPortal(<div className="roadmap-drag-tooltip" role="status" style={{ left: Math.max(8, Math.min(preview.x - 120, globalThis.innerWidth - 270)), top: Math.max(8, preview.y - 65) }}><strong>{preview.startDate} → {preview.endDate}</strong><span>{preview.limited ? boundary : affected ? `将同步调整 ${affected} 个子项 · 松开保存 · Esc 取消` : '松开保存 · Esc 取消'}</span></div>, document.body)}
   </>;
