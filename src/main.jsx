@@ -66,6 +66,7 @@ import {
 } from "lucide-react";
 
 
+import MemoryPanel from './MemoryPanel.jsx';
 import SettingsPanel, {
   settingsPages,
   settingsDescriptions,
@@ -593,44 +594,7 @@ function App() {
     </div>
   );
   function renderMemory() {
-    return <><div className="inline" style={{justifyContent:"flex-end",marginBottom:20}}><ReplicaButton className="primary" onClick={() => setModal({type:"note"})}><Plus size={16}/>记录记忆</ReplicaButton></div>
-              <div className="memory-grid">
-                {notes.map((n) => (
-                  <AntCard className="panel memory-card" key={n.id}>
-                    <AntTag
-                      className={
-                        "kind " + (n.type === "decision" ? "epic" : "feature")
-                      }
-                    >
-                      {n.type === "decision" ? (
-                        <GitBranch size={14} />
-                      ) : (
-                        <BookOpen size={14} />
-                      )}
-                      {
-                        {
-                          decision: "关键决定",
-                          context: "工作上下文",
-                          learning: "经验与复盘",
-                        }[n.type]
-                      }
-                    </AntTag>
-                    <h3>{n.title}</h3>
-                    <MarkdownPreview value={n.body}/>
-                    <footer>
-                      <AntAvatar className="avatar">我</AntAvatar>
-                      <span>
-                        {n.author} · {fmt(n.createdAt)}
-                      </span>
-                      <span className="ml-auto">
-                        <CheckCircle2 size={13} /> 人工记录
-                      </span>
-                    </footer>
-                  </AntCard>
-                ))}
-              </div>
-              {!notes.length && <Empty title="记录第一个共识" />}
-    </>;
+    return <MemoryPanel notes={notes} projectId={project.id} action={action} busy={busy}/>;
   }
   function renderOverview() {
     const sprintStories = activeSprint

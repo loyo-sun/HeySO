@@ -7661,3 +7661,26 @@ body .roadmap-plan-popover .roadmap-search {padding:8px 11px;}
 .report-ai-scopes { display:inline-flex; margin:0 20px 16px; }
 .report-ai-scopes .ant-segmented-item-label { padding:7px 12px; font-size:12px; }
 .report-ai-scopes .ant-segmented-item-selected { color:var(--accent-text); background:var(--accent-soft); }
+.memory-toolbar { display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:20px; }
+.memory-table-scroll { overflow-x:auto; border:1px solid var(--line, #e8e8e8); border-radius:8px; }
+.memory-table { width:100%; border-collapse:collapse; font-size:13px; text-align:left; }
+.memory-table th { color:var(--muted, #737780); font-weight:500; background:#fafafa; }
+.memory-table th, .memory-table td { padding:13px 16px; border-bottom:1px solid var(--line, #e8e8e8); }
+.memory-table td:not(:first-child) { white-space:nowrap; }
+.memory-table tbody tr { cursor:pointer; }
+.memory-table tbody tr:hover { background:#f7f8fa; }
+.memory-table tbody tr:last-child td { border-bottom:0; }
+.memory-title { display:flex; align-items:center; gap:8px; background:none; border:0; padding:0; text-align:left; color:inherit; cursor:pointer; font:inherit; overflow-wrap:anywhere; }
+.memory-title svg { flex-shrink:0; color:#85899a; }
+.memory-title:focus-visible { outline:2px solid var(--accent); outline-offset:4px; }
+.memory-empty { padding:32px 16px; text-align:center; color:#737780; }
+.memory-tabs { display:flex; gap:8px; margin-bottom:24px; border-bottom:1px solid #e8e8e8; padding-bottom:12px; }
+.memory-tabs .active, .memory-toolbar .active { color:var(--accent-text); background:var(--accent-soft); border-color:var(--accent-border); }
+.memory-drawer-actions { display:flex; align-items:center; justify-content:flex-end; gap:12px; margin-top:24px; }
+.memory-drawer-actions .danger-button { margin-right:auto; }
+.memory-metadata { color:#737780; font-size:12px; margin-top:24px; }
+.memory-history article { padding:0 0 24px; margin-bottom:24px; border-bottom:1px solid #e8e8e8; overflow-wrap:anywhere; }
+.memory-history article header { display:flex; flex-direction:column; gap:6px; }
+.memory-history article small { color:#737780; }
+.memory-history article h3 { margin:12px 0; }
+@media(max-width:600px) { .memory-toolbar { flex-wrap:wrap; } .memory-table th, .memory-table td { padding:12px; } }

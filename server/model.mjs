@@ -1,4 +1,5 @@
 import { createItemSchema, updateItemSchema } from './mcp-item-schema.mjs';
+import {memoryTypes, memoryVersion, memoryEntry, memoryHistory} from '../shared/memory.mjs';
 import {closeSupersededRuns} from '../shared/run-closure.mjs';
 import { captureItemActivity, itemActivityChanges, activityDetail } from './item-activity.mjs';
 import { fitChildSchedules } from '../shared/schedule.mjs';
@@ -403,7 +404,8 @@ export function context(s, id) {
     targetTask: isSubtask(item, projectOf(s, item)) ? item : null,
     release: s.releases.find((r) => r.id === item.releaseId) || null,
     sprint: s.sprints.find((sp) => sp.id === effectiveSprintId(item,s.items,projectOf(s,item))) || null,
-    memory: s.notes.filter((n) => n.projectId === item.projectId),
+    memory: s.notes.filter((n) => n.projectId === item.projectId && !n.deletedAt)
+      .map(({history, ...note}) => note),
     executions: s.runs.filter((r) => runTargetId(r) === item.id),
     rules: [
       "只更新已启用 AI 的工作项或获所属任务授权的子任务。",
@@ -1085,6 +1087,8 @@ export function act(s, a) {
     addEvent(s, r.projectId, "release", "发布版本", r.name);
     out = r;
   } else if (type === "note.create") {
+    if (!s.projects.some(project => project.id === p.projectId)) fail('项目不存在', 404);
+    if (!Object.hasOwn(memoryTypes, p.type || 'context')) fail('记忆类型无效');
     out = {
       id: uid("note"),
       projectId: p.projectId,
@@ -1092,11 +1096,29 @@ export function act(s, a) {
       title: required(p.title, "标题"),
       body: required(p.body, "内容"),
       confirmed: true,
-      author: "我",
+      author: String(a.actor || '我').slice(0,120),
       createdAt: now(),
+      contentVersion: 1,
     };
+    out.history = [memoryEntry(out, 'create', out.author, out.createdAt)];
     s.notes.unshift(out);
     addEvent(s, p.projectId, "memory", "记录项目记忆", out.title);
+  } else if (type === 'note.update' || type === 'note.delete') {
+    const note = s.notes.find(n => n.id === p.id && n.projectId === p.projectId);
+    if (!note || note.deletedAt) fail('记忆不存在或已删除', 404);
+    if (p.expectedVersion !== memoryVersion(note)) fail('记忆已有更新，请重新打开后重试', 409);
+    const actor = String(a.actor || '我').slice(0,120), at = now();
+    const next = type === 'note.update' ? {
+      type: p.type, title: required(p.title, '标题'), body: required(p.body, '内容'),
+    } : {};
+    if (type === 'note.update' && !Object.hasOwn(memoryTypes, next.type)) fail('记忆类型无效');
+    if (type === 'note.update' && ['type','title','body'].every(key => next[key] === note[key])) return note;
+    const history = structuredClone(memoryHistory(note));
+    Object.assign(note, next, {contentVersion: memoryVersion(note) + 1, updatedAt: at, updatedBy: actor});
+    if (type === 'note.delete') Object.assign(note, {deletedAt: at, deletedBy: actor});
+    note.history = [...history, memoryEntry(note, type === 'note.delete' ? 'delete' : 'update', actor, at)];
+    addEvent(s, note.projectId, 'memory', type === 'note.delete' ? '删除项目记忆' : '编辑项目记忆', note.title);
+    out = note;
   } else if (type === "run.progress" || type === "run.submit") {
     const i = getItem(s, p.itemId),
       story = storyOf(s, i);
