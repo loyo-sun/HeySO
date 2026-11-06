@@ -2,26 +2,43 @@ import useViewPreferences from './useViewPreferences.jsx';
 import {ReplicaNativeSelect,ReplicaButton,ReplicaInput} from './ReplicaControls.jsx';
 import {AntCard,AntSegments,AntDisclosure,AntEmpty} from './AntStructures.jsx';
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { Calendar, ChevronLeft, ChevronRight, ChevronDown, Search, Flag, X, ChevronsDownUp, ChevronsUpDown, SlidersHorizontal, Columns3, Download, Link2, Check, Settings2 } from 'lucide-react';
+import { Calendar, ChevronLeft, ChevronRight, ChevronDown, Search, Flag, X, ChevronsDownUp, ChevronsUpDown, SlidersHorizontal, Columns3, Download, Link2, Check, Settings2, Plus } from 'lucide-react';
 import { TypeIcon, workTypeColor } from './WorkType.jsx';
 import { configFor, typeFor, terminal, statusNamesFor } from '../shared/work-config.mjs';
 import { dayNumber, localDay, itemRange, shiftRoadmap, roadmapBar, roadmapPoint, roadmapProgress, roadmapPlanWindow, roadmapPlanRows } from './roadmap-model.mjs';
 
 import RoadmapBar from './RoadmapBar.jsx';
+import RoadmapInlineCreate from './RoadmapInlineCreate.jsx';
+import RoadmapFieldCell from './RoadmapFieldCell.jsx';
 import PageTitle from './PageTitle.jsx';
 import SubtaskFilter from './SubtaskFilter.jsx';
 import {StatusIcon} from './Select.jsx';
 import {categoryOf} from '../shared/work-config.mjs';
 import {releaseState} from './release-model.mjs';
 
-export default function Roadmap({ project, items, releases, onOpen, onCreate, onReleases, onProjectSettings, onSchedule, busy }) {
+export default function Roadmap({ project, items, releases, onOpen, onCreate, onReleases, onProjectSettings, onSchedule, onInsert, busy }) {
   const today = localDay(),config=configFor(project);
   const levels=[...config.levels].sort((a,b)=>b.rank-a.rank).map(l=>({...l,name:config.types.filter(t=>t.level===l.rank&&(t.enabled&&!t.hidden||items.some(i=>i.kind===t.id))).map(t=>t.name).join(' / ')||l.name}));
   const prefs=useViewPreferences(project,'roadmap',{anchor:today<project.startDate||today>project.endDate?project.startDate||today:today,scale:'quarter',query:'',status:'all',owner:'all',version:'all',showReleases:true,top:Math.max(...levels.map(l=>l.rank)),bottom:0,fields:globalThis.innerWidth<1000?['startDate','endDate']:['startDate','endDate','owner','releaseId'],barLabels:false,colorBy:'type',custom:{startDate:project.startDate||today,endDate:project.endDate||today},collapsed:[]});
   const [anchor,setAnchor]=prefs.field('anchor'),[scale,setScale]=prefs.field('scale'),[query,setQuery]=prefs.field('query'),[status,setStatus]=prefs.field('status'),[owner,setOwner]=prefs.field('owner'),[version,setVersion]=prefs.field('version'),[showReleases,setShowReleases]=prefs.field('showReleases');
   const [top,setTop]=prefs.field('top'),[bottom,setBottom]=prefs.field('bottom'),[fields,setFields]=prefs.field('fields'),[barLabels,setBarLabels]=prefs.field('barLabels'),[colorBy,setColorBy]=prefs.field('colorBy'),[custom,setCustom]=prefs.field('custom');
   const collapsed=new Set(prefs.values.collapsed),setCollapsed=next=>prefs.set(previous=>({collapsed:[...(typeof next==='function'?next(new Set(previous.collapsed)):next)]}));
-  const [notice,setNotice]=useState(''),[space,setSpace]=useState(650);
+  const [notice,setNotice]=useState(''),[space,setSpace]=useState(650),[creating,setCreating]=useState(null);
+  const insertRow=(source,depth)=>{setCreating({source,depth});};
+  const saveNew=async payload=>{const result=await onInsert(payload);if(result){setCreating(null);if(payload.parentId){setCollapsed(old=>{const next=new Set(old);next.delete(payload.parentId);return next;});const level=typeFor(project,payload.kind)?.level??0;if(level<bottom)setBottom(level);if(level>top)setTop(level);}setNotice(query||status!=='all'||owner!=='all'||version!=='all'?'已创建工作项；当前筛选可能隐藏新项，可清除筛选查看。':'已创建工作项，可点击标题编辑详情。');}return result;};
+  const widthKey='heyso:roadmap-label-width:'+project.id;
+  const [labelWidth,setLabelWidth]=useState(()=>{try{const n=Number(localStorage.getItem(widthKey));return n>=220&&n<=800?n:280;}catch{return 280;}});
+  const [resizing,setResizing]=useState(false),resize=useRef(null);
+  useEffect(()=>{try{localStorage.setItem(widthKey,String(labelWidth));}catch{}},[widthKey,labelWidth]);
+  const startResize=e=>{if(e.button!==0)return;e.preventDefault();if(resize.current)return;resize.current={x:e.clientX,width:labelWidth};setResizing(true);};
+  const endResize=()=>{resize.current=null;setResizing(false);};
+  useEffect(()=>{
+    if(!resizing)return;
+    const move=e=>{if(resize.current){e.preventDefault();setLabelWidth(Math.max(220,Math.min(800,resize.current.width+e.clientX-resize.current.x)));}};
+    for(const name of ['pointermove','mousemove'])globalThis.addEventListener(name,move,{passive:false});
+    for(const name of ['pointerup','pointercancel','mouseup','blur'])globalThis.addEventListener(name,endResize);
+    return()=>{for(const name of ['pointermove','mousemove'])globalThis.removeEventListener(name,move);for(const name of ['pointerup','pointercancel','mouseup','blur'])globalThis.removeEventListener(name,endResize);};
+  },[resizing]);
   const columns=[{id:'startDate',label:'开始日期',width:88},{id:'endDate',label:'结束日期',width:88},{id:'status',label:'状态',width:100},{id:'owner',label:'负责人',width:100},{id:'releaseId',label:'版本',width:112},{id:'points',label:'故事点',width:72}];
   const shownFields=fields.map(id=>columns.find(c=>c.id===id)).filter(Boolean),fieldsWidth=shownFields.reduce((n,c)=>n+c.width,0);
   const scroll = useRef(null), headerScroll = useRef(null), dock = useRef(null), panel = useRef(null);
@@ -42,7 +59,7 @@ export default function Roadmap({ project, items, releases, onOpen, onCreate, on
     measure(); const observer = new ResizeObserver(measure); observer.observe(el);
     globalThis.addEventListener('scroll', measure, true); globalThis.addEventListener('resize', measure);
     return () => { observer.disconnect(); globalThis.removeEventListener('scroll', measure, true); globalThis.removeEventListener('resize', measure); };
-  }, [fieldsWidth]);
+  }, [fieldsWidth,labelWidth]);
   const axisWidth = scale==='fit'||scale==='custom'?space:Math.max(space,window.days*(scale==='year'?2.5:7));
   useLayoutEffect(() => {
     if (!scroll.current) return;
@@ -67,7 +84,7 @@ export default function Roadmap({ project, items, releases, onOpen, onCreate, on
   return <>
     <div className="page-heading roadmap-page-heading"><div><PageTitle view="roadmap"/></div><div className="roadmap-plan-actions"><ReplicaButton onClick={()=>{const quote=v=>'"'+String(v??'').replaceAll('"','""')+'"';const text='\ufeff'+[['ID','标题',...shownFields.map(c=>c.label)],...rows.map(({item:i})=>[project.code+'-'+i.number,i.title,...shownFields.map(c=>fieldValue(i,c.id))])].map(r=>r.map(v=>quote(/^[\s]*[=+@-]/.test(String(v))?"'"+v:v)).join(',')).join('\r\n');const a=document.createElement('a'),url=URL.createObjectURL(new Blob([text],{type:'text/csv;charset=utf-8'}));a.href=url;a.download=project.code+'-线路计划.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}}><Download size={14}/>导出</ReplicaButton></div></div>
     {notice&&<div className="roadmap-copy-notice" role="status">{notice}<ReplicaButton aria-label="关闭提示" onClick={()=>setNotice('')}><X size={13}/></ReplicaButton></div>}
-    <AntCard className="panel roadmap-panel roadmap-plan" ref={panel} aria-label="产品路线图" style={{ '--roadmap-axis-width': `${axisWidth}px`,'--roadmap-fields-width':fieldsWidth+'px','--roadmap-field-columns':shownFields.map(c=>c.width+'px').join(' ') }}>
+    <AntCard className="panel roadmap-panel roadmap-plan" ref={panel} aria-label="产品路线图" style={{ '--roadmap-label-width': `${labelWidth}px`, '--roadmap-axis-width': `${axisWidth}px`,'--roadmap-fields-width':fieldsWidth+'px','--roadmap-field-columns':shownFields.map(c=>c.width+'px').join(' ') }}>
       <div className="roadmap-sticky-header">
       <div className="roadmap-plan-toolbar">
         <div className="roadmap-hierarchy"><span>层级</span><ReplicaNativeSelect aria-label="最高显示层级" value={top} onChange={e=>{const n=Number(e.target.value);setTop(n);if(bottom>n)setBottom(n);}}>{levels.map(l=><option key={l.id} value={l.rank}>{l.name}</option>)}</ReplicaNativeSelect><span>至</span><ReplicaNativeSelect aria-label="最低显示层级" value={bottom} onChange={e=>setBottom(Number(e.target.value))}>{levels.filter(l=>l.rank<=top).map(l=><option key={l.id} value={l.rank}>{l.name}</option>)}</ReplicaNativeSelect></div>
@@ -77,25 +94,25 @@ export default function Roadmap({ project, items, releases, onOpen, onCreate, on
       </div>
       <div className="roadmap-plan-secondary"><div className="roadmap-scope-tools"><span>范围 <b>{rows.length}</b></span><ReplicaButton className="icon-btn" aria-label="展开全部路线图工作项" title="全部展开" disabled={filtered} onClick={()=>setCollapsed(new Set())}><ChevronsUpDown size={15}/></ReplicaButton><ReplicaButton className="icon-btn" aria-label="收起全部路线图工作项" title="全部收起" disabled={filtered} onClick={()=>setCollapsed(new Set(items.map(i=>i.id)))}><ChevronsDownUp size={15}/></ReplicaButton><PlanMenu label="字段" icon={Columns3}>{columns.map(c=><label key={c.id}><ReplicaInput type="checkbox" checked={fields.includes(c.id)} onChange={e=>setFields(old=>e.target.checked?[...old,c.id]:old.filter(id=>id!==c.id))}/>{c.label}</label>)}</PlanMenu></div><div className="roadmap-period"><ReplicaButton className="icon-btn" aria-label="上一个时间段" disabled={scale==='fit'||scale==='custom'} onClick={()=>setAnchor(shiftRoadmap(anchor,scale,-1))}><ChevronLeft size={15}/></ReplicaButton><span>{window.label}</span><ReplicaButton className="icon-btn" aria-label="下一个时间段" disabled={scale==='fit'||scale==='custom'} onClick={()=>setAnchor(shiftRoadmap(anchor,scale,1))}><ChevronRight size={15}/></ReplicaButton><ReplicaButton onClick={()=>{setScale('quarter');focusDate(today);}}>今天</ReplicaButton></div></div>
       {(!project.startDate || !project.endDate) && <div className="roadmap-notice">项目周期待设置，工作项仍可查看。<ReplicaButton className="text-btn" onClick={onProjectSettings}>设置项目周期</ReplicaButton></div>}
-      <div className="roadmap-header-scroll" ref={headerScroll} onScroll={e => syncScroll(e.currentTarget)}><div className="roadmap-table"><div className="roadmap-ruler"><div className="roadmap-label roadmap-label-heading">工作项</div><div className="roadmap-fields roadmap-field-headings">{shownFields.map(c=><span key={c.id}>{c.label}</span>)}</div><div className="roadmap-axis"><div className="roadmap-major">{window.segments.map((s,i) => <span key={i} style={{ left: `${s.left}%`, width: `${s.width}%` }}><b style={{ marginLeft: `clamp(0px, calc(var(--roadmap-scroll-x, 0px) - ${s.left / 100 * axisWidth}px), ${Math.max(0, s.width / 100 * axisWidth - 110)}px)` }}>{s.label}</b></span>)}</div><div className="roadmap-minor">{axisTicks.map(t => <span key={t.date} className={t.weekend ? 'is-weekend' : ''} style={{ left: `${t.left}%` }}>{t.label}</span>)}</div>{showReleases&&visibleReleases.map(r=>{const x=roadmapPoint(r.releasedDate||r.plannedDate,window);return x!==null&&<ReplicaButton key={r.id} className={"roadmap-ruler-release "+(r.status==='released'?'released':'')} style={{left:x+'%'}} onClick={()=>onReleases(r.id)} title={r.name+' · '+(r.releasedDate||r.plannedDate)} aria-label={'版本里程碑：'+r.name}><i/></ReplicaButton>;})}{todayX !== null && <span className="roadmap-today-marker" style={{ left: `${todayX}%` }}>今天</span>}</div></div></div></div>
+      <div className="roadmap-header-scroll" ref={headerScroll} onScroll={e => syncScroll(e.currentTarget)}><div className="roadmap-table"><div className="roadmap-ruler"><div className="roadmap-label roadmap-label-heading">工作项<span className={'roadmap-column-resizer'+(resizing?' is-resizing':'')} role="separator" tabIndex={0} aria-label="调整工作项列宽" aria-orientation="vertical" aria-valuemin={220} aria-valuemax={800} aria-valuenow={labelWidth} onPointerDown={startResize} onMouseDown={startResize} onDoubleClick={()=>setLabelWidth(280)} onKeyDown={e=>{if(['ArrowLeft','ArrowRight','Home','End'].includes(e.key)){e.preventDefault();setLabelWidth(w=>e.key==='Home'?220:e.key==='End'?800:Math.max(220,Math.min(800,w+(e.key==='ArrowRight'?20:-20))));}}}/></div><div className="roadmap-fields roadmap-field-headings">{shownFields.map(c=><span key={c.id}>{c.label}</span>)}</div><div className="roadmap-axis"><div className="roadmap-major">{window.segments.map((s,i) => <span key={i} style={{ left: `${s.left}%`, width: `${s.width}%` }}><b style={{ marginLeft: `clamp(0px, calc(var(--roadmap-scroll-x, 0px) - ${s.left / 100 * axisWidth}px), ${Math.max(0, s.width / 100 * axisWidth - 110)}px)` }}>{s.label}</b></span>)}</div><div className="roadmap-minor">{axisTicks.map(t => <span key={t.date} className={t.weekend ? 'is-weekend' : ''} style={{ left: `${t.left}%` }}>{t.label}</span>)}</div>{showReleases&&visibleReleases.map(r=>{const x=roadmapPoint(r.releasedDate||r.plannedDate,window);return x!==null&&<ReplicaButton key={r.id} className={"roadmap-ruler-release "+(r.status==='released'?'released':'')} style={{left:x+'%'}} onClick={()=>onReleases(r.id)} title={r.name+' · '+(r.releasedDate||r.plannedDate)} aria-label={'版本里程碑：'+r.name}><i/></ReplicaButton>;})}{todayX !== null && <span className="roadmap-today-marker" style={{ left: `${todayX}%` }}>今天</span>}</div></div></div></div>
       </div>
       <div className="roadmap-scroll" ref={scroll} onScroll={e => syncScroll(e.currentTarget)} tabIndex={0} aria-label="路线图时间轴，可横向滚动">
-        <div className="roadmap-table" style={{ '--roadmap-axis-width': `${axisWidth}px` }}>
+        <div className="roadmap-table" style={{ '--roadmap-label-width': `${labelWidth}px`, '--roadmap-axis-width': `${axisWidth}px` }}>
 
           {!rows.length && <AntEmpty className="roadmap-empty"><Calendar size={26}/><h3>{items.length ? '没有符合条件的工作项' : '从第一个目标开始规划'}</h3><p>{items.length ? '调整搜索或筛选条件，再查看路线图。' : '新建工作项并设置计划周期，即可在时间轴上查看。'}</p>{items.length ? <ReplicaButton onClick={() => { setQuery(''); setStatus('all'); setOwner('all');setVersion('all'); }}>清除筛选</ReplicaButton> : <ReplicaButton onClick={onCreate}>新建工作项</ReplicaButton>}</AntEmpty>}
           {rows.map(({ item, depth, hasChildren, collapsed: folded, contextOnly }) => {
             const range = itemRange(item), bar = roadmapBar(item, window), progress = roadmapProgress(item, items, project);
             const overdue = range && range.end < dayNumber(today) && !terminal(item, project);
             const type = typeFor(project, item.kind), title = `${item.title} · ${names[item.status] || item.status} · ${item.owner || '未分配'}\n${range ? `${range.startDate} 至 ${range.endDate}` : '日期待设置'}${progress.total ? `\n已完成 ${progress.done}/${progress.total} · ${progress.percent}%` : ''}`;
-            return <div key={item.id} className={`roadmap-row${contextOnly ? ' context-only' : ''}${overdue ? ' is-overdue' : ''}${hasChildren?' is-parent':''}`} data-work-item-id={item.id} tabIndex={0}>
+            return <React.Fragment key={item.id}><div className={`roadmap-row${contextOnly ? ' context-only' : ''}${overdue ? ' is-overdue' : ''}${hasChildren?' is-parent':''}`} data-work-item-id={item.id} tabIndex={0}>
               <div className="roadmap-label" style={{ paddingLeft: 12 + Math.min(depth, 6) * 16 }}>
                 {hasChildren ? <ReplicaButton className="roadmap-fold icon-btn" aria-label={(folded ? '展开' : '收起') + item.title} aria-expanded={!folded} onClick={() => toggle(item.id)} disabled={filtered}>{folded ? <ChevronRight size={14}/> : <ChevronDown size={14}/>}</ReplicaButton> : <span className="roadmap-fold-placeholder"/>}
                 <TypeIcon kind={item.kind}/><ReplicaButton className="roadmap-item-name" onClick={() => onOpen(item)} title={title}><small>{project.code}-{item.number}</small><span>{item.title}</span></ReplicaButton>
-                <ReplicaButton className="roadmap-edit icon-btn" aria-label={'调整日期：' + item.title} title="调整计划日期" disabled={busy} onClick={() => onOpen(item)}><Calendar size={14}/></ReplicaButton>
+                <ReplicaButton type="button" className="roadmap-row-add icon-btn" aria-label={'在此行下方新建工作项：'+item.title} title="新建工作项" disabled={busy||!!creating} onClick={()=>insertRow(item,depth)}><Plus size={14}/></ReplicaButton>
               </div>
-              <div className="roadmap-fields">{shownFields.map(c=><ReplicaButton key={c.id} className={'roadmap-field-value field-'+c.id} aria-label={c.label+'：'+item.title} onClick={()=>onOpen(item)} title={c.label+'：'+fieldValue(item,c.id)}>{c.id==='owner'&&<i>{(item.owner||'?').slice(0,1)}</i>}{c.id==='status'&&<StatusIcon value={item.status}/>}<span>{fieldValue(item,c.id)||'—'}</span></ReplicaButton>)}</div>
+              <div className="roadmap-fields">{shownFields.map(c=><RoadmapFieldCell key={c.id} item={item} column={c} project={project} items={items} releases={releases} value={fieldValue(item,c.id)} busy={busy} onSave={onSchedule}/>)}</div>
               <div className="roadmap-track" onClick={e=>{if(!e.target.closest("button"))onOpen(item);}}>{grid}{nowLine}{bar ? <RoadmapBar item={item} items={items} project={project} window={window} progress={progress} color={colorBy==='status'?({done:'#36B37E',active:'#4BADE8',review:'#6554C0',blocked:'#FF5630',cancelled:'#8993a4'}[categoryOf(project,item.status,item.kind)]||'#8993a4'):workTypeColor(item.kind,type)} compact={!barLabels} summary={hasChildren} overdue={overdue} title={title} status={names[item.status]} busy={busy} onOpen={onOpen} onSchedule={onSchedule}/> : <div className="roadmap-outside">{range ? <><span>当前时间段外 · {range.startDate} — {range.endDate}</span><ReplicaButton className="text-btn" onClick={() => setAnchor(range.startDate)}>定位</ReplicaButton></> : <ReplicaButton className="roadmap-unscheduled" disabled={busy} onClick={() => onOpen(item)}>待排期 · 设置日期</ReplicaButton>}</div>}</div>
-            </div>;
+            </div>{creating?.source?.id===item.id&&<RoadmapInlineCreate project={project} items={items} source={item} depth={depth} onSave={saveNew} onCancel={()=>setCreating(null)}/>}</React.Fragment>;
           })}
           {showReleases && visibleReleases.length > 0 && <><div className="roadmap-section-heading"><Flag size={14}/>版本里程碑<span>计划 / 实际发布日期</span><ReplicaButton className="text-btn" onClick={()=>onReleases()}>管理版本</ReplicaButton></div>{visibleReleases.map(r => {
             const date = r.status==='released' ? r.releasedDate || r.publishedAt?.slice(0,10) || r.plannedDate : r.plannedDate;

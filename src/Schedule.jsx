@@ -1,5 +1,8 @@
 import {ReplicaField,ReplicaInput,ReplicaButton} from './ReplicaControls.jsx';
 import {AntAlert} from './AntStructures.jsx';
+import {DatePicker} from 'antd';
+import zhCN from 'antd/locale/zh_CN';
+import dayjs from 'dayjs';
 import React, { useEffect, useRef, useState } from "react";
 import { Calendar } from "lucide-react";
 
@@ -12,7 +15,10 @@ export function DateFields({
   max,
   disabled,
   prefix = "",
+  range = false,
+  showLabel = true,
 }) {
+  if (range) return <WorkItemDateRange {...{start,end,setStart,setEnd,min,max,disabled,prefix,showLabel}}/>;
   const startMax = [end, max].filter(Boolean).sort()[0];
   const endMin = [start, min].filter(Boolean).sort().at(-1);
   return (
@@ -49,6 +55,17 @@ export function DateFields({
   );
 }
 
+function WorkItemDateRange({start,end,setStart,setEnd,min,max,disabled,prefix,showLabel}) {
+  const [draft,setDraft]=useState([start||'',end||'']),open=useRef(false),latest=useRef(draft);
+  const change=dates=>{const next=[dates?.[0]?.format('YYYY-MM-DD')||'',dates?.[1]?.format('YYYY-MM-DD')||''];latest.current=next;setDraft(next);return next;};
+  const commit=next=>{setStart(next[0]);setEnd(next[1]);};
+  useEffect(()=>{if(!open.current){const next=[start||'',end||''];latest.current=next;setDraft(next);}},[start,end]);
+  return <ReplicaField className="field work-item-date-range">{showLabel&&<span>{prefix}计划日期</span>}
+    <DatePicker.RangePicker aria-label="工作项计划日期" locale={zhCN.DatePicker} value={draft.map(d=>d?dayjs(d):null)} format="YYYY/MM/DD" placeholder={['开始日期','结束日期']} allowEmpty={[true,true]} allowClear classNames={{popup:{root:'work-item-range-popup'}}} disabled={disabled} minDate={min?dayjs(min):undefined} maxDate={max?dayjs(max):undefined} onCalendarChange={change} onChange={dates=>{const next=change(dates);if(!open.current)commit(next);}} onOpenChange={isOpen=>{open.current=isOpen;if(!isOpen)commit(latest.current);}}/>
+    <input type="hidden" name="startDate" value={start||''}/><input type="hidden" name="endDate" value={end||''}/>
+  </ReplicaField>;
+}
+
 export default function ItemSchedule({
   item,
   project,
@@ -78,7 +95,7 @@ export default function ItemSchedule({
   async function saveDates(){
     const v=latest.current,signature=v.start+'|'+v.end;
     if(!v.ready||v.busy||v.conflict||!v.changed||inFlight.current||attempted.current===signature)return;
-    if(!/^\d{4}-\d{2}-\d{2}$/.test(v.start)||!/^\d{4}-\d{2}-\d{2}$/.test(v.end)||v.start>v.end||(v.minDate&&v.start<v.minDate)||(v.maxDate&&v.end>v.maxDate)){setSaveError('请选择项目及父级周期内的有效起止日期。');return;}
+    if((v.start&&!dayjs(v.start,'YYYY-MM-DD',true).isValid())||(v.end&&!dayjs(v.end,'YYYY-MM-DD',true).isValid())||(v.start&&v.end&&v.start>v.end)||[v.start,v.end].filter(Boolean).some(d=>(v.minDate&&d<v.minDate)||(v.maxDate&&d>v.maxDate))){setSaveError('请选择项目及父级周期内的有效起止日期。');return;}
     attempted.current=signature;inFlight.current=true;setSaveError('');
     try{const result=await v.onSave({startDate:v.start,endDate:v.end});if(result===null||result===false)setSaveError('日期未保存，请重试。');}
     finally{inFlight.current=false;}
@@ -103,7 +120,7 @@ export default function ItemSchedule({
           </ReplicaButton>
         </p>
       )}
-      <DateFields
+      <DateFields range showLabel={false}
         start={start}
         end={end}
         setStart={setStart}

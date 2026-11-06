@@ -37,10 +37,11 @@ export default function WorkItemTitle({ value, save }) {
   }, []);
 
   return (
-    <div className="detail-title-editor"><ReplicaTextArea
+    <div className="detail-title-editor"><span className="required-mark detail-title-required" aria-hidden="true">*</span><ReplicaTextArea
       ref={input}
       className="detail-title"
       aria-label="工作项标题"
+      aria-required="true"
       rows={1}
       value={title}
       onChange={(event) => {draft.current=event.target.value;setTitle(event.target.value);}}

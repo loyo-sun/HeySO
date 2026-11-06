@@ -63,9 +63,11 @@ function checkReleasePlan(s, release) {
   if (typeof release.goal !== "string") fail("版本描述必须是文本");
 }
 function itemDates(item, project, mandatory = false) {
-  dateRange(item.startDate, item.endDate, `「${item.title}」`, mandatory);
+  if (item.startDate) validDate(item.startDate, `「${item.title}」开始日期`);
+  if (item.endDate) validDate(item.endDate, `「${item.title}」结束日期`);
+  if (item.startDate && item.endDate && item.startDate > item.endDate) fail(`「${item.title}」结束日期不能早于开始日期`);
   if (
-    (item.startDate || item.endDate || mandatory) &&
+    (item.startDate || item.endDate) &&
     (!project.startDate || !project.endDate)
   )
     fail("请先在项目设置中填写项目开始日期和结束日期");
@@ -349,6 +351,7 @@ export function storyOf(s, item) {
   const project = s.projects.find((p) => p.id === item.projectId);
   if (isWorkItem(item, project)) return item;
   if (isSubtask(item, project)) {
+    if (!item.parentId) fail("请先为子任务选择所属工作项，再使用交付与 AI 执行");
     const parent = getItem(s, item.parentId);
     if (isWorkItem(parent, project)) return parent;
   }
@@ -475,7 +478,7 @@ export function validate(s) {
       if (!p || p.projectId !== i.projectId || !canParent(project, i.kind, p))
         fail("父级类型或项目不匹配");
       if (!i.legacyParentDates) parentDates(i, p);
-    } else if (isSubtask(i, project)) fail("子任务必须选择一个执行层父级工作项");
+    }
     if (isSubtask(i, project) && i.sprintId) fail("子任务的 Sprint 由父级工作项决定，不能独立分配");
     for (const [key, arr] of [
       ["sprintId", "sprints"],
@@ -531,7 +534,8 @@ export function validate(s) {
   return s;
 }
 export function act(s, a) {
-  const { type, payload: p = {} } = a;
+  const { type } = a;
+  let p = a.payload || {};
   if (type === 'mcp.item.create' || type === 'mcp.item.update') {
     const parsed = (type === 'mcp.item.create' ? createItemSchema : updateItemSchema).safeParse(p);
     if (!parsed.success) fail(parsed.error.issues.map(i => i.message).join('；'));
@@ -677,6 +681,7 @@ export function act(s, a) {
   } else if (type === "item.create") {
     const project = s.projects.find((x) => x.id === p.projectId);
     if (!project) fail("项目不存在");
+    p = {...p, kind: p.kind || configFor(project).types.find(t => t.id === 'story' && t.enabled && !t.hidden)?.id || configFor(project).types.find(t => t.level === 0 && t.enabled && !t.hidden)?.id};
     if (!typeFor(project, p.kind)?.enabled || typeFor(project, p.kind)?.hidden) fail("请选择已启用且展示的工作项类型");
     itemDates({ ...p, endDate: p.endDate || p.dueDate }, project, true);
     out = {
@@ -687,25 +692,29 @@ export function act(s, a) {
       parentId: p.parentId || null,
       description: p.description || "",
       acceptance: p.acceptance || "",
-      owner: p.owner || project.owner,
+      owner: p.owner ?? "",
       priority: p.priority || "medium",
       status: workflowFor(project, p.kind).initialStatus,
       points: Number(p.points) || 0,
       releaseId: p.releaseId || null,
       sprintId: isSubtask(p, project) ? null : p.sprintId || null,
       dueDate: p.dueDate || "",
-      startDate: p.startDate,
-      endDate: p.endDate || p.dueDate,
+      startDate: p.startDate || "",
+      endDate: p.endDate || p.dueDate || "",
       aiEnabled: false,
       contentVersion: 1,
       createdAt: now(),
       updatedAt: now(),
     };
     if(isSubtask(out,project)&&p.sprintId&&p.sprintId!==effectiveSprintId(out,s.items,project))fail("子任务的 Sprint 必须跟随父级工作项");
-    if (!project.members.includes(out.owner)) fail("需求负责人必须在项目成员名册中");
+    if (out.owner && !project.members.includes(out.owner)) fail("需求负责人必须在项目成员名册中");
     if (out.releaseId && s.releases.some(r => r.id === out.releaseId && (r.archived || r.status === "released"))) fail("不能向已发布或已归档版本添加工作项");
     out.number = allocateItemNumber(project);
-    s.items.push(out);
+    if (p.afterId) {
+      const index=s.items.findIndex(item=>item.id===p.afterId&&item.projectId===project.id);
+      if(index<0)fail("新建位置已不存在，请刷新后重试");
+      s.items.splice(index+1,0,out);
+    } else s.items.push(out);
     if (isSubtask(out, project) && out.parentId) { const parent = getItem(s, out.parentId); parent.contentVersion = (parent.contentVersion || 1) + 1; }
     scope(s, out, null, out.sprintId, "新增故事");
     addEvent(
@@ -774,7 +783,7 @@ export function act(s, a) {
         for (const child of s.items.filter((x) => x.parentId === i.id)) parentDates(child, i);
     }
     required(i.title, "标题");
-    if (p.owner !== undefined && !s.projects.find((pr) => pr.id === i.projectId).members.includes(i.owner)) fail("需求负责人必须在项目成员名册中");
+    if (p.owner !== undefined && i.owner && !s.projects.find((pr) => pr.id === i.projectId).members.includes(i.owner)) fail("需求负责人必须在项目成员名册中");
     if (
       p.startDate !== undefined ||
       p.endDate !== undefined ||

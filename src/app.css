@@ -5278,10 +5278,11 @@ main {
   font-size: 12px;
 }
 .item-schedule {
-  border-top: 1px solid #eeeef2;
-  border-bottom: 1px solid #eeeef2;
-  padding: 18px 0;
-  margin: 8px 0 22px;
+  border: 0;
+  padding: 0;
+  margin: 0 0 18px;
+  display: grid;
+  gap: 8px;
 }
 .schedule-title {
   display: flex;
@@ -7684,5 +7685,58 @@ body .roadmap-plan-popover .roadmap-search {padding:8px 11px;}
 .memory-history article small { color:#737780; }
 .memory-history article h3 { margin:12px 0; }
 @media(max-width:600px) { .memory-toolbar { flex-wrap:wrap; } .memory-table th, .memory-table td { padding:12px; } }
-
 .view-preferences-notice { position:fixed; bottom:16px; right:20px; z-index:25; padding:9px 12px; border:1px solid #e3c5a6; border-radius:6px; background:#fff8ef; color:#8f633d; font-size:12px; cursor:pointer; max-width:calc(100vw - 40px); }
+
+/* Small-detail V2: keep columns and child status readable at every width. */
+.roadmap-plan .roadmap-scroll {--roadmap-label-width:inherit;}
+.roadmap-column-resizer {position:absolute;right:0;top:0;bottom:0;width:8px;z-index:12;cursor:col-resize;touch-action:none;user-select:none;}
+.roadmap-column-resizer:hover,.roadmap-column-resizer:focus-visible,.roadmap-column-resizer.is-resizing {background:#1677ff33;outline:1px solid #1677ff;}
+.child-row.ant-btn {height:auto;min-height:48px;white-space:normal;align-items:center;justify-content:flex-start;}
+.child-row > .kind {flex-shrink:0;}
+.child-row .child-row-title {flex:1;min-width:0;overflow-wrap:anywhere;white-space:normal;text-align:left;}
+.child-row > .badge {flex:none;white-space:nowrap;margin-left:auto;}
+.work-item-date-range .ant-picker {width:100%;}
+
+/* Review refinements: creation and editing stay in the roadmap row. */
+.required-mark {color:#d94f42;font-weight:500;margin-right:4px;}
+.detail-title-editor {position:relative;padding-left:10px;}
+.detail-title-required {position:absolute;left:0;top:8px;line-height:1;}
+.roadmap-plan .roadmap-row-add {display:flex;flex:none;width:22px;height:24px;min-width:22px;padding:3px;border:0;background:transparent;color:var(--accent);opacity:0;pointer-events:none;}
+.roadmap-row:hover .roadmap-row-add,.roadmap-row:focus-within .roadmap-row-add {opacity:1;pointer-events:auto;}
+@media(hover:none){.roadmap-plan .roadmap-row-add {opacity:1;pointer-events:auto;}}
+.roadmap-inline-create {display:grid;grid-template-columns:var(--roadmap-label-width) minmax(0,1fr);align-items:center;min-height:44px;background:#fff8f3;border-bottom:1px solid #f1dfd4;position:relative;}
+.roadmap-create-controls {position:sticky;left:0;z-index:4;display:flex;align-items:center;gap:5px;background:#fff8f3;padding:6px 8px;min-width:0;}
+.roadmap-create-controls>.ant-input {min-width:0;flex:1;height:30px;padding:4px 6px;font-size:12px;}
+.roadmap-create-controls>.required-mark {margin:0;}
+.roadmap-create-type {width:82px;flex:none;font-size:12px;}
+.roadmap-create-type .ant-select-content,.roadmap-create-type .ant-select-content-value,.roadmap-create-type-popup .ant-select-item-option-content {display:flex;align-items:center;gap:5px;}
+.roadmap-create-type .ant-select-content-value>span {overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.roadmap-create-controls .icon-btn {flex:none;width:22px;height:26px;min-width:22px;padding:2px;}
+.roadmap-create-hint {font-size:12px;color:var(--muted);padding:5px 12px;max-width:500px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.roadmap-create-hint[role=alert] {color:#c4563a;}
+.roadmap-create-retry {grid-column:2;justify-self:start;margin:0 12px 8px;font-size:12px;}
+.roadmap-editable-cell {min-width:0;display:flex;align-items:stretch;position:relative;border-right:1px solid #ebecf0;}
+.roadmap-editable-cell>.roadmap-field-value {width:100%;height:100%;border-right:0;}
+.roadmap-editable-cell.is-editing {padding:2px;z-index:5;}
+.roadmap-editable-cell>.ant-picker,.roadmap-editable-cell>.ant-input-number,.roadmap-editable-cell>.ant-select {width:100%;min-width:0;font-size:12px;}
+.roadmap-editable-cell .ant-picker {padding:0 3px;}
+.roadmap-editable-cell .ant-picker-input>input {border:0;box-shadow:none;padding:0;font-size:12px;min-width:0;}
+.roadmap-editable-cell .ant-picker-suffix {display:none;}
+.roadmap-editable-cell .ant-select-content {padding-inline:4px;}
+.roadmap-field-retry {position:absolute;right:0;top:100%;height:24px;font-size:12px;z-index:6;color:#c4563a;}
+
+/* Keep the schedule aligned with the surrounding detail fields. */
+.item-schedule .schedule-title {min-height:18px;margin:0;}
+.item-schedule .work-item-date-range {margin:0;}
+.item-schedule .schedule-hint {margin:0;}
+.work-item-date-range .ant-picker {height:38px;padding:6px 11px;}
+.work-item-date-range .ant-picker-input>input {border:0;background:transparent;border-radius:0;padding:0;box-shadow:none;outline:0;height:auto;min-width:0;font-size:13px;}
+.work-item-range-popup .ant-picker-header button {border:0;background:transparent;box-shadow:none;padding:0;min-width:0;border-radius:0;}
+.work-item-range-popup .ant-picker-header-view button {font-weight:600;color:var(--ink,#353d48);}
+.work-item-range-popup .ant-picker-header>button {width:24px;color:#92979e;}
+.work-item-range-popup .ant-picker-cell-in-view.ant-picker-cell-selected .ant-picker-cell-inner,.work-item-range-popup .ant-picker-cell-in-view.ant-picker-cell-range-start .ant-picker-cell-inner,.work-item-range-popup .ant-picker-cell-in-view.ant-picker-cell-range-end .ant-picker-cell-inner {background:var(--accent);color:#fff;}
+.work-item-range-popup .ant-picker-cell-in-view.ant-picker-cell-in-range::before,.work-item-range-popup .ant-picker-cell-in-view.ant-picker-cell-range-start:not(.ant-picker-cell-range-start-single)::before,.work-item-range-popup .ant-picker-cell-in-view.ant-picker-cell-range-end:not(.ant-picker-cell-range-end-single)::before {background:color-mix(in srgb,var(--accent) 12%,white);}
+.roadmap-create-type.heyso-select {width:82px;height:30px;padding:3px 5px;gap:3px;}
+.roadmap-editable-cell>.heyso-select {height:30px;padding:3px 4px;}
+.roadmap-editable-cell .ant-input-number-input {border:0;box-shadow:none;padding:2px 5px;height:28px;}
+.work-item-date-range .ant-picker-clear {border:0;box-shadow:none;background:#fff;padding:0;min-width:0;width:16px;height:16px;border-radius:50%;display:flex;align-items:center;justify-content:center;}

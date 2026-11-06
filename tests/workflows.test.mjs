@@ -289,7 +289,7 @@ test("deleting the last project persists an empty workspace that can create a ne
   });
   assert.equal(reopened.read().projects[0].id, p.id);
 });
-test("every requirement level requires a valid date range within its project", (t) => {
+test("every requirement level accepts empty dates and validates supplied project dates", (t) => {
   const s = fresh(t);
   const p = doAction(s, "project.create", { name: "日期测试", ...projectPlan });
   const legacy = defaultWorkConfig(true); for(const type of legacy.types) type.hidden=false;
@@ -306,7 +306,6 @@ test("every requirement level requires a valid date range within its project", (
     };
     const before = s.read();
     for (const dates of [
-      { startDate: "", endDate: "" },
       { startDate: "2026-09-30" },
       { endDate: "2026-11-01" },
       { startDate: "2026-10-21" },
@@ -317,6 +316,8 @@ test("every requirement level requires a valid date range within its project", (
         /日期|周期/,
       );
     assert.deepEqual(s.read(), before);
+    const undated = doAction(s, "item.create", {...payload,startDate:"",endDate:""});
+    assert.equal(undated.startDate, "");
     const item = doAction(s, "item.create", payload);
     assert.throws(
       () =>
