@@ -7,12 +7,13 @@ import { toolDefinitions } from './mcp-tools.mjs';
 
 const fail = (message, status = 400) => { throw Object.assign(Error(message), { status }); };
 const json = (value, status = 200, headers = {}) => Response.json(value, { status, headers: { 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff', ...headers } });
-export function loyoApi(config, fetcher = fetch) {
+export function loyoApi(config, fetcher = fetch, onTiming = () => {}) {
   return async (route, body) => {
-    let response;
+    let response;const started=performance.now();
     try { response = await fetcher(config.base + route, { method: body === undefined ? 'GET' : 'POST', headers: { Origin: config.origin, Authorization: 'Bearer ' + config.token, 'Content-Type': 'application/json' }, ...(body === undefined ? {} : { body: JSON.stringify(body) }), redirect: 'manual', signal: AbortSignal.timeout(20000) }); }
     catch { fail('无法连接 LoyoCloud，请稍后重试', 503); }
     const result = await response.json();
+    onTiming({ms:performance.now()-started,serverTiming:response.headers.get('Server-Timing')||'',transactionQueries:response.headers.get('X-HeySO-Transaction-Queries')});
     if (!response.ok) fail(result.error_description || result.error || 'LoyoCloud 操作失败', response.status);
     return result;
   };
@@ -30,7 +31,13 @@ function fileState(files, config) {
   return validate(state);
 }
 export async function handleLoyo(request, config, env, input, fetcher = fetch) {
-  const path = new URL(request.url).pathname, api = loyoApi(config, fetcher);
+  const started=performance.now(),upstream=[];
+  const path = new URL(request.url).pathname, api = loyoApi(config, fetcher,t=>upstream.push(t));
+  const timingHeaders=()=>({'Server-Timing':[
+    `gateway;dur=${(performance.now()-started).toFixed(2)}`,
+    `upstream;dur=${upstream.reduce((sum,t)=>sum+t.ms,0).toFixed(2)}`,
+    ...upstream.flatMap(t=>t.serverTiming.split(',').map(v=>v.trim()).filter(v=>/^[a-z_]+;dur=[\d.]+$/.test(v)).map(v=>'cloud_'+v)),
+  ].join(', '),...(upstream.some(t=>/^\d+$/.test(t.transactionQueries||''))?{'X-HeySO-Transaction-Queries':String(upstream.reduce((sum,t)=>sum+(/^\d+$/.test(t.transactionQueries||'')?Number(t.transactionQueries):0),0))}:{})});
   const load = async () => {
     const list = await api('/api/v1/heyso/files');
     const files = [];
@@ -83,10 +90,10 @@ export async function handleLoyo(request, config, env, input, fetcher = fetch) {
   if(path==='/api/action' && input.fileId && input.headId && input.action?.type!=='project.create'&&!changesIdentifiers) {
     if(input.action?.type==='project.delete')fail('请在 LoyoCloud 云空间中将项目文件移至回收站');
     if(!/^[0-9a-f-]{36}$/i.test(input.fileId)||!input.requestId)fail('需要项目文件标识及唯一请求标识');
-    const out=await api('/api/v1/heyso/files/'+encodeURIComponent(input.fileId)+'/action',{action:input.action,headId:input.headId,requestId:input.requestId});
+    const out=await api('/api/v1/heyso/files/'+encodeURIComponent(input.fileId)+'/action',{action:input.action,headId:input.headId,requestId:input.requestId,responseFormat:'content-v1'});
     const state=fileState([out],config), projectId=state.projects[0].id;
     const heads=(input.heads||[]).filter(h=>h.fileId!==input.fileId);heads.push({fileId:input.fileId,headId:out.headId});
-    return json({delta:true,state,revision:revisionOf(heads),result:out.result,projectId});
+    return json({delta:true,state,revision:revisionOf(heads),result:out.result,projectId},200,timingHeaders());
   }
   const { state, files } = await load();
   if (path === '/api/state') return json(state);
@@ -112,7 +119,7 @@ export async function handleLoyo(request, config, env, input, fetcher = fetch) {
       candidate.projects.push(imported);
       for (const key of collections) candidate[key].push(...content.workspace[key]);
       validate(candidate);
-      await api('/api/v1/heyso/files', { content }); projectId = imported.id; result ||= imported;
+      await api('/api/v1/heyso/files', { content,responseFormat:'content-v1' }); projectId = imported.id; result ||= imported;
     } else {
       if (input.action?.type === 'project.delete') fail('请在 LoyoCloud 云空间中将项目文件移至回收站');
       const p = input.action?.payload || {}, id = p.id || p.itemId || p.storyId || p.runId;
@@ -120,9 +127,9 @@ export async function handleLoyo(request, config, env, input, fetcher = fetch) {
       projectId = p.projectId || record?.projectId || (state.projects.some(x => x.id === id) ? id : input.projectId);
       const project = state.projects.find(x => x.id === projectId); if (!project) fail('项目不存在', 404);
       if(changesIdentifiers){const candidate=structuredClone(state);act(candidate,input.action);validate(candidate);}
-      const out = await api('/api/v1/heyso/files/' + project.cloud.fileId + '/action', { action: input.action, headId: project.cloud.headId, requestId: input.requestId || randomUUID() }); result = out.result;
+      const out = await api('/api/v1/heyso/files/' + project.cloud.fileId + '/action', { action: input.action, headId: project.cloud.headId, requestId: input.requestId || randomUUID(),responseFormat:'content-v1' }); result = out.result;
     }
-    return json({ state: (await load()).state, result, projectId });
+    return json({ state: (await load()).state, result, projectId },200,timingHeaders());
   }
   fail('接口不存在', 404);
 }
