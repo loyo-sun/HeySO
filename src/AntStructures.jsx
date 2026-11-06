@@ -1,5 +1,5 @@
 import {ReplicaButton} from './ReplicaControls.jsx';
-import {ChevronRight} from 'lucide-react';
+import {ChevronRight,CheckCircle2,LoaderCircle,CircleAlert} from 'lucide-react';
 import {SidebarContext} from './SidebarContext.jsx';
 import React,{Children,forwardRef,isValidElement,useContext,useEffect,useImperativeHandle,useMemo,useRef,useState} from 'react';
 import {Alert,Avatar,Breadcrumb,Card,Collapse,Empty,Menu,Popover,Progress,Segmented,Statistic,Steps,Table,Tabs,Tag,Tooltip,Modal,message,Badge,Listy,Timeline} from 'antd';
@@ -48,7 +48,15 @@ export const AntFullscreen=forwardRef(function AntFullscreen({children,className
 export function AntSteps({children,className='',...props}){return <Steps {...props} className={`heyso-steps ${className}`} orientation="vertical" size="small" items={controls(children).map(c=>({title:c.props.children}))}/>;}
 export function AntConfirm({children,className='',...props}){const outer=controls(children),section=outer.length===1&&outer[0].type==='section'?outer[0]:null,nodes=elements(section?section.props.children:children),title=nodes.find(c=>isValidElement(c)&&c.type==='h2'),footer=nodes.findLast(c=>isValidElement(c)&&c.type==='div');const findCancel=ns=>{for(const n of controls(ns)){if(['取消','继续编辑'].includes(n.props.children)&&n.props.onClick)return n.props.onClick;const found=findCancel(n.props.children);if(found)return found;}};return <Modal {...props} open centered width={480} closable={false} title={title?.props.children} footer={footer?.props.children} onCancel={findCancel(children)} rootClassName="heyso-confirm-root" classNames={{container:'heyso-confirm'}}>{nodes.filter(c=>c!==title&&c!==footer)}</Modal>;}
 
-export function AntToast({children}){const [api,holder]=message.useMessage();const text=Children.toArray(children).filter(c=>typeof c==='string').join('');useEffect(()=>{api.open({key:'heyso-notice',content:children,duration:0,className:'toast heyso-toast-message'});return()=>api.destroy('heyso-notice');},[text,api]);return holder;}
+export function AntToast({children}){
+ const [api,holder]=message.useMessage({classNames:{list:'heyso-toast-list',listContent:'heyso-toast-list-content'}}),nodes=Children.toArray(children),text=nodes.filter(c=>typeof c==='string').join('');
+ const pending=/^(正在保存|连接中断，正在重试保存)/.test(text),failed=/失败|未完成|已过期|不存在|无法|请先/.test(text);
+ const Icon=pending?LoaderCircle:failed?CircleAlert:CheckCircle2;
+ const close=nodes.filter(c=>isValidElement(c)&&c.props['aria-label']==='关闭提示');
+ const body=nodes.filter(c=>!close.includes(c)&&!(isValidElement(c)&&c.type===CheckCircle2));
+ useEffect(()=>{api.open({key:'heyso-notice',content:<div className="heyso-toast-content" role="status" aria-live="polite"><Icon size={17} className={pending?'heyso-toast-loading':undefined} aria-hidden="true"/><span className="heyso-toast-text">{body}</span>{close}</div>,duration:0,className:'toast heyso-toast-message',classNames:{title:'heyso-toast-title'}});return()=>api.destroy('heyso-notice');},[text,api]);
+ return holder;
+}
 export function AntCount({children,...props}){return <Badge {...props} count={children} showZero overflowCount={Infinity} className={`heyso-count ${props.className||''}`}/>;}
 export function AntRing({style,children,...props}){return <Progress {...props} type="circle" className="ring heyso-ring" percent={parseFloat(style?.['--p'])||0} size={95} strokeWidth={6} strokeColor="#73a18a" trailColor="#edf0f3" format={()=>children}/>;}
 
