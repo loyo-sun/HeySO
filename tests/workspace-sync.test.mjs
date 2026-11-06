@@ -51,7 +51,7 @@ test('Cloud gateway saves with one write, polls metadata only, fetches changed f
   const fetcher=async(url,init)=>{const path=new URL(url).pathname;calls.push(path);
     if(path==='/api/v1/heyso/files')return Response.json({files:files.map(f=>({id:f.content.id,head_id:f.headId}))});
     const file=files.find(f=>path.includes(f.content.id));assert.ok(file);
-    if(path.endsWith('/action')){if(conflict)return Response.json({error:'VERSION_CONFLICT'},{status:409});const input=JSON.parse(init.body);assert.equal(input.headId,file.headId);const result=act(file.content.workspace,input.action);file.headId+='new';return Response.json({...file,result});}
+    if(path.endsWith('/action')){if(conflict)return Response.json({error:'VERSION_CONFLICT'},{status:409});const input=JSON.parse(init.body);assert.equal(input.responseFormat,'content-v1');assert.equal(input.headId,file.headId);const result=act(file.content.workspace,input.action);file.headId+='new';return Response.json({...file,result},{headers:{'Server-Timing':'persist;dur=1.25, capacity;dur=0.50, total;dur=2.00'}});}
     return Response.json(file);
   };
   const call=(path,input)=>{const req=new Request(config.origin+path,{method:input?'POST':'GET',headers:{cookie:sessionCookie(new Request(config.origin),env).split(';')[0],'x-heyso-client':'local-ui'}});return handleLoyo(req,config,env,input||{},fetcher);};
@@ -59,7 +59,8 @@ test('Cloud gateway saves with one write, polls metadata only, fetches changed f
   const heads=files.map(f=>({fileId:f.content.id,headId:f.headId}));
   const unchanged=await (await call('/api/state',{heads})).json();assert.equal(unchanged.state.projects.length,0);assert.equal(calls.length,1);calls.length=0;
   const input={fileId:files[0].content.id,headId:files[0].headId,heads,requestId:'unique',action:{type:'item.create',payload:{projectId:before.projects[0].id,kind:'task',title:'新任务',startDate:'2026-11-04',endDate:'2026-11-05'}}};
-  const saved=await (await call('/api/action',input)).json();assert.equal(calls.length,1);assert.equal(saved.state.items[0].title,'新任务');calls.length=0;
+  const savedResponse=await call('/api/action',input);assert.match(savedResponse.headers.get('Server-Timing'),/cloud_persist;dur=1.25/);
+  const saved=await savedResponse.json();assert.equal(calls.length,1);assert.equal(saved.state.items[0].title,'新任务');calls.length=0;
   const changed=await (await call('/api/state',{heads})).json();assert.equal(calls.length,2);assert.equal(changed.state.projects.length,1);
   conflict=true;await assert.rejects(()=>call('/api/action',input),e=>e.status===409);
   conflict=false;const current=await (await call('/api/state')).json();calls.length=0;
