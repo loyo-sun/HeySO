@@ -7777,3 +7777,22 @@ body .roadmap-plan-popover .roadmap-search {padding:8px 11px;}
 .heyso-backlog-table .story-name{display:flex;min-width:0;max-width:100%;overflow:hidden;}
 .heyso-backlog-table .story-name>.backlog-item-title{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .heyso-backlog-table .story-name>small,.heyso-backlog-table .story-name>svg,.heyso-backlog-table .story-name>.work-type-icon{flex-shrink:0;}
+
+/* Project period controls shared by settings and project creation. */
+.project-period-field{margin:24px 0 4px;padding-top:22px;border-top:1px solid var(--border);min-width:0;}
+.project-period-heading{display:flex;flex-direction:column;gap:5px;margin-bottom:14px;}
+.project-period-heading>span{font-size:13px;font-weight:600;color:var(--text);}
+.project-period-heading>small{font-size:12px;line-height:18px;color:var(--muted);}
+.project-period-modes.ant-radio-group{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;max-width:440px;margin-bottom:18px;}
+.project-period-modes .ant-radio-button-wrapper{height:40px;display:flex;align-items:center;justify-content:center;border:1px solid var(--border);border-radius:6px!important;box-shadow:none!important;}
+.project-period-modes .ant-radio-button-wrapper:before{display:none!important;}
+.project-period-modes .ant-radio-button-wrapper>span:last-child{display:flex;align-items:center;justify-content:center;gap:8px;}
+.project-period-modes .ant-radio-button-wrapper-checked:not(.ant-radio-button-wrapper-disabled){background:#fff4ee!important;color:#bd4319!important;border-color:#f7b599!important;}
+.project-period-dates .date-range-fields{margin:0;gap:16px;}
+.project-period-dates .date-range-fields>.field{margin-bottom:0;min-width:0;}
+.project-period-dates>p{font-size:12px;color:var(--muted);margin:10px 0 0;line-height:18px;}
+.project-period-note{display:flex;gap:12px;align-items:flex-start;padding:16px;background:#f8f9fb;border:1px solid var(--border);border-radius:7px;}
+.project-period-note>svg{flex-shrink:0;margin-top:1px;color:var(--muted);}
+.project-period-note strong{font-size:13px;font-weight:500;line-height:20px;}
+.project-period-note p{font-size:12px;line-height:20px;color:var(--muted);margin:4px 0 0;}
+@media(max-width:600px){.project-period-modes.ant-radio-group{max-width:none;}.project-period-dates .date-range-fields{grid-template-columns:minmax(0,1fr);}.project-period-field{margin-top:20px;}}

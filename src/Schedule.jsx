@@ -1,10 +1,21 @@
 import {ReplicaField,ReplicaInput,ReplicaButton} from './ReplicaControls.jsx';
 import {AntAlert} from './AntStructures.jsx';
-import {DatePicker} from 'antd';
+import {DatePicker,Radio} from 'antd';
 import zhCN from 'antd/locale/zh_CN';
 import dayjs from 'dayjs';
 import React, { useEffect, useRef, useState } from "react";
-import { Calendar } from "lucide-react";
+import { Calendar, Infinity } from "lucide-react";
+
+export function ProjectPeriodFields({longTerm,onLongTermChange,start,end,setStart,setEnd,disabled}) {
+  return <section className="project-period-field" aria-label="项目周期">
+    <div className="project-period-heading"><span>项目周期</span><small>选择项目的时间安排方式</small></div>
+    <Radio.Group className="project-period-modes" aria-label="项目周期类型" value={longTerm?'ongoing':'fixed'} onChange={e=>onLongTermChange(e.target.value==='ongoing')} disabled={disabled} optionType="button" buttonStyle="solid">
+      <Radio.Button value="fixed"><Calendar size={15}/><span>有限周期</span></Radio.Button>
+      <Radio.Button value="ongoing"><Infinity size={16}/><span>长期项目</span></Radio.Button>
+    </Radio.Group>
+    {longTerm ? <div className="project-period-note"><Infinity size={18}/><div><strong>持续推进，不设项目截止日期</strong><p>无需填写项目起止日期，工作项可独立安排时间。</p></div></div> : <div className="project-period-dates"><DateFields start={start} end={end} setStart={setStart} setEnd={setEnd} disabled={disabled}/><p>工作项的日期需在项目周期内。</p></div>}
+  </section>;
+}
 
 export function DateFields({
   start,

@@ -75,7 +75,7 @@ import SettingsPanel, {
 import CloudPanel from "./CloudPanel.jsx";
 import Presence from "./Presence.jsx";
 import DeleteProjectDialog from "./DeleteProjectDialog.jsx";
-import ItemSchedule, { DateFields } from "./Schedule.jsx";
+import ItemSchedule, { DateFields, ProjectPeriodFields } from "./Schedule.jsx";
 import Select, { StatusIcon, PriorityIcon } from "./Select.jsx";
 import Sidebar from "./Sidebar.jsx";
 
@@ -2190,15 +2190,7 @@ function EditorModal({
                       placeholder="描述项目希望达成的结果与验收方向"
                     />
                   </Field>
-                  <ReplicaInput type="checkbox" checked={longTerm} onChange={e=>setLongTerm(e.target.checked)}>长期项目（不限制项目时间）</ReplicaInput>
-                  {!longTerm && <DateFields
-                    prefix="项目"
-                    start={planStart}
-                    end={planEnd}
-                    setStart={setPlanStart}
-                    setEnd={setPlanEnd}
-                  />}
-                  <p className="muted">{longTerm ? "无需项目起止日期，工作项可独立安排周期。" : "工作项的起止日期须在项目周期内。"}</p>
+                  <ProjectPeriodFields longTerm={longTerm} onLongTermChange={setLongTerm} start={planStart} end={planEnd} setStart={setPlanStart} setEnd={setPlanEnd} disabled={busy}/>
                 </>
               )}
               {(m.type === "sprint" || m.type === "release") && (

@@ -1,3 +1,4 @@
+export const softwareVersion = 'beta1.0';
 export const repositoryUrl = 'https://github.com/loyo-sun/HeySO';
 export function publishedSoftwareVersion(project, releases = []) {
   return releases.filter(r => r.projectId === project.id && r.status === 'released')

@@ -4,19 +4,18 @@ import { memberRole, rolesForMembers, defaultMemberRole } from "../shared/member
 import React, { useState, useEffect, useRef } from "react";
 import { useHosting } from './AccessGate.jsx';
 import { Settings, Users, ListChecks, Plug, Database, Download, Upload, Plus, X, ArrowUpRight, Trash2, RefreshCw, CheckCircle2, AlertCircle, Layers, GitBranch, Rows3, BookOpen, Info } from "lucide-react";
-import { DateFields } from "./Schedule.jsx";
+import { ProjectPeriodFields } from "./Schedule.jsx";
 import Select from "./Select.jsx";
 import InfoTip from "./InfoTip.jsx";
 
-import appPackage from "../package.json";
-import {repositoryUrl,publishedSoftwareVersion} from "./about-version.mjs";
+import {repositoryUrl,softwareVersion} from "./about-version.mjs";
 import WorkConfigSettings from "./WorkConfigSettings.jsx";
 import { configFor, checkWorkConfig, hierarchyConflicts, workflowMigrationGroups, workflowFor, aiReady } from "../shared/work-config.mjs";
 
 export const settingsPages = [
   ["general", "常规", Settings], ["members", "成员", Users], ["roles", "角色", Users],
   ["types", "工作项类型", Layers],
-  ["states", "工作流", Rows3], ["workflow", "协作约定", ListChecks], ["integrations", "AI 与 MCP", Plug],
+  ["states", "工作流", Rows3], ["workflow", "协作约定", ListChecks], ["integrations", "MCP", Plug],
   ["memory", "记忆", BookOpen],
   ["data", "数据与备份", Database],
   ["about", "关于", Info],
@@ -208,7 +207,7 @@ export default function SettingsPanel({
     {dirty && <div className="settings-draft-note" role="status"><span>有未保存的修改</span></div>}
     {error && <AntAlert className="settings-error" role="alert"><AlertCircle size={16}/><span>{error}</span></AntAlert>}
     {saved && <div className="settings-success" role="status"><CheckCircle2 size={16}/>{saved}</div>}
-    {section === "about" && <section className="settings-section settings-about"><h2>合序 HeySO</h2><p className="section-description">Hey, Shared Outcomes.</p><dl><div><dt>软件版本</dt><dd>{publishedSoftwareVersion(project,data.releases)}</dd></div><div><dt>仓库版本</dt><dd>{appPackage.displayVersion} · {appPackage.version}{typeof __HEYSO_COMMIT__ !== "undefined" && __HEYSO_COMMIT__ && <> · <a href={repositoryUrl+"/commit/"+__HEYSO_COMMIT__} target="_blank" rel="noopener noreferrer">{__HEYSO_COMMIT__.slice(0,7)}</a></>}</dd></div><div><dt>GitHub</dt><dd><a href={repositoryUrl} target="_blank" rel="noopener noreferrer">loyo-sun/HeySO</a></dd></div><div><dt>开源协议</dt><dd>仓库尚未声明开源协议</dd></div><div><dt>保存方式</dt><dd>{project.cloud?"LoyoCloud 在线项目":hosting.hosted?"在线保存":"本地保存"}</dd></div><div><dt>当前项目</dt><dd>{project.name}</dd></div></dl>{hosting.hosted&&<div className="inline">{hosting.configure&&<ReplicaButton onClick={hosting.configure}>云端存储设置</ReplicaButton>}<ReplicaButton onClick={hosting.logout}>退出工作空间</ReplicaButton></div>}</section>}
+    {section === "about" && <section className="settings-section settings-about"><h2>合序 HeySO</h2><p className="section-description">Hey, Shared Outcomes.</p><dl><div><dt>软件版本</dt><dd>{softwareVersion}</dd></div><div><dt>仓库版本</dt><dd>{typeof __HEYSO_COMMIT__ !== "undefined" && __HEYSO_COMMIT__ ? <a href={repositoryUrl+"/commit/"+__HEYSO_COMMIT__} target="_blank" rel="noopener noreferrer">{__HEYSO_COMMIT__.slice(0,7)}</a> : "未记录"}</dd></div><div><dt>GitHub</dt><dd><a href={repositoryUrl} target="_blank" rel="noopener noreferrer">loyo-sun/HeySO</a></dd></div><div><dt>保存方式</dt><dd>{project.cloud?"LoyoCloud 在线项目":hosting.hosted?"在线保存":"本地保存"}</dd></div><div><dt>当前项目</dt><dd>{project.name}</dd></div></dl>{hosting.hosted&&<div className="inline">{hosting.configure&&<ReplicaButton onClick={hosting.configure}>云端存储设置</ReplicaButton>}<ReplicaButton onClick={hosting.logout}>退出工作空间</ReplicaButton></div>}</section>}
     {section === "memory" && memoryPanel}
     {section === "general" && <>
       <div className="project-identity"><span className="project-glyph">{project.name.slice(0, 1)}</span><div><h2>{project.name}</h2><span>{project.cloud ? "在线项目" : "本地项目"} · {project.code}</span></div></div>
@@ -216,8 +215,7 @@ export default function SettingsPanel({
         <Field label="项目 ID"><ReplicaInput value={project.code} readOnly/><small>工作项编号：{project.code}-序号，项目 ID 创建后固定。</small></Field><Field label="项目名称"><ReplicaInput {...field("name")} maxLength={120} placeholder="项目名称" required disabled={busy}/></Field>
         <Field label="背景与说明"><ReplicaTextArea {...field("description")} placeholder="补充项目背景、受众和工作范围" disabled={busy}/></Field>
         <Field label="项目目标" hint="项目目标和背景会作为共享上下文提供给执行故事的 AI。"><ReplicaTextArea {...field("goal")} required placeholder="描述项目希望实现的结果" disabled={busy}/></Field>
-        <ReplicaInput type="checkbox" checked={!!form.longTerm} disabled={busy} onChange={e => setForm(old => ({...old,longTerm:e.target.checked,...(e.target.checked?{startDate:"",endDate:""}:{})}))}>长期项目（不限制项目时间）</ReplicaInput>
-        {!form.longTerm && <DateFields prefix="项目" start={form.startDate} end={form.endDate} setStart={(v) => change("startDate", v)} setEnd={(v) => change("endDate", v)} disabled={busy}/>}
+        <ProjectPeriodFields longTerm={!!form.longTerm} onLongTermChange={value => setForm(old => ({...old,longTerm:value,...(value?{startDate:"",endDate:""}:{})}))} start={form.startDate} end={form.endDate} setStart={v=>change("startDate",v)} setEnd={v=>change("endDate",v)} disabled={busy}/>
         {saveBar("general", "保存更改")}
       </ReplicaForm>
       <section className="settings-section project-danger-zone"><div><h3>删除项目</h3><p>{project.cloud ? "请在 LoyoCloud 云空间管理或删除此 .heyso 文件。" : "永久删除本项目及其需求、冲刺、版本、记忆和交付记录。"}</p></div><ReplicaButton className="danger-button" disabled={busy || dirty || !!project.cloud} onClick={onDelete}><Trash2 size={14}/>删除项目</ReplicaButton></section>
@@ -313,7 +311,7 @@ export default function SettingsPanel({
     </>}
     {section === "data" && <>
       <section className="settings-section"><h3>导出备份</h3><p className="section-description">当前工作空间：{data.projects.length} 个项目、{data.items.length} 个需求与任务、{data.runs.length} 条执行与交付。</p><a className="button" href="/api/export" download><Download size={15}/>导出工作空间备份</a></section>
-      {hosting.provider === 'loyocloud' ? <section className="settings-section"><h3>恢复云端项目</h3><p>在 LoyoCloud 云空间中恢复项目文件的历史版本。也可以通过「AI 与 MCP」中的导入入口打开 .heyso 项目备份。</p></section> : <section className="settings-section"><h3 className="heading-with-info">从备份恢复<InfoTip label="从备份恢复">先检查文件，再核对项目与记录数量。恢复会替换整个工作空间，请先导出当前数据。</InfoTip></h3>
+      {hosting.provider === 'loyocloud' ? <section className="settings-section"><h3>恢复云端项目</h3><p>在 LoyoCloud 云空间中恢复项目文件的历史版本。也可以通过「MCP」中的导入入口打开 .heyso 项目备份。</p></section> : <section className="settings-section"><h3 className="heading-with-info">从备份恢复<InfoTip label="从备份恢复">先检查文件，再核对项目与记录数量。恢复会替换整个工作空间，请先导出当前数据。</InfoTip></h3>
         <ReplicaUpload className={"button" + (checkingFile || restoring ? " backup-disabled" : "")} accept=".json,application/json" disabled={checkingFile || restoring} onChange={selectBackup}><Upload size={15}/>{checkingFile ? "正在检查备份…" : "选择 JSON 备份文件"}</ReplicaUpload>
         {restore && <div className="backup-preview">
           <h4>备份检查通过</h4><p className="backup-filename">{restore.filename}</p>
