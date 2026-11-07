@@ -183,25 +183,25 @@ function fieldKind(label = "", name = "") {
 }
 
 // Ant Select owns the option list, filtering, keyboard navigation and focus.
-export default function Select({children,value,defaultValue,onChange,name,required,disabled,className='',kind:givenKind,searchable,onCreate,sidebarTooltip,sidebarDescription,id,'aria-label':label='选择选项'}) {
+export default function Select({children,value,defaultValue,onChange,name,required,disabled,className='',kind:givenKind,searchable,selectedIconOnly=false,popupWidth,showSelectionTitle=true,onCreate,sidebarTooltip,sidebarDescription,id,'aria-label':label='选择选项'}) {
   const options=readOptions(children),[local,setLocal]=useState(()=>String(defaultValue??options[0]?.value??''));
   const current=value===undefined?local:String(value),kind=givenKind||fieldKind(label,name);
   const canSearch=searchable??!['priority','decision','points','note','type'].includes(kind);
   const [open,setOpen]=useState(false),[query,setQuery]=useState(''),select=useRef(null);
-  const selected=options.find(o=>o.value===current),iconOnly=className.includes('detail-status-picker');
+  const selected=options.find(o=>o.value===current),iconOnly=selectedIconOnly||className.includes('detail-status-picker');
   const change=next=>{if(value===undefined)setLocal(next);onChange?.({target:{value:next,name},currentTarget:{value:next,name}});};
   const renderLabel=option=><>{option&&<OptionIcon kind={kind} option={option}/>}{kind==='project'&&<ChevronsUpDown size={18} className="sidebar-project-switch-icon" aria-hidden="true"/>}{!iconOnly&&<span className="select-value"><span>{option?.label||'请选择'}</span>{kind==='project'&&<small>{option?.code||'项目'} · 当前项目</small>}</span>}</>;
   return <div className={`select-control ${kind==='project'?'project-switcher':''} ${className}`}>
     {name&&<input type="hidden" name={name} value={current} disabled={disabled}/>}
     <SidebarTip label={kind==='project'?sidebarTooltip:undefined} description={sidebarDescription}><BindField name={name||(id?['__ui',id]:undefined)} value={current} required={required} disabled={disabled} label={label}>
-    <AntSelect id={id} ref={select} value={current} onChange={change} disabled={disabled} aria-label={label} title={sidebarTooltip?undefined:selected?.label}
+    <AntSelect id={id} ref={select} value={current} onChange={change} disabled={disabled} aria-label={label} title={!showSelectionTitle||sidebarTooltip?undefined:selected?.label}
       className="select-trigger heyso-select" data-sidebar-tooltip={sidebarTooltip} data-sidebar-description={sidebarDescription}
       open={open} onOpenChange={next=>{setOpen(next);if(!next)setQuery('');}}
       options={options} virtual={false} showSearch={false} labelRender={()=>renderLabel(selected)}
-      suffix={iconOnly?null:<ChevronDown size={13} className="select-chevron"/>} listHeight={280}
+      suffix={className.includes('detail-status-picker')?null:<ChevronDown size={13} className="select-chevron"/>} listHeight={280}
       popupMatchSelectWidth={false} placement="bottomLeft" notFoundContent={<div className="select-empty">没有匹配的{kind==='project'?'项目':'选项'}</div>}
       classNames={{popup:{root:`heyso-select-popup select-popover-${kind}`}}}
-      styles={{popup:{root:{width:kind==='project'?320:240,maxWidth:'calc(100vw - 16px)'}}}}
+      styles={{popup:{root:{width:popupWidth??(kind==='project'?320:240),maxWidth:'calc(100vw - 16px)'}}}}
       optionFilterProp="label" optionRender={({data:option})=><>{kind!=='project'&&<OptionIcon kind={kind} option={option}/>}<span className="select-option-label"><span>{option.label}</span>{kind==='project'&&<small>{option.code}{option.description?` · ${option.description}`:''}</small>}</span>{option.value===current&&<Check size={14} className="select-check"/>}</>}
       menuItemSelectedIcon={null}
       popupRender={menu=><>{kind==='project'&&<div className="select-heading">切换项目 <span>{options.length}</span></div>}{canSearch&&<div className="select-search"><Search size={15}/><Input autoFocus aria-label={`搜索${kind==='project'?'项目':'选项'}`} placeholder={kind==='project'?'搜索项目名称或标识…':'搜索选项…'} value={query} onChange={e=>setQuery(e.target.value)} onKeyDown={e=>{if(e.key==='Escape')setOpen(false);if(['ArrowDown','ArrowUp'].includes(e.key)){e.preventDefault();select.current?.focus();}}}/>{query&&<ReplicaButton type="button" aria-label="清空搜索" onClick={()=>setQuery('')}><X size={13}/></ReplicaButton>}</div>}{menu}{onCreate&&<div className="select-footer"><ReplicaButton type="button" onClick={()=>{setOpen(false);onCreate();}}><Plus size={15}/>创建新项目</ReplicaButton></div>}</>}

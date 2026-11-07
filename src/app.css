@@ -7748,11 +7748,22 @@ body .roadmap-plan-popover .roadmap-search {padding:8px 11px;}
 .roadmap-editable-cell .ant-input-number-input {border:0;box-shadow:none;padding:2px 5px;height:28px;}
 .work-item-date-range .ant-picker-clear {border:0;box-shadow:none;background:#fff;padding:0;min-width:0;width:16px;height:16px;border-radius:50%;display:flex;align-items:center;justify-content:center;}
 
-/* Work item creation follows the planning fields before long-form content. */
-.create-item-form .create-item-heading { grid-template-columns: minmax(145px, .55fr) minmax(0, 1.45fr); }
-.create-item-form .form-grid > * { min-width: 0; }
-.create-item-form .create-item-planning .inherited-planning { margin: 0; padding: 0; border: 0; background: transparent; display: block; }
-.create-item-form .create-item-planning .inherited-planning .field { margin-bottom: 0; }
-@media (max-width: 600px) {
-  .create-item-form .form-grid { grid-template-columns: minmax(0, 1fr); }
+/* Compact creation layout shared by standard, planning and child items. */
+.create-item-form .modal-body { display:flex;flex-direction:column;gap:16px; }
+.create-item-form .modal-body .field { margin:0; }
+.create-item-form .form-grid { display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px 20px;margin:0; }
+.create-item-form .create-item-heading { grid-template-columns:60px minmax(0,1fr);gap:12px;align-items:center; }
+.create-item-form .form-grid > * { min-width:0; }
+.create-item-form .create-item-heading .ant-form-item-label { display:none; }
+.create-item-form .create-item-type .select-trigger { width:60px; }
+.create-item-form .create-item-heading input { min-width:0; }
+.create-item-form .form-grid.is-single { grid-template-columns:minmax(0,1fr); }
+.create-item-form .create-item-parent-row:empty { display:none; }
+.create-item-form .inherited-planning.is-compact { grid-column:auto;width:auto;margin:0;padding:0;border:0;background:transparent;display:block; }
+.create-item-form .schedule-hint { margin:-8px 0 0;font-size:12px;line-height:18px; }
+.create-item-form .field .ant-form-item-label { padding-bottom:6px; }
+@media (max-width:600px) {
+  .create-item-form .modal-body { gap:14px; }
+  .create-item-form .form-grid { grid-template-columns:minmax(0,1fr);gap:14px; }
+  .create-item-form .create-item-heading { grid-template-columns:60px minmax(0,1fr);gap:10px; }
 }

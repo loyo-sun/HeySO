@@ -1847,7 +1847,7 @@ function EditorModal({
         points: Number(get(f, "points")) || 0,
         startDate: get(f, "startDate"),
         endDate: get(f, "endDate"),
-        sprintId: isSubtask({kind:itemKind},project)?null:itemSprint||null,
+        sprintId: isWorkItem({kind:itemKind},project)?itemSprint||null:null,
         releaseId: itemRelease||null,
       });
     }
@@ -2061,7 +2061,7 @@ function EditorModal({
             </p>
           </div>
         ) : (
-          <ReplicaForm className={m.type === "item" ? "create-item-form" : ""} onSubmit={submit}>
+          <ReplicaForm className={m.type === "item" ? `create-item-form ${isSubtask({kind:itemKind},project)?"is-subtask":isWorkItem({kind:itemKind},project)?"is-work-item":"is-planning-item"}` : ""} onSubmit={submit}>
             <div className="modal-body">
               {m.type === "item" && (
                 <>
@@ -2078,16 +2078,16 @@ function EditorModal({
                     </AntAlert>
                   )}
                   <div className="form-grid create-item-heading">
-                  <Field label="工作项类型" required><Select name="kind" aria-required="true" value={itemKind} onChange={(e) => {
+                  <Field><Select name="kind" aria-label="工作项类型" selectedIconOnly popupWidth={136} showSelectionTitle={false} className="create-item-type" aria-required="true" value={itemKind} onChange={(e) => {
                     const kind = e.target.value; setItemKind(kind);
                     if (!possibleParents.some((p) => p.id === itemParent && canParent(project, kind, p))) setItemParent("");
                   }}>{configFor(project).types.filter((t) => t.enabled && !t.hidden).map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}</Select></Field>
-                  <Field label="标题" required>
+                  <Field>
                     <ReplicaInput
                       name="title"
+                      aria-label="标题"
                       autoFocus
                       required
-                      placeholder={`给${kinds[itemKind]}一个清晰的名称`}
                     />
                   </Field>
                   </div>
@@ -2107,8 +2107,8 @@ function EditorModal({
                       </Select>
                     </Field>
                   </div>
-                  <div className="form-grid">
-                  {parentKind ? (
+                  <div className={`form-grid create-item-parent-row ${isWorkItem({kind:itemKind},project)?"":"is-single"}`}>
+                  {parentKind && (
                     <Field label="父工作">
                       <Select
                         name="parentId"
@@ -2132,13 +2132,13 @@ function EditorModal({
                           ))}
                       </Select>
                     </Field>
-                  ) : <Field label="父工作"><Select name="parentId" value="" disabled><option value="">此类型无需父工作</option></Select></Field>}
+                  )}
                   {isWorkItem({kind:itemKind}, project) && <Field label="故事点">
                     <ReplicaInput name="points" type="number" min="0" max="1000" defaultValue="0"/>
                   </Field>}
                   </div>
-                  <div className="form-grid create-item-planning">
-                    {!isSubtask({kind:itemKind},project) ? <Field label="冲刺"><Select name="sprintId" value={itemSprint} onChange={e=>setItemSprint(e.target.value)}><option value="">产品待办池</option>{data.sprints.filter(sp=>sp.projectId===project.id&&sp.status!=="closed").map(sp=><option key={sp.id} value={sp.id}>{sp.name}</option>)}</Select></Field> : <InheritedPlanning parent={items.find(i=>i.id===itemParent)} releases={data.releases} sprints={data.sprints} compact/>}
+                  <div className={`form-grid create-item-planning ${isExecutionItem({kind:itemKind},project)?"":"is-single"}`}>
+                    {isWorkItem({kind:itemKind},project) ? <Field label="冲刺"><Select name="sprintId" value={itemSprint} onChange={e=>setItemSprint(e.target.value)}><option value="">产品待办池</option>{data.sprints.filter(sp=>sp.projectId===project.id&&sp.status!=="closed").map(sp=><option key={sp.id} value={sp.id}>{sp.name}</option>)}</Select></Field> : isSubtask({kind:itemKind},project) ? <InheritedPlanning parent={items.find(i=>i.id===itemParent)} releases={data.releases} sprints={data.sprints} compact/> : null}
                     <Field label="版本"><Select name="releaseId" value={itemRelease} onChange={e=>setItemRelease(e.target.value)}><option value="">未安排版本</option>{data.releases.filter(r=>r.projectId===project.id&&!r.archived&&r.status!=="released").map(r=><option key={r.id} value={r.id}>{r.name}</option>)}</Select></Field>
                   </div>
                   <DateFields range rangeLabel="计划周期"

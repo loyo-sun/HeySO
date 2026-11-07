@@ -12,8 +12,14 @@ try{
  await open();let dialog=page.getByRole('dialog');
  await dialog.getByRole('textbox',{name:'验收标准',exact:true}).waitFor();
  const labels=await dialog.locator('.ant-form-item-label').allTextContents();
- assert.deepEqual(labels.map(s=>s.replaceAll('*','').trim()),['工作项类型','标题','负责人','优先级','父工作','故事点','冲刺','版本','计划周期','工作描述','验收标准']);
+ assert.deepEqual(labels.map(s=>s.replaceAll('*','').trim()).filter(Boolean),['负责人','优先级','父工作','故事点','冲刺','版本','计划周期','工作描述','验收标准']);
  const choose=async(label,text)=>{await dialog.getByRole('combobox',{name:label,exact:true}).click();await page.locator('.ant-select-dropdown:visible .ant-select-item-option').filter({hasText:text}).first().click();};
+ assert.equal(await dialog.locator('.create-item-heading .ant-form-item-label:visible').count(),0);
+ assert.equal(await dialog.locator('input[name=title]').getAttribute('placeholder'),null);
+ assert.equal(await dialog.locator('.create-item-type .select-value').count(),0);
+ assert.equal(await dialog.getByRole('combobox',{name:'工作项类型',exact:true}).getAttribute('title'),null);
+ await dialog.getByRole('combobox',{name:'工作项类型',exact:true}).click();
+ const popup=page.locator('.ant-select-dropdown:visible');assert.ok((await popup.boundingBox()).width<=144);assert.ok((await popup.innerText()).includes('子任务'));await page.keyboard.press('Escape');
  const title='创建表单验证 '+Date.now();await dialog.locator('input[name=title]').fill(title);
  await choose('工作项类型','任务');await choose('负责人','林溪');await choose('优先级','高');
  await choose('父工作','HS-13');await dialog.getByRole('spinbutton').fill('5');
@@ -37,14 +43,19 @@ try{
  await open();dialog=page.getByRole('dialog');await choose('工作项类型','子任务');await choose('父工作','HS-4');
  assert.equal(await dialog.locator('input[name=sprintId]').count(),0);
  assert.ok(await dialog.getByRole('textbox',{name:'继承的 Sprint'}).inputValue());
+ const childPlanning=await dialog.locator('.create-item-planning > *').evaluateAll(ns=>ns.map(n=>n.getBoundingClientRect()));assert.ok(Math.abs(childPlanning[0].y-childPlanning[1].y)<2);
+ await page.waitForTimeout(350);await page.screenshot({animations:'disabled',path:'docs/verification/hs1-30/create-subtask.png'});
  await choose('工作项类型','史诗');assert.equal(await dialog.locator('input[name=parentId]').inputValue(),'');
+ assert.equal(await dialog.locator('input[name=sprintId]').count(),0);assert.equal(await dialog.locator('input[name=points]').count(),0);
+ const epicParent=await dialog.locator('.create-item-parent-row .field').boundingBox(),epicRow=await dialog.locator('.create-item-parent-row').boundingBox();assert.ok(Math.abs(epicParent.width-epicRow.width)<2);
+ await page.waitForTimeout(350);await page.screenshot({animations:'disabled',path:'docs/verification/hs1-30/create-epic.png'});
  await dialog.getByRole('button',{name:'取消',exact:true}).click();
  await page.setViewportSize({width:390,height:844});await open();dialog=page.getByRole('dialog');
  await dialog.getByRole('textbox',{name:'验收标准',exact:true}).waitFor();
  assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
- const rows=await dialog.locator('.create-item-heading .field').evaluateAll(ns=>ns.map(n=>n.getBoundingClientRect()));assert.ok(rows[1].y>rows[0].y);
+ const rows=await dialog.locator('.create-item-heading .field').evaluateAll(ns=>ns.map(n=>n.getBoundingClientRect()));assert.ok(Math.abs(rows[1].y-rows[0].y)<2);assert.ok(rows[0].width<=62);
  await page.waitForTimeout(350);
  await page.screenshot({animations:'disabled',path:'docs/verification/hs1-30/create-mobile.png'});
  assert.deepEqual(errors,[]);
- console.log(JSON.stringify({ok:true,checks:['七组字段顺序','所有字段创建并回读','类型下拉及父级约束','子任务继承冲刺','手机单列布局','无页面异常']}));
+ console.log(JSON.stringify({ok:true,checks:['字段顺序与无首行提示','所有字段创建并回读','类型下拉及父级约束','子任务继承冲刺','紧凑图标选择与136px下拉','史诗紧凑结构','子任务父工作与继承冲刺布局','手机首行紧凑与属性单列','无页面异常']}));
 }finally{await browser.close();}
