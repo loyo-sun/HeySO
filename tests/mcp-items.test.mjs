@@ -38,4 +38,7 @@ test('MCP creates and edits items with persistent retries, revision checks and d
   assert.equal(child.error,undefined);assert.equal(child.data.parentId,created.data.id);
   const event=store.read().events.find(e=>e.itemId===created.data.id&&e.changes?.some(c=>c.field==='title'));
   assert.equal(event.actor,'测试 AI');
+  const minimalArgs={projectId:project.id,title:'仅标题 MCP 工作项',expectedRevision:store.read().revision,requestId:'minimal-create',agent:'测试 AI'};
+  const minimal=await invoke('create_item',minimalArgs);assert.equal(minimal.error,undefined);assert.equal(minimal.data.kind,'story');assert.equal(minimal.data.owner,'');assert.equal(minimal.data.startDate,'');assert.deepEqual((await invoke('create_item',minimalArgs)).data,minimal.data);
+  const clear=await invoke('update_item',{projectId:project.id,itemId:created.data.id,expectedRevision:store.read().revision,requestId:'clear-fields',agent:'测试 AI',patch:{owner:'',startDate:'',endDate:''}});assert.equal(clear.error,undefined);assert.equal(clear.data.endDate,'');
 });

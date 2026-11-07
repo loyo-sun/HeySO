@@ -1,6 +1,7 @@
 import { createItemSchema, updateItemSchema } from './mcp-item-schema.mjs';
 import {memoryTypes, memoryVersion, memoryEntry, memoryHistory} from '../shared/memory.mjs';
 import {closeSupersededRuns} from '../shared/run-closure.mjs';
+import {roadmapSiblings, reorderedSiblingIds, roadmapMovePlan, roadmapTreeSnapshot} from '../shared/roadmap-order.mjs';
 import { captureItemActivity, itemActivityChanges, activityDetail } from './item-activity.mjs';
 import { fitChildSchedules } from '../shared/schedule.mjs';
 import { availableProjectCode, allocateItemNumber, checkIdentifiers, migrateIdentifiers } from "../shared/identifiers.mjs";
@@ -63,9 +64,11 @@ function checkReleasePlan(s, release) {
   if (typeof release.goal !== "string") fail("版本描述必须是文本");
 }
 function itemDates(item, project, mandatory = false) {
-  dateRange(item.startDate, item.endDate, `「${item.title}」`, mandatory);
+  if (item.startDate) validDate(item.startDate, `「${item.title}」开始日期`);
+  if (item.endDate) validDate(item.endDate, `「${item.title}」结束日期`);
+  if (item.startDate && item.endDate && item.startDate > item.endDate) fail(`「${item.title}」结束日期不能早于开始日期`);
   if (
-    (item.startDate || item.endDate || mandatory) &&
+    (item.startDate || item.endDate) &&
     (!project.startDate || !project.endDate)
   )
     fail("请先在项目设置中填写项目开始日期和结束日期");
@@ -349,6 +352,7 @@ export function storyOf(s, item) {
   const project = s.projects.find((p) => p.id === item.projectId);
   if (isWorkItem(item, project)) return item;
   if (isSubtask(item, project)) {
+    if (!item.parentId) fail("请先为子任务选择所属工作项，再使用交付与 AI 执行");
     const parent = getItem(s, item.parentId);
     if (isWorkItem(parent, project)) return parent;
   }
@@ -365,6 +369,23 @@ function transition(s, item, nextCategory) {
   if (!next) fail("当前工作流没有配置所需协作节点：" + nextCategory);
   if (!allowedTransition(project, item.status, next, item.kind)) fail("当前工作流不允许此状态转换，请在项目设置中检查转换规则");
   item.status = next;
+}
+function completeAcceptedAiSubtasks(s, parent, run, review) {
+  if (!run || !work(s, parent)) return;
+  const project = projectOf(s, parent);
+  const children = s.items.filter(child => child.projectId === parent.projectId && child.parentId === parent.id && isSubtask(child, project) && cat(s, child) !== 'done');
+  // Parent acceptance covers its children, including those still in todo/blocked.
+  // Resolve each child's own workflow node; never accept its independent AI runs.
+  const updates = children.map(child => {
+    const done = statusFor(project, 'done', child.kind);
+    if (!done || categoryOf(project, done, child.kind) !== 'done') fail(`子任务「${child.title}」的工作流没有配置完成节点，请先补齐后再验收`);
+    return {child, done};
+  });
+  for (const {child, done} of updates) {
+    Object.assign(child, {status: done, updatedAt: review.at, completedAt: review.at});
+    addEvent(s, child.projectId, 'item', '父级 AI 交付验收通过，同步完成子任务', `父级工作项 ${parent.id} 的执行 ${run.id} 经人工验收通过。`, child.id);
+    Object.assign(s.events[0], {triggerItemId: parent.id, triggerRunId: run.id, triggerReviewId: review.id});
+  }
 }
 function parentDates(item, parent) {
   if (!parent) return;
@@ -475,7 +496,7 @@ export function validate(s) {
       if (!p || p.projectId !== i.projectId || !canParent(project, i.kind, p))
         fail("父级类型或项目不匹配");
       if (!i.legacyParentDates) parentDates(i, p);
-    } else if (isSubtask(i, project)) fail("子任务必须选择一个执行层父级工作项");
+    }
     if (isSubtask(i, project) && i.sprintId) fail("子任务的 Sprint 由父级工作项决定，不能独立分配");
     for (const [key, arr] of [
       ["sprintId", "sprints"],
@@ -513,7 +534,7 @@ export function validate(s) {
       !s.items.some(
         (x) =>
           x.id === r.storyId &&
-          work(s, x) &&
+          (work(s, x) || r.deliveryOwnershipVersion >= 1 && x.id === runTargetId(r) && isSubtask(x, projectOf(s,x))) &&
           x.projectId === r.projectId,
       ) ||
       ![
@@ -531,7 +552,8 @@ export function validate(s) {
   return s;
 }
 export function act(s, a) {
-  const { type, payload: p = {} } = a;
+  const { type } = a;
+  let p = a.payload || {};
   if (type === 'mcp.item.create' || type === 'mcp.item.update') {
     const parsed = (type === 'mcp.item.create' ? createItemSchema : updateItemSchema).safeParse(p);
     if (!parsed.success) fail(parsed.error.issues.map(i => i.message).join('；'));
@@ -677,6 +699,7 @@ export function act(s, a) {
   } else if (type === "item.create") {
     const project = s.projects.find((x) => x.id === p.projectId);
     if (!project) fail("项目不存在");
+    p = {...p, kind: p.kind || configFor(project).types.find(t => t.id === 'story' && t.enabled && !t.hidden)?.id || configFor(project).types.find(t => t.level === 0 && t.enabled && !t.hidden)?.id};
     if (!typeFor(project, p.kind)?.enabled || typeFor(project, p.kind)?.hidden) fail("请选择已启用且展示的工作项类型");
     itemDates({ ...p, endDate: p.endDate || p.dueDate }, project, true);
     out = {
@@ -687,25 +710,29 @@ export function act(s, a) {
       parentId: p.parentId || null,
       description: p.description || "",
       acceptance: p.acceptance || "",
-      owner: p.owner || project.owner,
+      owner: p.owner ?? "",
       priority: p.priority || "medium",
       status: workflowFor(project, p.kind).initialStatus,
       points: Number(p.points) || 0,
       releaseId: p.releaseId || null,
       sprintId: isSubtask(p, project) ? null : p.sprintId || null,
       dueDate: p.dueDate || "",
-      startDate: p.startDate,
-      endDate: p.endDate || p.dueDate,
+      startDate: p.startDate || "",
+      endDate: p.endDate || p.dueDate || "",
       aiEnabled: false,
       contentVersion: 1,
       createdAt: now(),
       updatedAt: now(),
     };
     if(isSubtask(out,project)&&p.sprintId&&p.sprintId!==effectiveSprintId(out,s.items,project))fail("子任务的 Sprint 必须跟随父级工作项");
-    if (!project.members.includes(out.owner)) fail("需求负责人必须在项目成员名册中");
+    if (out.owner && !project.members.includes(out.owner)) fail("需求负责人必须在项目成员名册中");
     if (out.releaseId && s.releases.some(r => r.id === out.releaseId && (r.archived || r.status === "released"))) fail("不能向已发布或已归档版本添加工作项");
     out.number = allocateItemNumber(project);
-    s.items.push(out);
+    if (p.afterId) {
+      const index=s.items.findIndex(item=>item.id===p.afterId&&item.projectId===project.id);
+      if(index<0)fail("新建位置已不存在，请刷新后重试");
+      s.items.splice(index+1,0,out);
+    } else s.items.push(out);
     if (isSubtask(out, project) && out.parentId) { const parent = getItem(s, out.parentId); parent.contentVersion = (parent.contentVersion || 1) + 1; }
     scope(s, out, null, out.sprintId, "新增故事");
     addEvent(
@@ -716,6 +743,60 @@ export function act(s, a) {
       out.title,
       out.id,
     );
+  } else if (type === 'item.roadmap.move') {
+    const item=getItem(s,p.id),target=getItem(s,p.targetId),project=projectOf(s,item);
+    if(p.projectId!==item.projectId)fail('只能在当前项目内移动');
+    if(p.expectedTree!==roadmapTreeSnapshot(s.items,project))fail('工作项顺序、层级或内容已有更新，请刷新后重新拖动',409);
+    const plan=roadmapMovePlan(project,s.items,item,target,p.position);
+    if(plan.error)fail(plan.error);
+    const old=structuredClone(item),oldEffectiveSprint=effectiveSprintId(item,s.items,project);
+    const changed=old.parentId!==plan.parentId||old.kind!==plan.kind;
+    if(changed){
+      const stage=cat(s,item);
+      if(old.kind!==plan.kind){
+        const next=statusFor(project,stage,plan.kind);
+        if(!next||categoryOf(project,next,plan.kind)!==stage)fail('目标类型工作流缺少对应状态，请先配置后再移动');
+        item.status=next;
+      }
+      Object.assign(item,plan);
+      item.sprintId=isSubtask(item,project)?null:old.kind==='subtask'?oldEffectiveSprint:old.sprintId;
+      if(item.sprintId!==old.sprintId&&s.sprints.some(sp=>sp.id===item.sprintId&&sp.status==='closed'))fail('不能将任务加入已结束的冲刺，请先调整父级冲刺');
+      delete item.legacyParentDates;
+      parentDates(item,s.items.find(i=>i.id===item.parentId));
+      item.contentVersion=(old.contentVersion||1)+1;
+      const affected=new Set([item.id]);
+      let count=-1;
+      while(count!==affected.size){count=affected.size;for(const child of s.items)if(affected.has(child.parentId))affected.add(child.id);}
+      for(const id of [old.parentId,item.parentId])if(id)affected.add(id);
+      for(const related of s.items)if(related.id!==item.id&&affected.has(related.id)&&work(s,related))related.contentVersion=(related.contentVersion||1)+1;
+      scope(s,item,work(s,old)?old.sprintId:null,work(s,item)?item.sprintId:null,'线路图跨级拖动');
+      snapshot(s,oldEffectiveSprint);snapshot(s,effectiveSprintId(item,s.items,project));
+    }
+    const oldOrder=s.items.map(i=>i.id),remaining=s.items.filter(i=>i.id!==item.id);
+    let anchor=target;
+    if(p.position==='inside')anchor=remaining.filter(i=>i.parentId===target.id).at(-1)||target;
+    remaining.splice(remaining.findIndex(i=>i.id===anchor.id)+(p.position==='before'?0:1),0,item);
+    if(!changed&&remaining.every((i,index)=>i.id===oldOrder[index]))return item;
+    s.items=remaining;item.updatedAt=now();
+    addEvent(s,item.projectId,'item','拖动调整线路图层级与顺序',`${p.position==='inside'?'移入':p.position==='before'?'移至之前':'移至之后'}：「${target.title}」`,item.id);
+    s.events[0].changes=[{field:'roadmapOrder',label:'线路图位置',before:oldOrder.indexOf(item.id)+1,after:remaining.indexOf(item)+1,beforeText:String(oldOrder.indexOf(item.id)+1),afterText:String(remaining.indexOf(item)+1)}];
+    out=item;
+  } else if (type === 'item.reorder') {
+    const item = getItem(s, p.id), target = getItem(s, p.targetId);
+    if (p.projectId !== item.projectId || target.projectId !== item.projectId) fail('只能在当前项目内排序');
+    if ((item.parentId || null) !== (target.parentId || null)) fail('只能调整同一父级下的工作项顺序');
+    if (!['before', 'after'].includes(p.position)) fail('请选择有效的排序位置');
+    const siblings = roadmapSiblings(s.items, item), ids = siblings.map(i => i.id);
+    if (!Array.isArray(p.expectedSiblingIds) || p.expectedSiblingIds.length !== ids.length || ids.some((id, index) => id !== p.expectedSiblingIds[index])) fail('工作项顺序或层级已有更新，请刷新后重新排序', 409);
+    const ordered = reorderedSiblingIds(siblings, item.id, target.id, p.position);
+    if (!ordered) return item;
+    const byId = new Map(siblings.map(i => [i.id, i])), scopeIds = new Set(ids);
+    let index = 0;
+    s.items = s.items.map(i => scopeIds.has(i.id) ? byId.get(ordered[index++]) : i);
+    item.updatedAt = now();
+    addEvent(s, item.projectId, 'item', '调整线路图顺序', `移至「${target.title}」${p.position === 'before' ? '之前' : '之后'}，父子关系和计划周期保持不变。`, item.id);
+    s.events[0].changes = [{field:'roadmapOrder', label:'线路图顺序', before:ids.indexOf(item.id)+1, after:ordered.indexOf(item.id)+1, beforeText:String(ids.indexOf(item.id)+1), afterText:String(ordered.indexOf(item.id)+1)}];
+    out = item;
   } else if (type === "item.update" || type === "item.move") {
     const i = getItem(s, p.id),
       oldSprint = i.sprintId;
@@ -774,7 +855,7 @@ export function act(s, a) {
         for (const child of s.items.filter((x) => x.parentId === i.id)) parentDates(child, i);
     }
     required(i.title, "标题");
-    if (p.owner !== undefined && !s.projects.find((pr) => pr.id === i.projectId).members.includes(i.owner)) fail("需求负责人必须在项目成员名册中");
+    if (p.owner !== undefined && i.owner && !s.projects.find((pr) => pr.id === i.projectId).members.includes(i.owner)) fail("需求负责人必须在项目成员名册中");
     if (
       p.startDate !== undefined ||
       p.endDate !== undefined ||
@@ -1278,6 +1359,7 @@ export function act(s, a) {
     transition(s, st, p.decision === "accept" ? "done" : "active");
     st.updatedAt = now();
     if (p.decision === "accept") st.completedAt = now();
+    if (p.decision === "accept") completeAcceptedAiSubtasks(s, st, run, review);
     addEvent(
       s,
       st.projectId,

@@ -57,14 +57,15 @@ test("migration: V1 tasks become subtasks without changing IDs, associations, hi
   assert.deepEqual(migrateState(next), next);
 });
 
-test("types: task and bug are independent executable peers; children require an executable parent", (t) => {
+test("types: task and bug are independent executable peers; linked children require an executable parent", (t) => {
   const { store: s } = fresh(t);
   const task = make(s, "task"), bug = make(s, "bug", { parentId: "ep1" });
   assert.ok(task.number > 12 && bug.number > task.number);
   const child = make(s, "subtask", { parentId: task.id });
   assert.equal(context(s.read(), child.id).story.id, task.id);
   assert.equal(context(s.read(), child.id).tasks[0].id, child.id);
-  for (const parentId of [null, "ep1", child.id]) {
+  assert.equal(make(s, "subtask", {parentId:null}).parentId, null);
+  for (const parentId of ["ep1", child.id]) {
     const before = s.read();
     assert.throws(() => make(s, "subtask", { parentId }), /父级/);
     assert.deepEqual(s.read(), before);

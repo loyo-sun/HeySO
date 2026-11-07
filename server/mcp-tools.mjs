@@ -43,7 +43,7 @@ export const toolDefinitions = [
   ],
   [
     "create_item",
-    "创建工作项（含规划层、故事、任务、缺陷、子任务和自定义类型）。先 query_project 读取配置和 revision，作为 expectedRevision；必须填写项目内的起止日期。返回工作项 ID、编号及内容。requestId 每次操作唯一，重试复用。无需启用 AI，创建后不自动授权 AI。",
+    "创建工作项（含规划层、故事、任务、缺陷、子任务和自定义类型）。先 query_project 读取配置和 revision，作为 expectedRevision；业务字段仅标题必填；未指定类型时使用默认执行层类型，日期可留空，填写时须在项目周期内。返回工作项 ID、编号及内容。requestId 每次操作唯一，重试复用。无需启用 AI，创建后不自动授权 AI。",
     createItemSchema, null, "mcp.item.create",
   ],
   [

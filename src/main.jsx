@@ -1047,7 +1047,7 @@ function App() {
           </section>}
           {view === "overview" && renderOverview()}
           {view === 'reports' && <React.Suspense fallback={<p className="muted" role="status">正在生成报告…</p>}><Reports key={project.id} project={project} items={items} sprints={sprints} releases={releases} events={events} runs={runs} onOpen={open} onSnapshot={item=>setModal({type:'workSnapshot',item})} onRelease={openRelease}/></React.Suspense>}
-          {view === 'roadmap' && <React.Suspense fallback={<p className="muted" role="status">正在打开路线图…</p>}><Roadmap onSchedule={(item, dates) => action("item.update", { id: item.id, ...dates })} key={project.id} project={project} items={items} releases={releases} busy={busy} onOpen={open} onCreate={() => create()} onReleases={openRelease} onProjectSettings={openProjectSettings}/></React.Suspense>}
+          {view === 'roadmap' && <React.Suspense fallback={<p className="muted" role="status">正在打开路线图…</p>}><Roadmap onReorder={payload=>action(payload.expectedSiblingIds?'item.reorder':'item.roadmap.move',{projectId:project.id,...payload})} onInsert={payload=>action("item.create",{projectId:project.id,...payload})} onSchedule={(item, dates) => action("item.update", { id: item.id, ...dates })} key={project.id} project={project} items={items} releases={releases} busy={busy} onOpen={open} onCreate={() => create()} onReleases={openRelease} onProjectSettings={openProjectSettings}/></React.Suspense>}
           {view === "list" && <BacklogTable key={project.id + "all"} rows={items} project={project} items={items} sprints={sprints} releases={releases} onOpen={open} kind={kind=><Kind kind={kind} iconOnly/>} status={status=><Badge status={status}/>} priority={value=><span className={'priority '+value}><PriorityIcon value={value}/>{priorities[value]}</span>}/>}
           {["backlog", "work", "sprints"].includes(view) && <SprintWorkspace key={project.id} project={project} stories={sprintItems} sprints={sprints} releases={releases} onRelease={openRelease} busy={busy} action={action} onOpen={open} onOpenSnapshot={item => setModal({type:"workSnapshot",item})} onCreate={create} renderSprint={(sp, planning) => <SprintCard key={sp.id} sp={sp} stories={sprintItems} action={action} setModal={setModal} open={open} go={go} setSprintFilter={setSprintFilter} storyRows={storyRows} onCreate={() => create(undefined, null, {sprintId:sp.id})} {...planning}/>}/>}
 
@@ -1339,11 +1339,11 @@ function SprintCard({
 function InheritedPlanning({parent,sprints,compact=false}) {
   return <div className={'inherited-planning'+(compact?' is-compact':' wide')}><Field label="Sprint（随父级）"><ReplicaInput aria-label="继承的 Sprint" readOnly value={parent?(sprints.find(sp=>sp.id===parent.sprintId)?.name||"产品待办池"):"请先选择父级工作项"}/></Field></div>;
 }
-function Field({ label, children, wide }) {
+function Field({ label, children, wide, required=false }) {
   const Container = ReplicaField;
   return (
     <Container className={"field " + (wide ? "wide" : "")}>
-      <span>{label}</span>
+      <span>{required&&<span className="required-mark" aria-hidden="true">*</span>}{label}</span>
       {React.Children.map(children, (child) =>
         React.isValidElement(child) && child.type === Select
           ? React.cloneElement(child, {
@@ -1410,7 +1410,7 @@ function Detail({
           </div>
           <div>
             <ReplicaButton className="icon-btn" aria-label="复制工作项链接" title="复制工作项链接" onClick={() => copy(window.location.href)}><Link size={17}/></ReplicaButton>
-            {isExecutionItem(i,project)&&<ReplicaButton className={'icon-btn detail-ai-button'+(aiOn?' on':'')} aria-label={aiOn?'停用 AI 执行':'启用 AI 执行'} aria-pressed={aiOn} title={!aiOn&&!aiReady(workflowFor(project,i.kind))?'请先配置执行、验收和完成节点':aiOn?'停用当前工作项的 AI 执行':'启用当前工作项的 AI 执行'} disabled={busy||(!aiOn&&!aiReady(workflowFor(project,i.kind)))} onClick={()=>update({aiEnabled:!aiOn,aiDisabled:aiOn})}><Bot size={18}/></ReplicaButton>}
+            {isExecutionItem(i,project)&&<ReplicaButton className={'icon-btn detail-ai-button'+(aiOn?' on':'')} aria-label={aiOn?'停用 AI 执行':'启用 AI 执行'} aria-pressed={aiOn} title={!aiOn&&!aiReady(workflowFor(project,i.kind))?'请先配置执行、验收和完成节点':aiOn?'停用当前工作项的 AI 执行':'启用当前工作项的 AI 执行'} disabled={busy||(isSubtask(i,project)&&!parentItem)||(!aiOn&&!aiReady(workflowFor(project,i.kind)))} onClick={()=>update({aiEnabled:!aiOn,aiDisabled:aiOn})}><Bot size={18}/></ReplicaButton>}
           </div>
         </header>
         <div className="drawer-body">
@@ -1449,9 +1449,10 @@ function Detail({
               <div className="form-grid detail-fields">
                 <Field label="负责人">
                   <Select
-                    value={i.owner}
+                    value={i.owner || ""}
                     onChange={(e) => update({ owner: e.target.value })}
                   >
+                    <option value="">未分配</option>
                     {project.members.map((m) => (
                       <option key={m}>{m}</option>
                     ))}
@@ -1475,7 +1476,7 @@ function Detail({
                       value={i.parentId || ""}
                       onChange={(e) => update({ parentId: e.target.value })}
                     >
-                      {!isSubtask(i, project) && <option value="">暂不归类</option>}
+                      <option value="">暂不归类</option>
                       {items
                         .filter((x) => possibleParents.some((p) => p.id === x.id))
                         .map((x) => (
@@ -1593,7 +1594,7 @@ function Detail({
                     复制执行指令
                   </ReplicaButton>
                   {!aiOn && (
-                    <small>请先为所属工作项启用 AI 执行</small>
+                    <small>{isSubtask(i,project)&&!parentItem?"选择所属工作项后可使用交付与 AI 执行":"请先为所属工作项启用 AI 执行"}</small>
                   )}
                 </div>
               )}
@@ -1613,8 +1614,8 @@ function Detail({
                   </ReplicaButton>
                 )}
                 {isExecutionItem(i, project) &&
-                  !terminal(i, project) && statusFor(project,"review",i.kind) && allowedTransition(project,i.status,statusFor(project,"review",i.kind),i.kind) && (
-                    <ReplicaButton onClick={() => update({ status: statusFor(project, "review", i.kind) })}>
+                  !(isSubtask(i,project)&&!parentItem) && !terminal(i, project) && statusFor(project,"review",i.kind) && allowedTransition(project,i.status,statusFor(project,"review",i.kind),i.kind) && (
+                    <ReplicaButton disabled={isSubtask(i,project)&&!parentItem} onClick={() => update({ status: statusFor(project, "review", i.kind) })}>
                       提交人工交付
                     </ReplicaButton>
                   )}
@@ -1653,7 +1654,7 @@ function Detail({
                     onClick={() => open(t)}
                   >
                     <Kind kind={t.kind} iconOnly />
-                    <span>{t.title}</span>
+                    <span className="child-row-title">{t.title}</span>
                     <Badge status={t.status} />
                   </ReplicaButton>
                 ))
@@ -1805,10 +1806,10 @@ function EditorModal({
   const imageBusy = delta => setImagePending(n => Math.max(0,n+delta));
   const [showToken, setShowToken] = useState(false);
   const [planStart, setPlanStart] = useState(
-    m.type === "item" ? data.items.find((i) => i.id === m.parentId)?.startDate || project.startDate || "" : "",
+    m.type === "item" ? data.items.find((i) => i.id === m.parentId)?.startDate || "" : "",
   );
   const [planEnd, setPlanEnd] = useState(
-    m.type === "item" ? data.items.find((i) => i.id === m.parentId)?.endDate || project.endDate || "" : "",
+    m.type === "item" ? data.items.find((i) => i.id === m.parentId)?.endDate || "" : "",
   );
   const close = () => setModal(null);
   const items = data.items.filter((x) => x.projectId === project.id);
@@ -1840,7 +1841,7 @@ function EditorModal({
         title: get(f, "title"),
         description: get(f, "description"),
         parentId: itemParent || null,
-        owner: get(f, "owner") || project.owner,
+        owner: get(f, "owner"),
         acceptance: get(f, "acceptance"),
         priority: get(f, "priority") || "medium",
         points: Number(get(f, "points")) || 0,
@@ -2076,11 +2077,11 @@ function EditorModal({
                       </ReplicaButton>
                     </AntAlert>
                   )}
-                  <Field label="工作项类型"><Select name="kind" value={itemKind} required onChange={(e) => {
+                  <Field label="工作项类型" required><Select name="kind" aria-required="true" value={itemKind} onChange={(e) => {
                     const kind = e.target.value; setItemKind(kind);
                     if (!possibleParents.some((p) => p.id === itemParent && canParent(project, kind, p))) setItemParent("");
                   }}>{configFor(project).types.filter((t) => t.enabled && !t.hidden).map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}</Select></Field>
-                  <Field label="标题">
+                  <Field label="标题" required>
                     <ReplicaInput
                       name="title"
                       autoFocus
@@ -2099,10 +2100,9 @@ function EditorModal({
                           if (parent?.startDate) setPlanStart(parent.startDate);
                           if (parent?.endDate) setPlanEnd(parent.endDate);
                         }}
-                        required={isSubtask({ kind: itemKind }, project)}
                       >
                         <option value="">
-                          {isSubtask({ kind: itemKind }, project) ? "请选择执行层父级" : "暂不归类"}
+                          暂不归类
                         </option>
                         {items
                           .filter((x) => possibleParents.some((p) => p.id === x.id))
@@ -2114,7 +2114,7 @@ function EditorModal({
                       </Select>
                     </Field>
                   )}
-                  <DateFields
+                  <DateFields range
                     start={planStart}
                     end={planEnd}
                     setStart={setPlanStart}
@@ -2133,7 +2133,7 @@ function EditorModal({
                   </Field>
                   <div className="form-grid">
                     <Field label="负责人">
-                      <Select name="owner">
+                      <Select name="owner" defaultValue=""><option value="">未分配</option>
                         {project.members.map((x) => (
                           <option key={x}>{x}</option>
                         ))}
@@ -2431,9 +2431,7 @@ function EditorModal({
               <ReplicaButton
                 className={m.type === "delete" ? "danger-button" : "primary"}
                 disabled={
-                  busy || imagePending > 0 ||
-                  (m.type === "item" &&
-                    (!project.startDate || !project.endDate))
+                  busy || imagePending > 0
                 }
                 type="submit"
               >

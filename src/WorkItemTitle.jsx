@@ -41,6 +41,7 @@ export default function WorkItemTitle({ value, save }) {
       ref={input}
       className="detail-title"
       aria-label="工作项标题"
+      aria-required="true"
       rows={1}
       value={title}
       onChange={(event) => {draft.current=event.target.value;setTitle(event.target.value);}}
