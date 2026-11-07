@@ -7767,3 +7767,13 @@ body .roadmap-plan-popover .roadmap-search {padding:8px 11px;}
   .create-item-form .form-grid { grid-template-columns:minmax(0,1fr);gap:14px; }
   .create-item-form .create-item-heading { grid-template-columns:60px minmax(0,1fr);gap:10px; }
 }
+
+/* HS1-28: fixed title column with an accessible resize boundary. */
+.heyso-backlog-table th[data-column=workItem]{position:relative;}
+.backlog-column-resize{position:absolute;right:0;top:0;bottom:0;width:9px;cursor:col-resize;touch-action:none;z-index:8;}
+.backlog-column-resize:hover,.backlog-column-resize:focus-visible{background:#7438ff33;outline:2px solid #7438ff;outline-offset:-2px;}
+.backlog-list.is-resizing{cursor:col-resize;user-select:none;}
+.heyso-backlog-table td[data-column=workItem]{overflow:hidden;}
+.heyso-backlog-table .story-name{display:flex;min-width:0;max-width:100%;overflow:hidden;}
+.heyso-backlog-table .story-name>.backlog-item-title{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.heyso-backlog-table .story-name>small,.heyso-backlog-table .story-name>svg,.heyso-backlog-table .story-name>.work-type-icon{flex-shrink:0;}

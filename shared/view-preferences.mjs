@@ -3,7 +3,7 @@ export const viewPreferenceKeys={
  roadmap:['query','status','owner','version','scale','anchor','top','bottom','fields','showReleases','barLabels','colorBy','custom','collapsed'],
  backlog:['query','history','showSubtasks','versionsOpen','versionFilter','backlogExpanded','expandedSprints'],
  board:['query','status','owner','sprint','release','showSubtasks'],
- list:['query','filters','columns','sort'],
+ list:['query','filters','columns','sort','workItemWidth'],
  releases:['query','filter','tab'],
  reports:['report','owner','kind','release','unit','group','scope','aiScope','dateField','from','to','sprintId','directoryCategory','directoryQuery','favorites','recent'],
 };
@@ -14,6 +14,7 @@ const string=v=>typeof v==='string'&&v.length<=1000;
 const ids=v=>Array.isArray(v)&&v.length<=1000&&v.every(s=>typeof s==='string'&&s.length<=200);
 const date=v=>typeof v==='string'&&(v===''||/^\d{4}-\d{2}-\d{2}$/.test(v)&&Number.isFinite(new Date(v+'T12:00:00').getTime()));
 function valid(key,value){
+ if(key==='workItemWidth')return Number.isInteger(value)&&value>=240&&value<=1200;
  if(['history','showSubtasks','versionsOpen','backlogExpanded','showReleases','barLabels'].includes(key))return typeof value==='boolean';
  if(['top','bottom'].includes(key))return value===null||Number.isInteger(value)&&value>=-1&&value<=100;
  if(['anchor','from','to'].includes(key))return date(value);

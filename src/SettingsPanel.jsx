@@ -9,6 +9,7 @@ import Select from "./Select.jsx";
 import InfoTip from "./InfoTip.jsx";
 
 import appPackage from "../package.json";
+import {repositoryUrl,publishedSoftwareVersion} from "./about-version.mjs";
 import WorkConfigSettings from "./WorkConfigSettings.jsx";
 import { configFor, checkWorkConfig, hierarchyConflicts, workflowMigrationGroups, workflowFor, aiReady } from "../shared/work-config.mjs";
 
@@ -33,7 +34,7 @@ export const settingsDescriptions = {
   data: "导出、检查和恢复工作空间数据。",
 };
 const settingsHelp = {
-  general: "项目目标与背景会提供给 AI。所有工作项日期须在项目周期内；缩短周期前需处理超出范围的工作项。",
+  general: "项目目标与背景会提供给 AI。长期项目不设置项目日期；有限时间项目的工作项日期须在项目周期内；缩短周期前需处理超出范围的工作项。",
   members: "成员通过下拉选择项目中已创建的角色。角色在角色页面独立维护。成员角色用于记录职责，不改变访问权限；当前在线项目由云账号所有者访问。",
   roles: "创建、重命名角色并维护职责说明。修改角色名称会同步到关联成员；已分配给成员的角色须先重新分配后才能删除。默认成员角色始终保留。",
   types: "编辑类型名称、图标、颜色和可用性。归档仅收起创建入口，已有工作项保留；仍有数据的类型不能停用。所属工作项与子项在工作项详情中维护。",
@@ -43,7 +44,7 @@ const settingsHelp = {
   data: "备份与恢复覆盖整个工作空间，包含所有项目。备份不包含 MCP 密钥及交付链接对应的外部文件。",
 };
 const groups = {
-  general: ["name", "description", "goal", "startDate", "endDate"],
+  general: ["name", "description", "goal", "startDate", "endDate", "longTerm"],
   members: ["owner", "members", "memberRoles"],
   roles: ["roles"],
   workflow: ["definitionOfDone", "workingAgreements"],
@@ -122,7 +123,7 @@ export default function SettingsPanel({
     if (sectionKey === "roles" && roleName.trim()) { setError("请先添加角色，或清空新角色名称后再保存。"); return; }
     const selected = groups[sectionKey];
     const result = await action("project.update", {
-      id: project.id, ...Object.fromEntries(selected.map((key) => [key, form[key] ?? ""])),
+      id: project.id, ...Object.fromEntries(selected.map((key) => [key, form[key] ?? (key === "longTerm" ? false : "")])),
     }, true);
     if (!mounted.current) return;
     if (result) {
@@ -207,7 +208,7 @@ export default function SettingsPanel({
     {dirty && <div className="settings-draft-note" role="status"><span>有未保存的修改</span></div>}
     {error && <AntAlert className="settings-error" role="alert"><AlertCircle size={16}/><span>{error}</span></AntAlert>}
     {saved && <div className="settings-success" role="status"><CheckCircle2 size={16}/>{saved}</div>}
-    {section === "about" && <section className="settings-section settings-about"><h2>合序 HeySO</h2><p className="section-description">Hey, Shared Outcomes.</p><dl><div><dt>当前版本</dt><dd>{appPackage.displayVersion}</dd></div><div><dt>软件版本</dt><dd>{appPackage.version}</dd></div><div><dt>保存方式</dt><dd>{project.cloud?"LoyoCloud 在线项目":hosting.hosted?"在线保存":"本地保存"}</dd></div><div><dt>当前项目</dt><dd>{project.name}</dd></div></dl>{hosting.hosted&&<div className="inline">{hosting.configure&&<ReplicaButton onClick={hosting.configure}>云端存储设置</ReplicaButton>}<ReplicaButton onClick={hosting.logout}>退出工作空间</ReplicaButton></div>}</section>}
+    {section === "about" && <section className="settings-section settings-about"><h2>合序 HeySO</h2><p className="section-description">Hey, Shared Outcomes.</p><dl><div><dt>软件版本</dt><dd>{publishedSoftwareVersion(project,data.releases)}</dd></div><div><dt>仓库版本</dt><dd>{appPackage.displayVersion} · {appPackage.version}{typeof __HEYSO_COMMIT__ !== "undefined" && __HEYSO_COMMIT__ && <> · <a href={repositoryUrl+"/commit/"+__HEYSO_COMMIT__} target="_blank" rel="noopener noreferrer">{__HEYSO_COMMIT__.slice(0,7)}</a></>}</dd></div><div><dt>GitHub</dt><dd><a href={repositoryUrl} target="_blank" rel="noopener noreferrer">loyo-sun/HeySO</a></dd></div><div><dt>开源协议</dt><dd>仓库尚未声明开源协议</dd></div><div><dt>保存方式</dt><dd>{project.cloud?"LoyoCloud 在线项目":hosting.hosted?"在线保存":"本地保存"}</dd></div><div><dt>当前项目</dt><dd>{project.name}</dd></div></dl>{hosting.hosted&&<div className="inline">{hosting.configure&&<ReplicaButton onClick={hosting.configure}>云端存储设置</ReplicaButton>}<ReplicaButton onClick={hosting.logout}>退出工作空间</ReplicaButton></div>}</section>}
     {section === "memory" && memoryPanel}
     {section === "general" && <>
       <div className="project-identity"><span className="project-glyph">{project.name.slice(0, 1)}</span><div><h2>{project.name}</h2><span>{project.cloud ? "在线项目" : "本地项目"} · {project.code}</span></div></div>
@@ -215,7 +216,8 @@ export default function SettingsPanel({
         <Field label="项目 ID"><ReplicaInput value={project.code} readOnly/><small>工作项编号：{project.code}-序号，项目 ID 创建后固定。</small></Field><Field label="项目名称"><ReplicaInput {...field("name")} maxLength={120} placeholder="项目名称" required disabled={busy}/></Field>
         <Field label="背景与说明"><ReplicaTextArea {...field("description")} placeholder="补充项目背景、受众和工作范围" disabled={busy}/></Field>
         <Field label="项目目标" hint="项目目标和背景会作为共享上下文提供给执行故事的 AI。"><ReplicaTextArea {...field("goal")} required placeholder="描述项目希望实现的结果" disabled={busy}/></Field>
-        <DateFields prefix="项目" start={form.startDate} end={form.endDate} setStart={(v) => change("startDate", v)} setEnd={(v) => change("endDate", v)} disabled={busy}/>
+        <ReplicaInput type="checkbox" checked={!!form.longTerm} disabled={busy} onChange={e => setForm(old => ({...old,longTerm:e.target.checked,...(e.target.checked?{startDate:"",endDate:""}:{})}))}>长期项目（不限制项目时间）</ReplicaInput>
+        {!form.longTerm && <DateFields prefix="项目" start={form.startDate} end={form.endDate} setStart={(v) => change("startDate", v)} setEnd={(v) => change("endDate", v)} disabled={busy}/>}
         {saveBar("general", "保存更改")}
       </ReplicaForm>
       <section className="settings-section project-danger-zone"><div><h3>删除项目</h3><p>{project.cloud ? "请在 LoyoCloud 云空间管理或删除此 .heyso 文件。" : "永久删除本项目及其需求、冲刺、版本、记忆和交付记录。"}</p></div><ReplicaButton className="danger-button" disabled={busy || dirty || !!project.cloud} onClick={onDelete}><Trash2 size={14}/>删除项目</ReplicaButton></section>

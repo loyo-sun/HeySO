@@ -3,12 +3,13 @@ export const backlogColumns=[
   ['workItem','工作项',320],['status','状态',110],['priority','优先级',105],['owner','负责人',130],['points','故事点',90],
   ['kind','类型',100],['parentId','所属工作项',200],['startDate','开始日期',120],['endDate','结束日期',120],['sprintId','冲刺',145],['releaseId','版本',130],['createdAt','创建时间',180],['updatedAt','更新时间',180],
 ].map(([id,label,width])=>({id,label,width}));
-export const defaultBacklogPrefs=()=>({columns:['workItem','status','priority','owner','points'],sort:{key:'priority',direction:'desc'}});
+export const defaultBacklogPrefs=()=>({columns:['workItem','status','priority','owner','points'],workItemWidth:400,sort:{key:'priority',direction:'desc'}});
 export function normalizeBacklogPrefs(value){
   if(!value||!Array.isArray(value.columns))return defaultBacklogPrefs();
   const valid=new Set(backlogColumns.map(c=>c.id)),columns=['workItem',...new Set(value.columns.filter(id=>valid.has(id)&&id!=='workItem'))];
   const sort=columns.includes(value.sort?.key)&&['asc','desc'].includes(value.sort?.direction)?value.sort:{key:'workItem',direction:'asc'};
-  return {columns,sort};
+  const workItemWidth=Number.isInteger(value.workItemWidth)?Math.min(1200,Math.max(240,value.workItemWidth)):400;
+  return {columns,sort,workItemWidth};
 }
 export function moveBacklogColumn(columns,from,to,edge){
   if(from===to||from==='workItem'||to==='workItem'||!columns.includes(from)||!columns.includes(to))return columns;

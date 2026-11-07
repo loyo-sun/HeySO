@@ -87,7 +87,7 @@ export default function ItemSchedule({
     else if(next.start!==confirmed.current.start||next.end!==confirmed.current.end)setConflict(true);
     confirmed.current=next;
   }, [item.id, item.startDate, item.endDate, item.dueDate]);
-  const ready = Boolean(project.startDate && project.endDate);
+  const ready = Boolean(project.longTerm || (project.startDate && project.endDate));
   const minDate = [project.startDate, parent?.startDate].filter(Boolean).sort().at(-1);
   const maxDate = [project.endDate, parent?.endDate].filter(Boolean).sort()[0];
   const changed =

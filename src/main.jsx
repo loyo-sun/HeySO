@@ -610,9 +610,9 @@ function App() {
             项目周期：
             {project.startDate && project.endDate
               ? `${project.startDate} 至 ${project.endDate}`
-              : "待设置"}
+              : project.longTerm ? "长期项目" : "待设置"}
           </span>
-          {(!project.startDate || !project.endDate) && (
+          {!project.longTerm && (!project.startDate || !project.endDate) && (
             <ReplicaButton className="text-btn" onClick={openProjectSettings}>
               设置日期
             </ReplicaButton>
@@ -1811,6 +1811,7 @@ function EditorModal({
   const [planEnd, setPlanEnd] = useState(
     m.type === "item" ? data.items.find((i) => i.id === m.parentId)?.endDate || "" : "",
   );
+  const [longTerm,setLongTerm] = useState(false);
   const close = () => setModal(null);
   const items = data.items.filter((x) => x.projectId === project.id);
   const titles = {
@@ -1854,12 +1855,13 @@ function EditorModal({
     if (m.type === "project") {
       type = "project.create";
       p = {
+        longTerm,
         name: get(f, "name"),
         code: get(f, "code"),
         description: get(f, "description"),
         goal: get(f, "goal"),
-        startDate: get(f, "startDate"),
-        endDate: get(f, "endDate"),
+        startDate: longTerm ? "" : get(f, "startDate"),
+        endDate: longTerm ? "" : get(f, "endDate"),
       };
     }
     if (m.type === "sprint") {
@@ -2065,7 +2067,7 @@ function EditorModal({
             <div className="modal-body">
               {m.type === "item" && (
                 <>
-                  {(!project.startDate || !project.endDate) && (
+                  {!project.longTerm && (!project.startDate || !project.endDate) && (
                     <AntAlert className="warning">
                       请先设置项目周期，才能安排需求日期。
                       <ReplicaButton
@@ -2148,7 +2150,7 @@ function EditorModal({
                     setEnd={setPlanEnd}
                     min={minDate}
                     max={maxDate}
-                    disabled={!project.startDate || !project.endDate}
+                    disabled={!project.longTerm && (!project.startDate || !project.endDate)}
                   />
                   {project.startDate && project.endDate && (
                     <p className="schedule-hint">
@@ -2188,14 +2190,15 @@ function EditorModal({
                       placeholder="描述项目希望达成的结果与验收方向"
                     />
                   </Field>
-                  <DateFields
+                  <ReplicaInput type="checkbox" checked={longTerm} onChange={e=>setLongTerm(e.target.checked)}>长期项目（不限制项目时间）</ReplicaInput>
+                  {!longTerm && <DateFields
                     prefix="项目"
                     start={planStart}
                     end={planEnd}
                     setStart={setPlanStart}
                     setEnd={setPlanEnd}
-                  />
-                  <p className="muted">工作项的起止日期须在项目周期内。</p>
+                  />}
+                  <p className="muted">{longTerm ? "无需项目起止日期，工作项可独立安排周期。" : "工作项的起止日期须在项目周期内。"}</p>
                 </>
               )}
               {(m.type === "sprint" || m.type === "release") && (
