@@ -7747,3 +7747,12 @@ body .roadmap-plan-popover .roadmap-search {padding:8px 11px;}
 .roadmap-editable-cell>.heyso-select {height:30px;padding:3px 4px;}
 .roadmap-editable-cell .ant-input-number-input {border:0;box-shadow:none;padding:2px 5px;height:28px;}
 .work-item-date-range .ant-picker-clear {border:0;box-shadow:none;background:#fff;padding:0;min-width:0;width:16px;height:16px;border-radius:50%;display:flex;align-items:center;justify-content:center;}
+
+/* Work item creation follows the planning fields before long-form content. */
+.create-item-form .create-item-heading { grid-template-columns: minmax(145px, .55fr) minmax(0, 1.45fr); }
+.create-item-form .form-grid > * { min-width: 0; }
+.create-item-form .create-item-planning .inherited-planning { margin: 0; padding: 0; border: 0; background: transparent; display: block; }
+.create-item-form .create-item-planning .inherited-planning .field { margin-bottom: 0; }
+@media (max-width: 600px) {
+  .create-item-form .form-grid { grid-template-columns: minmax(0, 1fr); }
+}

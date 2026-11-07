@@ -17,8 +17,9 @@ export function DateFields({
   prefix = "",
   range = false,
   showLabel = true,
+  rangeLabel = "计划日期",
 }) {
-  if (range) return <WorkItemDateRange {...{start,end,setStart,setEnd,min,max,disabled,prefix,showLabel}}/>;
+  if (range) return <WorkItemDateRange {...{start,end,setStart,setEnd,min,max,disabled,prefix,showLabel,rangeLabel}}/>;
   const startMax = [end, max].filter(Boolean).sort()[0];
   const endMin = [start, min].filter(Boolean).sort().at(-1);
   return (
@@ -55,13 +56,13 @@ export function DateFields({
   );
 }
 
-function WorkItemDateRange({start,end,setStart,setEnd,min,max,disabled,prefix,showLabel}) {
+function WorkItemDateRange({start,end,setStart,setEnd,min,max,disabled,prefix,showLabel,rangeLabel}) {
   const [draft,setDraft]=useState([start||'',end||'']),open=useRef(false),latest=useRef(draft);
   const change=dates=>{const next=[dates?.[0]?.format('YYYY-MM-DD')||'',dates?.[1]?.format('YYYY-MM-DD')||''];latest.current=next;setDraft(next);return next;};
   const commit=next=>{setStart(next[0]);setEnd(next[1]);};
   useEffect(()=>{if(!open.current){const next=[start||'',end||''];latest.current=next;setDraft(next);}},[start,end]);
-  return <ReplicaField className="field work-item-date-range">{showLabel&&<span>{prefix}计划日期</span>}
-    <DatePicker.RangePicker aria-label="工作项计划日期" locale={zhCN.DatePicker} value={draft.map(d=>d?dayjs(d):null)} format="YYYY/MM/DD" placeholder={['开始日期','结束日期']} allowEmpty={[true,true]} allowClear classNames={{popup:{root:'work-item-range-popup'}}} disabled={disabled} minDate={min?dayjs(min):undefined} maxDate={max?dayjs(max):undefined} onCalendarChange={change} onChange={dates=>{const next=change(dates);if(!open.current)commit(next);}} onOpenChange={isOpen=>{open.current=isOpen;if(!isOpen)commit(latest.current);}}/>
+  return <ReplicaField className="field work-item-date-range">{showLabel&&<span>{prefix}{rangeLabel}</span>}
+    <DatePicker.RangePicker onKeyDown={e=>{if(e.key==='Enter')e.preventDefault();}} aria-label="工作项计划日期" locale={zhCN.DatePicker} value={draft.map(d=>d?dayjs(d):null)} format="YYYY/MM/DD" placeholder={['开始日期','结束日期']} allowEmpty={[true,true]} allowClear classNames={{popup:{root:'work-item-range-popup'}}} disabled={disabled} minDate={min?dayjs(min):undefined} maxDate={max?dayjs(max):undefined} onCalendarChange={change} onChange={dates=>{const next=change(dates);if(!open.current)commit(next);}} onOpenChange={isOpen=>{open.current=isOpen;if(!isOpen)commit(latest.current);}}/>
     <input type="hidden" name="startDate" value={start||''}/><input type="hidden" name="endDate" value={end||''}/>
   </ReplicaField>;
 }
