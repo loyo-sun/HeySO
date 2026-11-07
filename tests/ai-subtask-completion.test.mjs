@@ -117,3 +117,39 @@ test('missing child completion node rejects acceptance atomically', t => {
   assert.throws(() => x.review(parent, run), /没有配置完成节点/);
   assert.deepEqual(x.store.read(), before);
 });
+
+test('ordinary reacceptance of the same AI delivery completes reopened children and preserves run history', t => {
+  const x = setup(t), parent = x.make('story', {aiEnabled: true});
+  const child = x.make('subtask', {parentId: parent.id});
+  const run = x.submit(parent);
+  x.review(parent, run);
+  x.act('item.update', {id: parent.id, status: 'todo'});
+  x.act('item.update', {id: child.id, status: 'todo'});
+  const beforeRuns = x.store.read().runs;
+  x.act('item.update', {id: parent.id, status: 'review'});
+  x.review(parent);
+  assert.equal(x.item(parent.id).status, 'done');
+  assert.equal(x.item(child.id).status, 'done');
+  assert.deepEqual(x.store.read().runs, beforeRuns);
+  const event = x.store.read().events.find(e => e.itemId === child.id && e.triggerRunId === run.id);
+  assert.ok(event.triggerReviewId);
+});
+
+test('ordinary acceptance cannot reuse AI delivery evidence from an older content version', t => {
+  const x = setup(t), parent = x.make('story', {aiEnabled: true});
+  const child = x.make('subtask', {parentId: parent.id});
+  x.review(parent, x.submit(parent));
+  x.act('item.update', {id: parent.id, status: 'todo', description: 'Changed scope'});
+  x.act('item.update', {id: child.id, status: 'todo'});
+  x.act('item.update', {id: parent.id, status: 'review'});
+  x.review(parent);
+  assert.equal(x.item(child.id).status, 'todo');
+});
+
+test('AI permission alone is not AI delivery evidence for ordinary acceptance', t => {
+  const x = setup(t), parent = x.make('story', {aiEnabled: true});
+  const child = x.make('subtask', {parentId: parent.id, status: 'todo'});
+  x.act('item.update', {id: parent.id, status: 'review'});
+  x.review(parent);
+  assert.equal(x.item(child.id).status, 'todo');
+});

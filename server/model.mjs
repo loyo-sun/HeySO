@@ -371,7 +371,13 @@ function transition(s, item, nextCategory) {
   item.status = next;
 }
 function completeAcceptedAiSubtasks(s, parent, run, review) {
-  if (!run || !work(s, parent)) return;
+  if (!work(s, parent)) return;
+  // Reopening an accepted AI delivery can lead to ordinary human acceptance
+  // without runId. Only reuse delivery evidence for this exact item/version.
+  run ||= s.runs.find(candidate => runTargetId(candidate) === parent.id &&
+    candidate.status === 'accepted' && candidate.storyVersion === parent.contentVersion &&
+    (candidate.itemVersion === undefined || candidate.itemVersion === parent.contentVersion));
+  if (!run) return;
   const project = projectOf(s, parent);
   const children = s.items.filter(child => child.projectId === parent.projectId && child.parentId === parent.id && isSubtask(child, project) && cat(s, child) !== 'done');
   // Parent acceptance covers its children, including those still in todo/blocked.
