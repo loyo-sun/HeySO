@@ -2061,7 +2061,7 @@ function EditorModal({
             </p>
           </div>
         ) : (
-          <ReplicaForm onSubmit={submit}>
+          <ReplicaForm className={m.type === "item" ? "create-item-form" : ""} onSubmit={submit}>
             <div className="modal-body">
               {m.type === "item" && (
                 <>
@@ -2077,6 +2077,7 @@ function EditorModal({
                       </ReplicaButton>
                     </AntAlert>
                   )}
+                  <div className="form-grid create-item-heading">
                   <Field label="工作项类型" required><Select name="kind" aria-required="true" value={itemKind} onChange={(e) => {
                     const kind = e.target.value; setItemKind(kind);
                     if (!possibleParents.some((p) => p.id === itemParent && canParent(project, kind, p))) setItemParent("");
@@ -2089,8 +2090,26 @@ function EditorModal({
                       placeholder={`给${kinds[itemKind]}一个清晰的名称`}
                     />
                   </Field>
-                  {parentKind && (
-                    <Field label="所属工作项">
+                  </div>
+                  <div className="form-grid">
+                    <Field label="负责人">
+                      <Select name="owner" defaultValue=""><option value="">未分配</option>
+                        {project.members.map((x) => (
+                          <option key={x}>{x}</option>
+                        ))}
+                      </Select>
+                    </Field>
+                    <Field label="优先级">
+                      <Select name="priority" defaultValue="medium">
+                        <option value="high">高</option>
+                        <option value="medium">中</option>
+                        <option value="low">低</option>
+                      </Select>
+                    </Field>
+                  </div>
+                  <div className="form-grid">
+                  {parentKind ? (
+                    <Field label="父工作">
                       <Select
                         name="parentId"
                         value={itemParent}
@@ -2113,8 +2132,16 @@ function EditorModal({
                           ))}
                       </Select>
                     </Field>
-                  )}
-                  <DateFields range
+                  ) : <Field label="父工作"><Select name="parentId" value="" disabled><option value="">此类型无需父工作</option></Select></Field>}
+                  {isWorkItem({kind:itemKind}, project) && <Field label="故事点">
+                    <ReplicaInput name="points" type="number" min="0" max="1000" defaultValue="0"/>
+                  </Field>}
+                  </div>
+                  <div className="form-grid create-item-planning">
+                    {!isSubtask({kind:itemKind},project) ? <Field label="冲刺"><Select name="sprintId" value={itemSprint} onChange={e=>setItemSprint(e.target.value)}><option value="">产品待办池</option>{data.sprints.filter(sp=>sp.projectId===project.id&&sp.status!=="closed").map(sp=><option key={sp.id} value={sp.id}>{sp.name}</option>)}</Select></Field> : <InheritedPlanning parent={items.find(i=>i.id===itemParent)} releases={data.releases} sprints={data.sprints} compact/>}
+                    <Field label="版本"><Select name="releaseId" value={itemRelease} onChange={e=>setItemRelease(e.target.value)}><option value="">未安排版本</option>{data.releases.filter(r=>r.projectId===project.id&&!r.archived&&r.status!=="released").map(r=><option key={r.id} value={r.id}>{r.name}</option>)}</Select></Field>
+                  </div>
+                  <DateFields range rangeLabel="计划周期"
                     start={planStart}
                     end={planEnd}
                     setStart={setPlanStart}
@@ -2128,43 +2155,13 @@ function EditorModal({
                       日期范围：{minDate} 至 {maxDate}
                     </p>
                   )}
-                  <Field label="描述">
-                    <RichTextEditor name="description" label="描述" onBusyChange={imageBusy} disabled={busy} placeholder="说明背景、目标与预期结果"/>
+                  <Field label="工作描述">
+                    <RichTextEditor name="description" label="工作描述" onBusyChange={imageBusy} disabled={busy} placeholder="说明背景、目标与预期结果"/>
                   </Field>
-                  <div className="form-grid">
-                    <Field label="负责人">
-                      <Select name="owner" defaultValue=""><option value="">未分配</option>
-                        {project.members.map((x) => (
-                          <option key={x}>{x}</option>
-                        ))}
-                      </Select>
-                    </Field>
-                    <Field label="优先级">
-                      <Select name="priority" defaultValue="medium">
-                        <option value="high">高</option>
-                        <option value="medium">中</option>
-                        <option value="low">低</option>
-                      </Select>
-                    </Field>
-                  </div>
-                  {<div className="form-grid"><Field label="目标版本"><Select name="releaseId" value={itemRelease} onChange={e=>setItemRelease(e.target.value)}><option value="">未安排版本</option>{data.releases.filter(r=>r.projectId===project.id&&!r.archived&&r.status!=="released").map(r=><option key={r.id} value={r.id}>{r.name}</option>)}</Select></Field>{!isSubtask({kind:itemKind},project)&&<Field label="Sprint"><Select name="sprintId" value={itemSprint} onChange={e=>setItemSprint(e.target.value)}><option value="">产品待办池</option>{data.sprints.filter(sp=>sp.projectId===project.id&&sp.status!=="closed").map(sp=><option key={sp.id} value={sp.id}>{sp.name}</option>)}</Select></Field>}</div>}
-                  {isSubtask({kind:itemKind},project)&&<InheritedPlanning parent={items.find(i=>i.id===itemParent)} releases={data.releases} sprints={data.sprints}/>}
-                  {isExecutionItem({ kind: itemKind }, project) && (
-                    <>
-                      <Field label="验收标准">
-                        <RichTextEditor name="acceptance" label="验收标准" onBusyChange={imageBusy} disabled={busy} placeholder="达到什么条件，才能确认完成？"/>
-                      </Field>
-                      {isWorkItem({kind:itemKind}, project) && <Field label="故事点">
-                        <ReplicaInput
-                          name="points"
-                          type="number"
-                          min="0"
-                          max="1000"
-                          defaultValue="0"
-                        />
-                      </Field>}
-                    </>
-                  )}
+                  {isExecutionItem({kind:itemKind},project) && <Field label="验收标准">
+                    <RichTextEditor name="acceptance" label="验收标准" onBusyChange={imageBusy} disabled={busy} placeholder="达到什么条件，才能确认完成？"/>
+                  </Field>}
+
                 </>
               )}
               {m.type === "project" && (
