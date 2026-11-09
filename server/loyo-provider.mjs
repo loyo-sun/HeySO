@@ -25,7 +25,7 @@ function fileState(files, config) {
   for(const file of files) {
     const content=readProjectFile(file.content), p=content.workspace.projects[0];
     if(state.projects.some(x=>x.id===p.id))fail('云端项目存在重复业务标识，请整理副本后重试',409);
-    state.projects.push({...p,cloud:{fileId:content.id,headId:file.headId,base:config.base,account:config.user.username,available:true,error:''}});
+    state.projects.push({...p,cloud:{fileId:content.id,headId:file.headId,dataRevision:content.workspace.revision,base:config.base,account:config.user.username,available:true,error:''}});
     for(const key of collections)state[key].push(...content.workspace[key]);
   }
   return validate(state);
@@ -47,7 +47,7 @@ export async function handleLoyo(request, config, env, input, fetcher = fetch) {
     for (const file of files) {
       const content = readProjectFile(file.content), p = content.workspace.projects[0];
       if (state.projects.some(x => x.id === p.id)) fail('云端项目存在重复业务标识，请在 LoyoCloud 中整理副本后重试', 409);
-      state.projects.push({ ...p, cloud: { fileId: content.id, headId: file.headId, base: config.base, account: config.user.username, available: true, error: '' } });
+      state.projects.push({ ...p, cloud: { fileId: content.id, headId: file.headId, dataRevision:content.workspace.revision, base: config.base, account: config.user.username, available: true, error: '' } });
       for (const key of collections) state[key].push(...content.workspace[key]);
     }
     state.revision = parseInt(createHash('sha256').update(JSON.stringify(files.map(f => [f.content.id, f.headId]).sort((a,b) => a[0].localeCompare(b[0])))).digest('hex').slice(0, 13), 16);
@@ -74,6 +74,22 @@ export async function handleLoyo(request, config, env, input, fetcher = fetch) {
     const fileId=decodeURIComponent(preferenceRoute[1]);
     if(!/^[0-9a-f-]{36}$/i.test(fileId))fail('无效云文件标识');
     return json(await api('/api/v1/heyso/files/'+encodeURIComponent(fileId)+'/view-preferences',request.method==='POST'?input:undefined));
+  }
+  // New operations are applied to the latest server state; no client head matching.
+  if(path==='/api/live/updates')return json(await api('/api/v1/heyso/updates',{heads:input.heads||[]}));
+  if(path==='/api/live/action') {
+    if(!input.fileId||!/^[0-9a-f-]{36}$/i.test(input.fileId)||!input.requestId||!input.action)fail('需要有效项目与操作');
+    if(['project.create','project.delete'].includes(input.action.type))fail('请通过项目管理入口操作');
+    const out=await api('/api/v1/heyso/files/'+encodeURIComponent(input.fileId)+'/action',{action:input.action,headId:input.headId,requestId:input.requestId,consistency:'live-v1',baseFields:input.baseFields,responseFormat:'changes-v1'});
+    const heads=(input.heads||[]).filter(h=>h.fileId!==input.fileId);heads.push({fileId:input.fileId,headId:out.headId});
+    if(out.changes){const project={...out.project,cloud:{fileId:out.fileId,headId:out.headId,dataRevision:out.dataRevision,base:config.base,account:config.user.username,available:true,error:''}};return json({patch:true,project,changes:out.changes,revision:revisionOf(heads),result:out.result},200,timingHeaders());}
+    const state=fileState([out],config);
+    return json({delta:true,state,revision:revisionOf(heads),result:out.result,projectId:state.projects[0].id},200,timingHeaders());
+  }
+  if(path==='/api/live/state') {
+    const out=await api('/api/v1/heyso/state',{heads:input.heads||[]});
+    const state=fileState(out.files,config),revision=revisionOf(out.manifest);
+    return json(input.heads?{delta:true,state,revision,manifest:out.manifest}:{...state,revision});
   }
   // Version checks read metadata only. Fetch complete content only for changed files.
   if(path==='/api/state' && request.method==='POST' && Array.isArray(input.heads)) {

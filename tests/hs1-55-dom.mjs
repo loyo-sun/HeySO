@@ -19,9 +19,10 @@ async function page(){
  const w=dom.window;w.testStorage=storage.value;w.structuredClone=structuredClone;w.MessageChannel=MessageChannel;w.AbortSignal=AbortSignal;w.matchMedia=()=>({matches:false,addListener(){},removeListener(){},addEventListener(){},removeEventListener(){}});w.ResizeObserver=class{observe(){}unobserve(){}disconnect(){}};w.scrollTo=()=>{};w.Element.prototype.scrollIntoView=()=>{};w.CSS={escape:v=>v};
  w.fetch=async(path,init={})=>{
   if(path==='/api/session')return Response.json({hosted:true,authenticated:true,provider:'loyocloud',storageScope:'test-scope'});
-  if(path==='/api/state')return Response.json(server);
+  if(path==='/api/live/updates')return new Promise(()=>{});
+  if(path==='/api/state'||path==='/api/live/state')return Response.json(server);
   if(path.startsWith('/api/view-preferences'))return Response.json({views:{}});
-  if(path==='/api/action'){
+  if(path==='/api/action'||path==='/api/live/action'){
    if(mode==='slow')return new Promise(resolve=>pending.push({resolve,input:JSON.parse(init.body)}));
    if(mode==='fail')return Response.json({error:'测试云端错误'},{status:503});
    const next=structuredClone(server),result=act(next,JSON.parse(init.body).action);validate(next);next.revision++;server=next;writes++;return Response.json({state:server,result});
@@ -33,13 +34,15 @@ async function page(){
 const wait=()=>new Promise(r=>setTimeout(r,140));
 let dom=await page(),w=dom.window;await wait();await wait();await wait();
 let input=w.document.querySelector('[aria-label="工作项标题"]');if(!input)console.error(w.document.body.textContent.slice(0,2500));assert.ok(input,'work item drawer opens');input.focus();Object.getOwnPropertyDescriptor(w.HTMLTextAreaElement.prototype,'value').set.call(input,'HS55 本地待同步');input.dispatchEvent(new w.Event('input',{bubbles:true}));await wait();input.blur();await wait();
-assert.ok(w.document.querySelector('.cloud-sync-notice').textContent.includes('正在同步云端'));assert.equal(w.testStorage.queue.length,1);assert.equal(input.disabled,false);
+assert.equal(w.document.querySelector('.cloud-sync-notice'),null);assert.equal(w.testStorage.queue.length,1);assert.equal(input.disabled,false);
 console.log('PASS immediate local save and editable UI during a slow cloud request');
 pending.shift().resolve(Response.json({error:'测试云端错误'},{status:503}));await wait();
-assert.ok(w.document.querySelector('.cloud-sync-notice').textContent.includes('云端同步失败'));await new Promise(r=>setTimeout(r,4700));assert.ok(w.document.querySelector('.cloud-sync-notice').textContent.includes('云端同步失败')||w.document.querySelector('.cloud-sync-notice').textContent.includes('正在同步云端'));
-console.log('PASS sync indication remains after transient-toast expiry');
-const close=w.document.querySelector('.drawer-scrim');assert.ok(close);close.click();await wait();assert.ok(w.document.body.textContent.includes('修改尚未同步到云端'));assert.ok(w.document.body.textContent.includes('保留本地并离开'));
-console.log('PASS close drawer warning with keep-local and continue choices');
-const leave=[...w.document.querySelectorAll('button')].find(b=>b.textContent==='保留本地并离开');leave.click();await wait();assert.ok(w.testStorage.queue.length);storage.value=structuredClone(w.testStorage);dom.window.close();
-mode='ok';pending=[];dom=await page();w=dom.window;await wait();await wait();await wait();await wait();assert.equal(w.document.querySelector('[aria-label="工作项标题"]').value,'HS55 本地待同步');assert.ok(w.document.querySelector('.cloud-sync-notice').textContent.includes('已同步到云端'));assert.equal(w.testStorage.queue.length,0);assert.equal(writes,1);
+assert.equal(w.document.querySelector('.cloud-sync-notice'),null);
+const unload=new w.Event('beforeunload',{cancelable:true});w.dispatchEvent(unload);assert.equal(unload.defaultPrevented,true);
+const close=w.document.querySelector('.drawer-scrim');assert.ok(close);close.click();await wait();
+assert.ok(!w.document.body.textContent.includes('修改尚未同步到云端'));
+assert.equal(w.document.querySelector('.drawer-scrim'),null);
+assert.ok(w.testStorage.queue.length);storage.value=structuredClone(w.testStorage);dom.window.close();
+console.log('PASS editing has no sync banner, drawer closes without warning, and page exit is guarded');
+mode='ok';pending=[];dom=await page();w=dom.window;await wait();await wait();await wait();await wait();assert.equal(w.document.querySelector('[aria-label="工作项标题"]').value,'HS55 本地待同步');assert.equal(w.document.querySelector('.cloud-sync-notice'),null);const syncedExit=new w.Event('beforeunload',{cancelable:true});w.dispatchEvent(syncedExit);assert.equal(syncedExit.defaultPrevented,false);assert.equal(w.testStorage.queue.length,0);assert.equal(writes,1);
 console.log('PASS reload restores pending draft and finishes cloud synchronization');dom.window.close();process.exit(0);

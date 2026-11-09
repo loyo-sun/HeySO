@@ -1,0 +1,68 @@
+{
+  "backendCommit": "df86ae9453687093c85390703394536fc6b179b6",
+  "baseCommit": "efed7e75cde14175bc078c5abf9f40e0b29376c9",
+  "files": {
+    "migrations/001_core.sql": {
+      "base": "5809f7010181549591cc4942f2824ec0fd13a98245de4304d59f65b47e498897",
+      "next": "d5ab96bfce31d32cbb115d3bc47ea2cfd071a9078daf7e4c585fde4648198ae5"
+    },
+    "src/heyso.mjs": {
+      "base": "37b91a2aac0e8e2523cde483221779fc698bdaa9b0f983e4d3c728fe131bb1ea",
+      "next": "074d8c676428e1a36f6adef0dec7cfe21d60393c2d4854473789887a3becb9ad"
+    },
+    "src/heyso-live.mjs": {
+      "base": null,
+      "next": "d3fdaef03a5cbcdca2796f8bea1ff8bbc1f01b102f8d2a1dd1b107fa5516d9fc"
+    },
+    "src/cloud-space.mjs": {
+      "base": "9c23253d354e1e0de735fefcf9edcddccaea7c5c25956b6c0c339b22cb79c387",
+      "next": "02ab71a7a5e524500909dcef4c419d2661737eb2f9f4e41b2f72e8d4c80102dd"
+    },
+    "src/drive-ui.js": {
+      "base": "2e93431aa7f5ca9cda10eab91af4615ddb4dd71db76bb90474a5b5911ecc2b23",
+      "next": "6fe6915a58a7b86451bc4df431250ff02767485bb85e2a8bef6632a13e068686"
+    },
+    "tests/heyso-live.test.mjs": {
+      "base": null,
+      "next": "c0800c1d207e553b8809b01a079214b6d031f80d84addedc1d4238b731feed39"
+    },
+    "docs/HS1-56-LIVE-DATA.md": {
+      "base": null,
+      "next": "205fe4185cc6eb7e3763d874967af5c570128fd41e390562e901221c8eceb6c1"
+    },
+    "tests/heyso-domain.test.mjs": {
+      "base": "14f54bcbe3363c96653a6b12ab066545740842256404de0a76aa4f8e034c3202",
+      "next": "14f54bcbe3363c96653a6b12ab066545740842256404de0a76aa4f8e034c3202"
+    },
+    "tests/closed-sprint-domain.test.mjs": {
+      "base": "51cf03405ef47073522b2e7fbe7185e11e1ccb37d89a918e9afa08cc35c4e80c",
+      "next": "51cf03405ef47073522b2e7fbe7185e11e1ccb37d89a918e9afa08cc35c4e80c"
+    },
+    "tests/mcp-contracts.test.mjs": {
+      "base": "4e942e6ecd0386f4add521c6da17c5d66d0daf46ca613a21056a0fc643efec1a",
+      "next": "4e942e6ecd0386f4add521c6da17c5d66d0daf46ca613a21056a0fc643efec1a"
+    },
+    "tests/hs1-35-domain.test.mjs": {
+      "base": "4416440da6d234c850bd37308ed52b751fb4bc53c8d5271dee0dc50e583bd1e9",
+      "next": "4416440da6d234c850bd37308ed52b751fb4bc53c8d5271dee0dc50e583bd1e9"
+    },
+    "tests/hs1-36-domain.test.mjs": {
+      "base": "dca525f92ac36f72517e7b38a451b104cd523f67359d480a8b9a6bcb2bba1504",
+      "next": "dca525f92ac36f72517e7b38a451b104cd523f67359d480a8b9a6bcb2bba1504"
+    }
+  },
+  "dependencies": {
+    "src/db.mjs": "7754179f99c4cb93bd1de8b5b90d281e69ad322afa8e971e87251f2c04bca037",
+    "src/security.mjs": "da428c02ab325fe56467846c6a55e8681a97980ef671b3efc0ab6814c9a61ac7",
+    "src/heyso-versions.mjs": "2d88d0521e54822dfe8c3c07f54f277e3b6d70d61f3ab833ff1707d3afc1dde3",
+    "src/shared-snapshots.mjs": "41fb0e002a4e37f041fbab212fc74e67c45b2fb29d9586b10c79dc1d7fe4e796",
+    "vendor/heyso/server/model.mjs": "0ae4da5173704072cd1bc5bb6df830d30b11875ad89295b1f95904e73267a92d",
+    "vendor/heyso/server/project-file.mjs": "89ea762a1db3c766d684302f7bd2f3d51d09b73ea55f3db7a643238a502b4022",
+    "vendor/heyso/server/mcp.mjs": "f9b22c643224f14998bfc99e8c546e038de145b12e6520bf240eceada3c6a2ad",
+    "vendor/heyso/server/mcp-tools.mjs": "1e39c60accfad9db837826e51a8fdb22aba5f57bf01a01b361a4bf3e4f1ce59b",
+    "vendor/heyso/shared/work-config.mjs": "08e81a1c8dacc793a9d6d799956b976e8cff749877a3ecbe26a24c84a5b5cdaf",
+    "vendor/heyso/shared/view-preferences.mjs": "2abc9aca2587bc84cedf8a9f071dbbbddfd8df435c51b56069acfa4b800df5c0",
+    "package.json": "eaa299601be910e8571768245e0ffac183e897700ea6d8891a7b31bd658658a2",
+    "package-lock.json": "4708bf823e20bb1c8a7f424c342c5de6e24c77aece0b8318980e4b98b3243e4b"
+  }
+}

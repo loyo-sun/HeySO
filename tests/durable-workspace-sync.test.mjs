@@ -59,3 +59,24 @@ test('refresh started before local edit cannot overwrite its optimistic state or
  const old=deferred(),write=deferred();const {c}=await setup(t,{fetcher:async path=>path==='/api/state'?old.promise:write.promise});
  const refreshing=c.refresh();await flush();await c.action('item.update',{id:'i',title:'mine'},'p');old.resolve(Response.json(ws('old','stale')));await refreshing;assert.equal(c.state.items[0].title,'mine');write.resolve(Response.json(saved('h2','mine')));await idle(c);assert.equal(c.confirmed.projects[0].cloud.headId,'h2');
 });
+
+test('cached workspace is shown before a slow cloud response and unchanged heads do not rerender',async t=>{
+ const storage=memory();storage.value={state:ws(),queue:[]};const remote=deferred();let calls=0,renders=0;
+ const {c}=await setup(t,{storage,onData:()=>renders++,fetcher:async()=>{calls++;return remote.promise;}});
+ assert.equal(c.state.items[0].title,'original');assert.equal(calls,0);
+ const refreshing=c.refresh();await flush();assert.equal(calls,1);assert.equal(c.state.items[0].title,'original');
+ const before=renders;remote.resolve(Response.json({delta:true,state:{projects:[]},manifest:[{fileId:'f',headId:'h1'}],revision:1}));await refreshing;
+ assert.equal(renders,before);await c.refresh();assert.equal(calls,1);
+});
+test('recent persisted cache avoids startup cloud fetch; expired cache fetches only known heads',async t=>{
+ const storage=memory();storage.value={state:ws(),queue:[],checkedAt:1000};let calls=0,clock=2000;
+ const {c}=await setup(t,{storage,now:()=>clock,fetcher:async(path,init)=>{calls++;assert.deepEqual(JSON.parse(init.body).heads,[{fileId:'f',headId:'h1'}]);return Response.json(ws('h2','remote'));}});
+ await c.refresh();assert.equal(calls,0);assert.equal(c.state.items[0].title,'original');
+ clock=32000;await c.refresh();assert.equal(calls,1);assert.equal(c.state.items[0].title,'remote');assert.equal(storage.value.checkedAt,32000);
+ await c.refresh({force:true});assert.equal(calls,2);
+});
+test('fresh cache never delays a persisted pending write',async t=>{
+ const storage=memory();storage.value={state:ws(),checkedAt:Date.now(),queue:[{id:'queued',type:'item.update',payload:{id:'i',title:'local'},projectId:'p',phase:'pending',body:null}]};let writes=0;
+ const {c}=await setup(t,{storage,fetcher:async path=>{assert.equal(path,'/api/action');writes++;return Response.json(saved('h2','local'));}});
+ await c.refresh();await idle(c);assert.equal(writes,1);assert.equal(c.hasPending(),false);
+});

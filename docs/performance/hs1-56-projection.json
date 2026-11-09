@@ -1,0 +1,8 @@
+{
+  "scenario": "front-end optimistic projection only",
+  "items": 2000,
+  "iterations": 100,
+  "baselineMs": 116.45,
+  "candidateMs": 4.99,
+  "notes": "Microbenchmark; excludes browser rendering, IndexedDB, network and production database. Not an end-to-end performance claim."
+}

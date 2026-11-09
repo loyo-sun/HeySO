@@ -1,0 +1,300 @@
+diff --git a/docs/HS1-56-LIVE-DATA.md b/docs/HS1-56-LIVE-DATA.md
+new file mode 100644
+index 0000000..e908382
+--- /dev/null
++++ b/docs/HS1-56-LIVE-DATA.md
+@@ -0,0 +1,7 @@
++# HS1-56 live data backend
++
++Introduces live-v1 project actions, latest-state reads and authenticated long-poll notifications. Same user locks, business validation, quota transactions, idempotency and editor/MCP permissions remain in force. Successful live saves update the mutable current JSON, without the legacy timed history window. Existing named/packed history remains recoverable. BaizeFig storage paths keep their behavior.
++
++Additive migration: cloud_documents.heyso_live. Legacy clients still use their previous-head check; once a document is migrated, both protocols use mutable current storage. Internal heads invalidate caches; they are not user-facing history versions. Stale text edits without a base are rejected for explicit review.
++
++Tests: tests/heyso-live.test.mjs runs real routes and PGlite transactions without listening on a network port. This is not production/browser verification. Deploy only as a matched frontend/backend pair, after checking the production baseline and taking the existing backup. Frontend deployment sources and the server overlay are in the HeySO HS1-56 candidate branch.
+diff --git a/migrations/001_core.sql b/migrations/001_core.sql
+index e306ef2..682ad59 100644
+--- a/migrations/001_core.sql
++++ b/migrations/001_core.sql
+@@ -230,3 +230,5 @@ CREATE TABLE IF NOT EXISTS heyso_compaction_jobs (
+  available_at timestamptz NOT NULL DEFAULT now()
+ );
+ CREATE INDEX IF NOT EXISTS heyso_compaction_ready ON heyso_compaction_jobs(available_at);
++
++ALTER TABLE cloud_documents ADD COLUMN IF NOT EXISTS heyso_live boolean NOT NULL DEFAULT false;
+diff --git a/src/cloud-space.mjs b/src/cloud-space.mjs
+index 038fad3..ef6f407 100644
+--- a/src/cloud-space.mjs
++++ b/src/cloud-space.mjs
+@@ -542,6 +542,7 @@ export function installCloudSpace(
+     write,
+     async (req, res) => {
+       const file = await document(req.user.id, req.params.id);
++      if(file.app==='heyso'&&file.heyso_live&&file.head_id===req.params.version)throw error(400,"实时项目维护当前数据，不支持命名当前保存版本");
+       const name = req.body.name;
+       if (typeof name !== "string" || name.trim().length > 100)
+         throw error(400, "版本名称不能超过 100 个字符");
+diff --git a/src/drive-ui.js b/src/drive-ui.js
+index 5be1bf6..eae0585 100644
+--- a/src/drive-ui.js
++++ b/src/drive-ui.js
+@@ -312,6 +312,7 @@
+       "/" + (entry.folder ? "folders/" : "files/") + entry.item.id,
+     );
+     const f = entry.folder ? detail : detail.file;
++    if(f.app==='heyso'&&f.heyso_live&&tab==='versions')tab='basic';
+     const content = el("div"),
+       d = modal(tab === "versions" ? "历史版本" : "文件属性", content);
+     if (tab === "versions") d.classList.add("ld-wide");
+@@ -346,7 +347,7 @@
+       panel.append(dl);
+       if (!entry.folder) {
+         const controls = el('div', undefined, 'uc-actions');
+-        controls.append(button('打开文件', () => openEntry(entry), 'primary'), button('历史版本', () => { d.close(); return properties(entry, 'versions'); }), button('分享设置', () => { d.close(); return shareEntry(entry); }));
++        controls.append(button('打开文件', () => openEntry(entry), 'primary'), ...(f.app==='heyso'&&f.heyso_live?[]:[button('历史版本', () => { d.close(); return properties(entry, 'versions'); })]), button('分享设置', () => { d.close(); return shareEntry(entry); }));
+         panel.append(controls);
+       }
+     }
+@@ -591,7 +592,7 @@
+       { label: "下载", run: () => downloadEntry(entry) },
+       { label: "移动", run: () => moveEntry(entry) },
+       ...(!entry.folder
+-        ? [{ label: "历史版本", run: () => properties(entry, "versions") }, { label: '分享设置', run: () => shareEntry(entry) }]
++        ? [...(entry.item.app==='heyso'&&entry.item.heyso_live?[]:[{ label: "历史版本", run: () => properties(entry, "versions") }]), { label: '分享设置', run: () => shareEntry(entry) }]
+         : []),
+       { label: "属性", run: () => properties(entry) },
+       {
+diff --git a/src/heyso-live.mjs b/src/heyso-live.mjs
+new file mode 100644
+index 0000000..c4c4f44
+--- /dev/null
++++ b/src/heyso-live.mjs
+@@ -0,0 +1,51 @@
++import {randomUUID} from 'node:crypto';
++import {logicalStorageUsage} from './shared-snapshots.mjs';
++import {fail} from './security.mjs';
++
++// Latest mutable project state. Existing history is retained, never rewritten.
++// Account transaction/lock is held by the caller, including quota accounting.
++export async function saveLiveProject(c,{user,content,previous,limit,measure=async(_name,fn)=>fn()}) {
++ const head=randomUUID(),raw=JSON.stringify(content),size=Buffer.byteLength(raw);
++ await measure('persist',async()=>{
++  await c.query('UPDATE cloud_documents SET heyso_live=true,head_id=$3,name=$4,updated_at=now() WHERE id=$1 AND user_id=$2',[content.id,user,head,content.name]);
++  if(previous&&!previous.snapshot_hash&&!previous.version_name?.trim()) {
++   const out=await c.query("UPDATE cloud_document_versions SET id=$2,content=$3,logical_bytes=$4,updated_by=$5,source='HeySO live',heyso_window_start=NULL WHERE id=$1 AND document_id=$6 AND snapshot_hash IS NULL AND NULLIF(btrim(version_name),'') IS NULL RETURNING id",[previous.id,head,raw,size,user,content.id]);
++   if(!out.rows.length)throw fail(409,'SAVE_CONFLICT','项目保存状态已变化，请重试');
++  } else {
++   await c.query("INSERT INTO cloud_document_versions(id,document_id,content,preview,logical_bytes,preview_bytes,updated_by,source,version_name) VALUES($1,$2,$3,'[]',$4,2,$5,'HeySO live','')",[head,content.id,raw,size,user]);
++  }
++ });
++ await measure('capacity',async()=>{if(await logicalStorageUsage(c,user)>Number(limit))throw fail(413,'STORAGE_FULL','云空间容量不足');});
++ return head;
++}
++
++// Notifications carry no project contents. Long polling crosses the existing
++// authenticated gateway; reconnects reconcile the manifest from the database.
++export class ProjectUpdates {
++ constructor(){this.listeners=new Map();}
++ notify(user){for(const finish of [...(this.listeners.get(user)||[])])finish();}
++ wait(user,{timeoutMs=15000,signal}={}){
++  if(signal?.aborted)return Promise.resolve();
++  return new Promise(resolve=>{
++   const listeners=this.listeners.get(user)||new Set();this.listeners.set(user,listeners);
++   const finish=()=>{clearTimeout(timer);signal?.removeEventListener('abort',finish);listeners.delete(finish);if(!listeners.size)this.listeners.delete(user);resolve();};
++   const timer=setTimeout(finish,timeoutMs);listeners.add(finish);signal?.addEventListener('abort',finish,{once:true});
++  });
++ }
++}
++export function checkTextChanges(state,action,baseFields={}) {
++ if(action?.type!=='item.update')return;
++ const current=state.items.find(i=>i.id===action.payload?.id);if(!current)return;
++ for(const key of ['description','acceptance'])if(action.payload[key]!==undefined&&Object.hasOwn(baseFields,key)&&
++  JSON.stringify(current[key]??'')!==JSON.stringify(baseFields[key]??'')&&JSON.stringify(current[key]??'')!==JSON.stringify(action.payload[key]))
++   throw fail(409,'FIELD_CONFLICT','该文本已被其他人修改，草稿已保留，请核对后重新提交');
++}
++
++const collections=['projects','items','sprints','releases','notes','runs','events'];
++export const captureRecords=state=>Object.fromEntries(collections.map(key=>[key,new Map((state[key]||[]).map(record=>[record.id,JSON.stringify(record)]))]));
++export function changedRecords(before,state){
++ return Object.fromEntries(collections.map(key=>{
++  const records=state[key]||[],ids=new Set(records.map(r=>r.id));
++  return [key,{upsert:records.filter(r=>before[key].get(r.id)!==JSON.stringify(r)),remove:[...before[key].keys()].filter(id=>!ids.has(id))}];
++ }));
++}
+diff --git a/src/heyso.mjs b/src/heyso.mjs
+index 0163263..a485400 100644
+--- a/src/heyso.mjs
++++ b/src/heyso.mjs
+@@ -1,3 +1,4 @@
++import {saveLiveProject,ProjectUpdates,checkTextChanges,captureRecords,changedRecords} from './heyso-live.mjs';
+ import {installHeysoViewPreferences} from './heyso-view-preferences.mjs';
+ import {displayName} from './identity.mjs';
+ import {randomUUID,createHash} from 'node:crypto';
+@@ -20,10 +21,12 @@ const fingerprint = value => createHash('sha256').update(JSON.stringify(value,fu
+ })).digest('hex');
+ const serial = (db,run,measure) => !db.connect && db.transaction ? db.transaction(run) : transaction(db,run,measure);
+ export function installHeyso(app,{db,base,auth,login,csrf,origins,live}) {
+-  const windowMs=autosaveWindow();
++  const windowMs=autosaveWindow(), updates=new ProjectUpdates();
++  const validateHeads=heads=>{if(!Array.isArray(heads)||heads.length>10000||heads.some(h=>!h||typeof h.fileId!=='string'||typeof h.headId!=='string'))throw fail(400,'INVALID_MANIFEST','需要有效的项目清单');return heads;};
+   const reply=(req,out)=>{
+     const {version,...value}=out;
+-    if(req.body?.responseFormat==='content-v1')return {content:value.content,headId:value.headId,result:value.result,...(value.replayed?{replayed:true}:{})};
++    if(req.body?.responseFormat==='changes-v1'&&value.changes)return {changes:value.changes,project:value.state.projects[0],fileId:value.content.id,headId:value.headId,dataRevision:value.state.revision,result:value.result};
++    if(['content-v1','changes-v1'].includes(req.body?.responseFormat))return {content:value.content,headId:value.headId,result:value.result,...(value.replayed?{replayed:true}:{})};
+     return value;
+   };
+   const editor = async(req,res,next) => {
+@@ -53,9 +56,14 @@ export function installHeyso(app,{db,base,auth,login,csrf,origins,live}) {
+       const hash=fingerprint({id,action:body.action,headId:body.headId});
+       const prior=(await c.query('SELECT * FROM heyso_requests WHERE user_id=$1 AND request_id=$2',[user,body.requestId])).rows[0];
+       if(prior){if(prior.fingerprint!==hash)throw fail(409,'IDEMPOTENCY_CONFLICT','请求标识已用于不同操作');return {...loaded,result:prior.result,replayed:true};}
+-      if(body.headId!==loaded.headId)throw fail(409,'VERSION_CONFLICT','云端项目已更新，请刷新后重试');
++      if(body.consistency!=='live-v1'&&body.headId!==loaded.headId)throw fail(409,'VERSION_CONFLICT','云端项目已更新，请刷新后重试');
+       if(!body.action||['project.create','project.delete'].includes(body.action.type))throw fail(400,'INVALID_ACTION','请通过云空间管理项目文件');
+       await assertFileUnlocked(c,user,id);
++      if(body.consistency==='live-v1'){
++        if(body.action.type==='item.update'&&body.headId!==loaded.headId&&['description','acceptance'].some(key=>body.action.payload?.[key]!==undefined&&!Object.hasOwn(body.baseFields||{},key)))throw fail(409,'FIELD_CONFLICT','旧文本草稿缺少编辑基准，请核对后重新提交');
++        checkTextChanges(loaded.state,body.action,body.baseFields);
++      }
++      const before=body.responseFormat==='changes-v1'&&body.headId===loaded.headId?captureRecords(loaded.state):null;
+       let result;
+       const content=await timing.measure('business',async()=>{
+         result=act(loaded.state,{...body.action,actor:displayName(actor)});
+@@ -64,12 +72,36 @@ export function installHeyso(app,{db,base,auth,login,csrf,origins,live}) {
+         // and activity changes; do not validate the same state twice here.
+         return readProjectFile({...loaded.content,name:loaded.state.projects[0].name,workspace:loaded.state});
+       });
+-      const head=await saveHeysoVersion(c,{user,content,previous:loaded.version,limit:actor.storage_limit_bytes,source:'HeySO',windowMs,measure:timing.measure});
++      const head=await (body.consistency==='live-v1'||loaded.file.heyso_live?saveLiveProject:saveHeysoVersion)(c,{user,content,previous:loaded.version,limit:actor.storage_limit_bytes,source:'HeySO',windowMs,measure:timing.measure});
+       await c.query('INSERT INTO heyso_requests(user_id,request_id,fingerprint,result,document_id) VALUES($1,$2,$3,$4,$5)',[user,body.requestId,hash,JSON.stringify(result??null),id]);
+       await audit(c,user,'heyso_project_updated',{document_id:id,action:body.action.type});
+-      return {content,state:content.workspace,headId:head,result};
++      return {content,state:content.workspace,headId:head,result,...(before?{changes:changedRecords(before,content.workspace)}:{})};
+     },timing.measure);
+   }
++  app.get('/api/v1/heyso/capabilities',editor,async(req,res)=>res.json({protocol:'live-v1',notifications:'long-poll',history:false}));
++  app.post('/api/v1/heyso/state',editor,async(req,res)=>{
++    const known=new Map(validateHeads(req.body.heads||[]).map(h=>[h.fileId,h.headId]));
++    const rows=(await db.query("SELECT id,head_id FROM cloud_documents WHERE user_id=$1 AND app='heyso' AND deleted_at IS NULL ORDER BY id",[req.user.id])).rows;
++    const files=[];
++    for(const row of rows)if(known.get(row.id)!==row.head_id)files.push(reply({body:{responseFormat:'content-v1'}},await load(db,req.user.id,row.id)));
++    // Use the head actually read for changed files, even if a write committed after metadata was listed.
++    const readHeads=new Map(files.map(f=>[f.content.id,f.headId]));
++    res.json({protocol:'live-v1',manifest:rows.map(r=>({fileId:r.id,headId:readHeads.get(r.id)||r.head_id})),files});
++  });
++  app.post('/api/v1/heyso/updates',editor,async(req,res)=>{
++    const manifest=async()=>(await db.query("SELECT id AS \"fileId\",head_id AS \"headId\" FROM cloud_documents WHERE user_id=$1 AND app='heyso' AND deleted_at IS NULL ORDER BY id",[req.user.id])).rows;
++    const canonical=rows=>JSON.stringify(rows.map(r=>[r.fileId,r.headId]).sort((a,b)=>a[0].localeCompare(b[0])));
++    validateHeads(req.body.heads);
++    const controller=new AbortController();res.on('close',()=>controller.abort());
++    const waiting=updates.wait(req.user.id,{signal:controller.signal});
++    try {
++      let heads=await manifest();
++      if(canonical(heads)===canonical(req.body.heads)){await waiting;heads=await manifest();}
++      const session=await getSecret(db,req.headers.authorization?.slice(7),'editor');
++      if(!session||session.user_id!==req.user.id)throw fail(401,'SESSION_EXPIRED','云登录已失效');
++      if(!res.destroyed)res.json({changed:canonical(heads)!==canonical(req.body.heads),manifest:heads});
++    } finally {controller.abort();}
++  });
+   app.get('/api/v1/heyso/files',editor,async(req,res)=>res.json({files:(await db.query("SELECT id,name,app,head_id,updated_at FROM cloud_documents WHERE user_id=$1 AND app='heyso' AND deleted_at IS NULL ORDER BY updated_at DESC",[req.user.id])).rows}));
+   app.get('/api/v1/heyso/files/:id',editor,async(req,res)=>res.json(reply(req,await load(db,req.user.id,req.params.id))));
+   app.post('/api/v1/heyso/files',editor,async(req,res)=>{
+@@ -91,7 +123,7 @@ export function installHeyso(app,{db,base,auth,login,csrf,origins,live}) {
+       await c.query('INSERT INTO heyso_imports(user_id,document_id,fingerprint) VALUES($1,$2,$3)',[req.user.id,content.id,fingerprint(content)]);
+       await audit(c,req.user.id,'heyso_project_imported',{document_id:content.id});
+       return {content,state:content.workspace,headId};
+-    });res.json(reply(req,out));
++    });updates.notify(req.user.id);res.json(reply(req,out));
+   });
+   app.post('/api/v1/heyso/files/:id/action',editor,async(req,res)=>{
+     const timing=saveTiming();
+@@ -100,6 +132,7 @@ export function installHeyso(app,{db,base,auth,login,csrf,origins,live}) {
+         const s=await getSecret(c,req.headers.authorization?.slice(7),'editor');
+         if(!s)throw fail(401,'SESSION_EXPIRED','云登录已失效');
+       },timing);
++      updates.notify(req.user.id);
+       res.set('Server-Timing',timing.header());res.set('X-HeySO-Transaction-Queries',String(timing.queries()));res.json(reply(req,out));
+     } catch(e) {res.set('Server-Timing',timing.header());throw e;}
+   });
+@@ -146,7 +179,7 @@ export function installHeyso(app,{db,base,auth,login,csrf,origins,live}) {
+               let headId=prior?.head_id||loaded.headId;
+               await db.query('INSERT INTO heyso_mcp_heads(user_id,request_id,head_id) VALUES($1,$2,$3) ON CONFLICT DO NOTHING',[identity.userId,requestId,headId]);
+               headId=(await db.query('SELECT head_id FROM heyso_mcp_heads WHERE user_id=$1 AND request_id=$2',[identity.userId,requestId])).rows[0].head_id;
+-              value=(await mutate(identity.userId,fileId,{action:{type:action,payload},headId,requestId},c=>permitted(c,fileId,scope))).result;
++              value=(await mutate(identity.userId,fileId,{action:{type:action,payload},headId,requestId,consistency:'live-v1'},c=>permitted(c,fileId,scope))).result;updates.notify(identity.userId);
+             }
+           }
+           await db.query("UPDATE calls SET status='succeeded',duration_ms=$2,finished_at=now() WHERE id=$1",[callId,Date.now()-start]);
+diff --git a/tests/heyso-live.test.mjs b/tests/heyso-live.test.mjs
+new file mode 100644
+index 0000000..331e4ed
+--- /dev/null
++++ b/tests/heyso-live.test.mjs
+@@ -0,0 +1,67 @@
++import test from 'node:test';
++import assert from 'node:assert/strict';
++import {randomUUID} from 'node:crypto';
++import {EventEmitter} from 'node:events';
++import {PGlite} from '@electric-sql/pglite';
++import {migrate} from '../src/db.mjs';
++import {putSecret} from '../src/security.mjs';
++import {installHeyso} from '../src/heyso.mjs';
++import {ProjectUpdates} from '../src/heyso-live.mjs';
++import {seed} from '../vendor/heyso/server/model.mjs';
++import {projectFile} from '../vendor/heyso/server/project-file.mjs';
++
++test('live project route and database contracts without a listening server',async t=>{
++ const db=new PGlite();await migrate(db);t.after(()=>db.close());
++ const user=randomUUID(),origin='https://heyso.test';
++ await db.query("INSERT INTO users(id,username,password_hash,workspace_id,storage_limit_bytes) VALUES($1,$2,'unused',$3,10000000)",[user,user,randomUUID()]);
++ const token=await putSecret(db,'editor',user,{app:'heyso',origin},3600000),routes=new Map();
++ const app=Object.fromEntries(['get','post','all'].map(method=>[method,(path,...handlers)=>routes.set(method+' '+path,handlers)]));
++ installHeyso(app,{db,base:'https://cloud.test',origins:new Set([origin]),live:{closeSession(){}}});
++ // seed IDs are discovered rather than tied to a fixture project label.
++ const seeded=seed(),file=projectFile(seeded,seeded.projects[0].id),item=file.workspace.items.find(i=>i.kind==='story');
++ async function call(path,body={},params={},auth=token){
++  const req={user:{id:user},params,body,headers:{authorization:'Bearer '+auth,origin}},res=new EventEmitter();res.destroyed=false;res.set=()=>res;res.json=data=>{res.data=data;return res;};
++  try{for(const fn of routes.get('post '+path)){let next=false;await fn(req,res,()=>{next=true;});if(!next)break;}return {status:200,data:res.data};}
++  catch(e){return {status:e.status||500,error:e.message};}
++ }
++ const imported=await call('/api/v1/heyso/files',{content:file});assert.equal(imported.status,200,imported.error);let head=imported.data.headId;
++ const action=(payload,extra={})=>({action:{type:'item.update',payload:{id:item.id,...payload}},headId:head,requestId:randomUUID(),consistency:'live-v1',responseFormat:'content-v1',...extra});
++ const update=body=>call('/api/v1/heyso/files/:id/action',body,{id:file.id});
++ await t.test('stale heads on independent field patches do not conflict or create file history',async()=>{
++  const first=action({title:'new title'}),second=action({priority:'high'});const a=await update(first),b=await update(second);assert.equal(a.status,200,a.error);assert.equal(b.status,200,b.error);
++  assert.equal(b.data.content.workspace.items.find(i=>i.id===item.id).title,'new title');assert.equal(b.data.content.workspace.items.find(i=>i.id===item.id).priority,'high');
++  assert.equal(Number((await db.query('SELECT count(*) AS n FROM cloud_document_versions WHERE document_id=$1',[file.id])).rows[0].n),1);
++  const replay=await update(first);assert.equal(replay.status,200);assert.equal(replay.data.replayed,true);head=b.data.headId;
++ });
++ await t.test('same-key changed payload is rejected and text conflicts preserve server text',async()=>{
++  const request=action({title:'one'});assert.equal((await update(request)).status,200);
++  assert.equal((await update({...request,action:{type:'item.update',payload:{id:item.id,title:'two'}}})).status,409);
++  const base=item.description||'';assert.equal((await update(action({description:'remote text'},{baseFields:{description:base}}))).status,200);
++  const conflict=await update(action({description:'local text'},{baseFields:{description:base}}));assert.equal(conflict.status,409);
++  const current=await call('/api/v1/heyso/state',{});assert.equal(current.data.files[0].content.workspace.items.find(i=>i.id===item.id).description,'remote text');
++ });
++ await t.test('state returns only changed projects and retains authorization',async()=>{
++  const current=await call('/api/v1/heyso/state',{});assert.equal(current.data.protocol,'live-v1');assert.equal(current.data.files.length,1);
++  const unchanged=await call('/api/v1/heyso/state',{heads:current.data.manifest});assert.equal(unchanged.data.files.length,0);
++  assert.equal((await call('/api/v1/heyso/state',{}, {},'wrong')).status,401);
++  const before=current.data.manifest;await update(action({owner:'我'}));const change=await call('/api/v1/heyso/updates',{heads:before});assert.equal(change.data.changed,true);
++ });
++ await t.test('matching cursors return changed records; stale cursors and retries return full current state',async()=>{
++  const current=await call('/api/v1/heyso/state',{});head=current.data.manifest[0].headId;
++  const request=action({title:'compact title'},{responseFormat:'changes-v1'}),compact=await update(request);
++  assert.equal(compact.status,200,compact.error);assert.equal(compact.data.content,undefined);assert.equal(compact.data.changes.items.upsert.find(i=>i.id===item.id).title,'compact title');
++  assert.equal(compact.data.changes.items.upsert.length,1);assert.ok(compact.data.changes.events.upsert.length);
++  const replay=await update(request);assert.equal(replay.status,200);assert.ok(replay.data.content);assert.equal(replay.data.replayed,true);
++  const stale=await update(action({priority:'low'},{responseFormat:'changes-v1'}));assert.equal(stale.status,200);assert.ok(stale.data.content);assert.equal(stale.data.content.workspace.items.find(i=>i.id===item.id).title,'compact title');
++ });
++ await t.test('quota failure rolls back current data and request record atomically',async()=>{
++  const before=await call('/api/v1/heyso/state',{});await db.query('UPDATE users SET storage_limit_bytes=1 WHERE id=$1',[user]);
++  const request=action({title:'must roll back'});assert.equal((await update(request)).status,413);
++  const after=await call('/api/v1/heyso/state',{});assert.deepEqual(after.data,before.data);assert.equal((await db.query('SELECT * FROM heyso_requests WHERE request_id=$1',[request.requestId])).rows.length,0);
++ });
++});
++test('notification listeners are isolated by account and release on timeout/abort',async()=>{
++ const bus=new ProjectUpdates(),controller=new AbortController();let a=false,b=false;
++ const first=bus.wait('a',{timeoutMs:100}).then(()=>a=true),second=bus.wait('b',{timeoutMs:100,signal:controller.signal}).then(()=>b=true);
++ bus.notify('a');await first;assert.equal(a,true);assert.equal(b,false);controller.abort();await second;assert.equal(bus.listeners.size,0);
++});

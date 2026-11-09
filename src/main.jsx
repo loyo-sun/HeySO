@@ -1,3 +1,4 @@
+import {LiveWorkspaceSync,watchLiveUpdates} from './live-workspace-sync.mjs';
 import useViewPreferences,{ViewPreferencesNotice} from './useViewPreferences.jsx';
 import {ReplicaField,ReplicaForm,ReplicaModal,ReplicaDrawer,ReplicaButton,ReplicaInput,ReplicaTextArea} from './ReplicaControls.jsx';
 import {AntTimeline,AntAlert,AntList,AntToast,AntRing,AntCard,AntStatistic,AntBreadcrumb,AntTag,AntAvatar,AntTabs,AntMenu,AntDisclosure} from './AntStructures.jsx';
@@ -16,7 +17,7 @@ import BacklogTable from './BacklogTable.jsx';
 import {WorkspaceLinksProvider,WorkspaceLink} from './WorkspaceLinks.jsx';
 import {WorkspaceSync,watchWorkspaceUpdates} from './workspace-sync.mjs';
 import {DurableWorkspaceSync,guardPending} from './durable-workspace-sync.mjs';
-import SyncNotice from './SyncNotice.jsx';
+import LiveSyncSettings from './LiveSyncSettings.jsx';
 import React, { useState, useEffect, useRef } from "react";
 import AccessGate, { useHosting } from './AccessGate.jsx';
 import { createRoot } from "react-dom/client";
@@ -228,7 +229,6 @@ function App() {
     [busy, setBusy] = useState(false),
     [connection, setConnection] = useState(null),
     [syncStatus,setSyncStatus] = useState(null),
-    [syncNavigation,setSyncNavigation] = useState(null),
     [online, setOnline] = useState(true);
   const boardPreferences=useViewPreferences(data?.projects.find(p=>p.id===projectId)||projectId,'board',{query:'',status:'all',sprint:'all',release:'all',showSubtasks:false,owner:'all'});
   const [query,setQuery]=boardPreferences.field('query'),[filter,setFilter]=boardPreferences.field('status'),[sprintFilter,setSprintFilter]=boardPreferences.field('sprint'),[boardReleaseFilter,setBoardReleaseFilter]=boardPreferences.field('release'),[boardShowSubtasks,setBoardShowSubtasks]=boardPreferences.field('showSubtasks'),[ownerFilter,setOwnerFilter]=boardPreferences.field('owner');
@@ -249,8 +249,8 @@ function App() {
     else navigate();
   };
   routeGuard.current = {
-    blocked: () => (view === 'settings' && settingsDirtyRef.current)||!!(selected&&syncRef.current?.hasPending?.()),
-    request: navigate=>{if(syncRef.current?.hasPending?.())setSyncNavigation(()=>navigate);else requestSettingsNavigation(navigate);},
+    blocked: () => view === 'settings' && settingsDirtyRef.current,
+    request: requestSettingsNavigation,
   };
   const receiveCloudState = (result) => {
     syncRef.current.receive(result.state);
@@ -264,22 +264,28 @@ function App() {
   if(!syncRef.current){
     const options={cloud:hosting.provider==='loyocloud',onData:setData,onBusy:setBusy,onMessage:setToast,onOnline:setOnline,onExpired:()=>{if(hosting.hosted)window.dispatchEvent(new Event('heyso-session-expired'));}};
     syncRef.current=hosting.provider==='loyocloud'&&hosting.storageScope
-      ?new DurableWorkspaceSync({...options,scope:hosting.storageScope,onStatus:setSyncStatus}):new WorkspaceSync(options);
+      ?new LiveWorkspaceSync({...options,scope:hosting.storageScope,onStatus:setSyncStatus}):new WorkspaceSync(options);
   }
-  const requestSyncNavigation=(navigate)=>{
-    if(syncRef.current.hasPending?.())setSyncNavigation(()=>navigate);else navigate();
-  };
-  const closeWorkItem=()=>requestSyncNavigation(()=>setSelected(null));
+  const closeWorkItem=()=>setSelected(null);
   useEffect(()=>{
     const beforeUnload=event=>guardPending(syncRef.current,event);
-    const connectionChange=event=>{if(syncRef.current.hasPending?.()){event.preventDefault();setSyncNavigation(()=>event.detail.proceed);}};
+    const connectionChange=event=>{
+      const sync=syncRef.current;
+      if(!sync.hasPending?.())return;
+      event.preventDefault();
+      // Account changes retain the scoped outbox. Wait for local storage, not cloud latency.
+      sync.ready.then(()=>sync.writing).then(()=>{
+        if(sync.localWrites||sync.persistenceError||sync.storageFailed){setToast('本地保存尚未完成，请稍后重试');return;}
+        event.detail.proceed();
+      }).catch(()=>setToast('本地保存尚未完成，请稍后重试'));
+    };
     window.addEventListener('beforeunload',beforeUnload);
     window.addEventListener('heyso-before-connection-change',connectionChange);
     return ()=>{window.removeEventListener('beforeunload',beforeUnload);window.removeEventListener('heyso-before-connection-change',connectionChange);syncRef.current.dispose?.();};
   },[]);
   const refresh=()=>syncRef.current.refresh();
   useEffect(() => {
-    return watchWorkspaceUpdates(syncRef.current,{intervalMs:hosting.hosted?2000:3500});
+    return syncRef.current instanceof LiveWorkspaceSync?watchLiveUpdates(syncRef.current):watchWorkspaceUpdates(syncRef.current,{intervalMs:hosting.hosted?2000:3500});
   }, []);
   useEffect(() => {
     if (toast) {
@@ -1176,7 +1182,7 @@ function App() {
             <SettingsPanel
               key={project.id}
               project={project}
-              cloudPanel={<CloudPanel project={project} busy={busy||settingsDirtyRef.current} onState={receiveCloudState} setToast={setToast}/>}
+              cloudPanel={<><CloudPanel project={project} busy={busy||settingsDirtyRef.current} onState={receiveCloudState} setToast={setToast}/>{syncStatus&&<LiveSyncSettings sync={syncRef.current} status={syncStatus} configure={hosting.configure}/>}</>}
               section={settingsSection}
               memoryPanel={renderMemory()}
               action={action}
@@ -1276,12 +1282,7 @@ function App() {
           </ReplicaModal>
         </div>}
       </Presence>
-      {syncStatus&&<SyncNotice sync={syncRef.current} status={syncStatus} configure={hosting.configure}/>}
-      {syncNavigation&&<div className="replica-dialog-host"><ReplicaModal className="modal unsaved-settings-modal" role="dialog" aria-modal="true" aria-labelledby="sync-leave-title">
-        <header><h2 id="sync-leave-title">修改尚未同步到云端</h2></header>
-        <div className="modal-body"><p>还有 {syncRef.current.queue?.length||1} 项操作未获云端确认。{syncStatus?.localSaved?'修改已保存在本地；离开后保留待同步记录，下次打开原账号与空间时恢复。':'本地保存尚未确认，请继续等待，避免丢失修改。'}</p></div>
-        <footer><ReplicaButton disabled={!syncStatus?.localSaved} onClick={()=>{const navigate=syncNavigation;setSyncNavigation(null);navigate();}}>保留本地并离开</ReplicaButton><ReplicaButton className="primary" aria-label="继续同步" onClick={()=>setSyncNavigation(null)}>继续同步</ReplicaButton></footer>
-      </ReplicaModal></div>}
+
       <ViewPreferencesNotice project={project}/>
       {toast && (
         <AntToast className="toast" role="status">

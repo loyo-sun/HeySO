@@ -5,12 +5,16 @@ const collections=['items','sprints','releases','notes','runs','events'];
 const editable=['kind','title','description','acceptance','owner','priority','status','points','releaseId','sprintId','parentId','dueDate','startDate','endDate','aiEnabled','aiDisabled','goal','boardRank','sprintRank'];
 export function projectPending(state,queue) {
   if(!state) return state;
-  const next=structuredClone(state);
-  for(const entry of queue) {
-    if(!['item.update','item.move'].includes(entry.type)) continue;
-    const item=next.items.find(i=>i.id===entry.payload.id);
-    if(item) for(const field of editable) if(entry.payload[field]!==undefined) item[field]=entry.payload[field];
+  const patches=new Map();
+  for(const entry of queue){
+    if(!['item.update','item.move'].includes(entry.type))continue;
+    const original=patches.get(entry.payload.id)||state.items.find(i=>i.id===entry.payload.id);
+    if(!original)continue;
+    const item={...original};
+    for(const field of editable)if(entry.payload[field]!==undefined)item[field]=entry.payload[field];
+    patches.set(item.id,item);
   }
+  const next=patches.size?{...state,items:state.items.map(item=>patches.get(item.id)||item)}:state;
   return next;
 }
 export function guardPending(sync,event) {
@@ -21,10 +25,10 @@ export function guardPending(sync,event) {
 // Persistent writes are enabled only for the LoyoCloud gateway, whose file-action
 // endpoint deduplicates requestId before checking the original headId.
 export class DurableWorkspaceSync extends WorkspaceSync {
-  constructor({scope,storage=new SyncStorage(scope),onStatus=()=>{},locks=globalThis.navigator?.locks,setTimer=setTimeout,clearTimer=clearTimeout,...options}) {
+  constructor({scope,storage=new SyncStorage(scope),onStatus=()=>{},locks=globalThis.navigator?.locks,setTimer=setTimeout,clearTimer=clearTimeout,now=Date.now,refreshIntervalMs=30000,...options}) {
     super({...options,cloud:true});
     const expired=this.onExpired;this.onExpired=()=>{if(!this.hasPending())expired();};
-    Object.assign(this,{scope,storage,onStatus,setTimer,clearTimer});
+    Object.assign(this,{scope,storage,onStatus,setTimer,clearTimer,now,refreshIntervalMs});
     this.queue=[];this.waiters=new Map();this.writing=Promise.resolve();this.confirmed=null;this.disposed=false;this.retryAttempt=0;
     this.status={phase:'loading',count:0};
     this.ready=(async()=>{
@@ -39,7 +43,7 @@ export class DurableWorkspaceSync extends WorkspaceSync {
       }
       try {
         const saved=await storage.read();
-        if(saved){this.confirmed=saved.state;this.queue=(saved.queue||[]).map(e=>e.phase==='local-error'?{...e,phase:'pending'}:e);this.publish();}
+        if(saved){this.confirmed=saved.state;this.lastChecked=saved.checkedAt||0;this.queue=(saved.queue||[]).map(e=>e.phase==='local-error'?{...e,phase:'pending'}:e);this.publish();}
         this.report(this.queue[0]?.phase||'synced',this.queue[0]?.error||'');
       } catch(e) {this.storageFailed=true;this.report('storage-error','无法读取本地数据，请检查浏览器存储设置后重新打开');}
     })();
@@ -50,7 +54,7 @@ export class DurableWorkspaceSync extends WorkspaceSync {
   // Serialize all local queue mutations, including cloud acknowledgements.
   transact(fn) {const task=this.writing.then(fn);this.writing=task.catch(()=>{});return task;}
   async persist(state=this.confirmed,queue=this.queue) {
-    try{await this.storage.write({state,queue});this.persistenceError=false;}
+    try{await this.storage.write({state,queue,checkedAt:this.lastChecked||0});this.persistenceError=false;}
     catch(e){this.persistenceError=true;throw e;}
   }
   receive(state) {
@@ -58,17 +62,23 @@ export class DurableWorkspaceSync extends WorkspaceSync {
     this.confirmed=state;this.epoch++;this.publish();
     this.transact(()=>this.persist()).catch(()=>{this.persistenceError=true;this.report('storage-error','本地保存失败，请勿关闭页面');});
   }
-  async refresh() {
+  async refresh({force=false}={}) {
     await this.ready;if(this.disposed)return;
     if(this.queue.length) {if(this.status.phase==='retrying')this.retry();else this.pump();return;}
     if(this.refreshing)return this.refreshing;
+    if(!force&&this.confirmed&&this.lastChecked&&this.now()-this.lastChecked<this.refreshIntervalMs)return;
     const epoch=this.epoch;
     this.refreshing=(async()=>{
       try {
         const result=await this.request('/api/state',{storageScope:this.scope,...(this.confirmed?{heads:headsOf(this.confirmed)}:{})});
         await this.transact(async()=>{
           if(this.disposed||this.epoch!==epoch||this.queue.length)return;
+          const checkedAt=this.now();
+          const unchanged=this.confirmed&&result.delta&&result.revision===this.confirmed.revision&&
+            !result.state.projects.length&&(!result.manifest||JSON.stringify([...result.manifest].sort((a,b)=>a.fileId.localeCompare(b.fileId)))===JSON.stringify(headsOf(this.confirmed).sort((a,b)=>a.fileId.localeCompare(b.fileId))));
+          if(unchanged){this.lastChecked=checkedAt;this.onOnline(true);return;}
           const next=mergeWorkspace(this.confirmed,result);
+          this.lastChecked=checkedAt;
           if(!this.readOnly&&!this.storageFailed)await this.persist(next,[]);
           this.confirmed=next;this.publish();this.onOnline(true);
         });
@@ -85,10 +95,10 @@ export class DurableWorkspaceSync extends WorkspaceSync {
     const id=payload.id||payload.itemId||payload.storyId||payload.runId,record=records.find(x=>x.id===id);
     const target=payload.projectId||record?.projectId||(this.confirmed?.projects.some(p=>p.id===id)?id:projectId);
     if(type==='project.create'||!this.confirmed?.projects.find(p=>p.id===target)?.cloud?.fileId) {
-      if(this.hasPending()){this.onMessage('请先完成当前修改的云端同步');return null;}
+      if(this.hasBlockingPending?.()??this.hasPending()){this.onMessage('请先完成当前修改的云端同步');return null;}
       const result=await super.action(type,payload,projectId,quiet);this.confirmed=this.state;return result;
     }
-    const entry={id:crypto.randomUUID(),type,payload:structuredClone(payload),projectId:target,phase:'pending',body:null};
+    const entry={id:crypto.randomUUID(),type,payload:structuredClone(payload),projectId:target,phase:'pending',body:null,...(this.captureBaseFields?{baseFields:this.captureBaseFields(type,payload)}:{})};
     this.localWrites=(this.localWrites||0)+1;this.epoch++;this.report('saving-local');
     const immediate=['item.update','item.move'].includes(type);
     let completion;
