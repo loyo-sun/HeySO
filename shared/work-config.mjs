@@ -168,3 +168,50 @@ export function checkWorkConfig(config) {
 export function effectiveSprintId(item, items, project) {
   return isSubtask(item,project) ? items.find(parent=>parent.id===item.parentId)?.sprintId||null : item.sprintId||null;
 }
+
+// Only current membership locks the live item. Carried-over work stays editable.
+export function closedSprintFor(item, items, sprints, project) {
+  if (!item) return null;
+  const id = effectiveSprintId(item, items, project);
+  return sprints.find(sp => sp.id === id && sp.projectId === item.projectId && sp.status === 'closed') || null;
+}
+export function sprintReadOnlyReason(item, items, sprints, project) {
+  const sp = closedSprintFor(item, items, sprints, project);
+  return sp ? `冲刺「${sp.name}」已完成，工作项仅可查看` : '';
+}
+
+// Shared preflight for the UI, HTTP writes and MCP writes, before any mutation.
+export function sprintMutationReason(state, type, payload = {}) {
+  const items = state.items, sprints = state.sprints, p = payload;
+  const byId = id => items.find(i => i.id === id);
+  const reason = item => item ? sprintReadOnlyReason(item, items, sprints, state.projects.find(pr => pr.id === item.projectId)) : '';
+  const lockedSprint = id => sprints.find(sp => sp.id === id && sp.status === 'closed');
+  const targets = [];
+  let destination;
+  if (type === 'item.create') {
+    targets.push(byId(p.parentId)); destination = p.sprintId;
+  } else if (['item.update','item.move','item.delete','item.reorder','item.roadmap.move'].includes(type)) {
+    const item = byId(p.id); targets.push(item);
+    destination = p.sprintId;
+    if (item && (type === 'item.roadmap.move' || ['parentId','kind','startDate','endDate','dueDate','scheduleMode'].some(key => Object.hasOwn(p,key)))) {
+      // Moving or resizing a branch can also modify its children and parents.
+      const ids = new Set([item.id]);
+      let count;
+      do { count = ids.size; for (const child of items) if (ids.has(child.parentId)) ids.add(child.id); } while (count !== ids.size);
+      targets.push(...items.filter(i => ids.has(i.id)), byId(item.parentId), byId(p.parentId));
+      if (type === 'item.roadmap.move') {
+        const target = byId(p.targetId);
+        targets.push(p.position === 'inside' ? target : byId(target?.parentId));
+      }
+    }
+  } else if (['run.progress','run.submit'].includes(type)) targets.push(byId(p.itemId || p.storyId));
+  else if (type === 'run.cancel') targets.push(byId(runTargetId(state.runs.find(r => r.id === p.id) || {})));
+  else if (type === 'review') {
+    targets.push(byId(p.storyId), ...items.filter(i => i.parentId === p.storyId));
+  } else if (type === 'release.publish') {
+    targets.push(...items.filter(i => i.releaseId === p.id && !terminal(i, state.projects.find(pr => pr.id === i.projectId))));
+  }
+  for (const item of targets) { const message = reason(item); if (message) return message; }
+  const sp = lockedSprint(destination);
+  return sp ? `冲刺「${sp.name}」已完成，不能添加或移入工作项` : '';
+}

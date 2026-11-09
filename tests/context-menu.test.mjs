@@ -42,6 +42,7 @@ test("status menu follows workflow transitions and requires human acceptance", (
 
 test("scope selection excludes closed sprints and released versions; clear is explicit", () => {
   const c = setup();
+  c.item.sprintId = null; // Active work may choose only open destinations.
   c.data.sprints[0].status = "closed";
   c.data.releases[0].status = "released";
   const sprint = find(c.build(),"安排到 Sprint");

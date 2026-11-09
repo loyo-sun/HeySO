@@ -7,7 +7,7 @@ import { fitChildSchedules } from '../shared/schedule.mjs';
 import { availableProjectCode, allocateItemNumber, checkIdentifiers, migrateIdentifiers } from "../shared/identifiers.mjs";
 import { rolesForMembers, checkMemberRoles, defaultRoles, defaultMemberRole } from "../shared/member-roles.mjs";
 import { randomUUID, createHash } from "node:crypto";
-import { effectiveSprintId, aiExecutionEnabled, isExecutionItem, runTargetId, defaultWorkConfig, configFor, typeFor, isWorkItem, isSubtask, typeNames, categoryOf, hasStatus, terminal, statusFor, allowedTransition, canParent, checkWorkConfig, workflowFor, workflowStatuses, workflowMigrationGroups, aiReady } from "../shared/work-config.mjs";
+import { sprintMutationReason, sprintReadOnlyReason, effectiveSprintId, aiExecutionEnabled, isExecutionItem, runTargetId, defaultWorkConfig, configFor, typeFor, isWorkItem, isSubtask, typeNames, categoryOf, hasStatus, terminal, statusFor, allowedTransition, canParent, checkWorkConfig, workflowFor, workflowStatuses, workflowMigrationGroups, aiReady } from "../shared/work-config.mjs";
 export const statuses = [
   "backlog",
   "todo",
@@ -589,6 +589,8 @@ export function act(s, a) {
     project.mcpRequests.push({requestId, fingerprint, result:structuredClone(result)});
     return result;
   }
+  const readOnlyReason = sprintMutationReason(s, type, p);
+  if (readOnlyReason) fail(readOnlyReason, 409);
   const activityBefore = captureItemActivity(s), previousEventIds = new Set(s.events.map(e => e.id));
   let out;
   if (type === "project.create") {
@@ -621,6 +623,10 @@ export function act(s, a) {
     for(const group of workflowMigrationGroups(pr,s.items,next)) {
       const id=p.statusMigration?.[group.key] || p.statusMigration?.[group.status];
       if(!id || !group.workflow?.statusIds.includes(id)) fail("请为受影响状态选择有效的工作流迁移目标");
+      for (const item of group.items) {
+        const reason = sprintReadOnlyReason(item,s.items,s.sprints,pr);
+        if (reason && item.status !== id) fail(reason,409);
+      }
       for(const item of group.items) { item.status=id; item.updatedAt=now(); }
     }
     const flowStructure = (c) => JSON.stringify({statuses:c.statuses,workflows:c.workflows,scheme:c.workflowScheme});

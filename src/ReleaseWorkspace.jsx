@@ -51,7 +51,7 @@ export default function ReleaseWorkspace({project,items,releases,sprints,release
 }
 function VersionDialog({dialog,project,items,releases,action,busy,onClose,onCreated}){
  const r=dialog.release,type=dialog.type,[error,setError]=useState(''),[query,setQuery]=useState(''),[chosen,setChosen]=useState(new Set()),[saving,setSaving]=useState(false),[start,setStart]=useState(r?.startDate||''),[planned,setPlanned]=useState(r?.plannedDate||'');
- const stats=r&&releaseStats(r,items,project),candidates=items.filter(i=>i.releaseId!==r?.id && (!i.releaseId||releases.some(v=>v.id===i.releaseId&&!v.archived&&v.status!=='released'))),isBusy=busy||saving;
+ const stats=r&&releaseStats(r,items,project),candidates=items.filter(i=>!i.readOnly&&i.releaseId!==r?.id && (!i.releaseId||releases.some(v=>v.id===i.releaseId&&!v.archived&&v.status!=='released'))),isBusy=busy||saving;
  const title=type==='scope'?'添加工作项':type==='publish'?'发布版本':r?'编辑版本':'创建版本';
  async function submit(e){e.preventDefault();if(isBusy)return;setError('');const f=new FormData(e.currentTarget),get=k=>String(f.get(k)||'').trim();setSaving(true);try{
  if(type==='scope'){for(const id of chosen){if(!await action('item.update',{id,releaseId:r.id})){setError('部分工作项未添加，请检查后重试。');return;}setChosen(old=>{const next=new Set(old);next.delete(id);return next;});}onClose();}

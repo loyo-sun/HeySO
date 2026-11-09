@@ -96,7 +96,7 @@ import RichTextEditor from "./RichTextEditor.jsx";
 import Board from "./Board.jsx";
 import MarkdownPreview from "./MarkdownPreview.jsx";
 import { workItemEntries, executionInstruction } from "./work-item-actions.mjs";
-import { effectiveSprintId, isExecutionItem, runTargetId, configFor, typeFor, typeNames, statusNamesFor, isWorkItem, isSubtask, categoryOf, hasStatus, terminal, statusFor, allowedTransition, parentCandidates, childTypes, canParent, statusCategories, workflowFor, workflowStatuses, progressCategory, boardStatuses, aiReady } from "../shared/work-config.mjs";
+import { sprintMutationReason, sprintReadOnlyReason, effectiveSprintId, isExecutionItem, runTargetId, configFor, typeFor, typeNames, statusNamesFor, isWorkItem, isSubtask, categoryOf, hasStatus, terminal, statusFor, allowedTransition, parentCandidates, childTypes, canParent, statusCategories, workflowFor, workflowStatuses, progressCategory, boardStatuses, aiReady } from "../shared/work-config.mjs";
 
 const statusNames = {
   backlog: "待规划",
@@ -282,6 +282,8 @@ function App() {
     setToast('此工作项已不存在，已返回项目页面');
   }, [data, projectId, selected]);
   async function action(type, payload, quiet = false) {
+    const reason = data && sprintMutationReason(data,type,payload);
+    if (reason) { setToast(reason); return null; }
     return syncRef.current.action(type,payload,projectId,quiet);
   }
   async function copy(text, successMessage = "已复制") {
@@ -411,7 +413,7 @@ function App() {
     );
   const kinds = typeNames(project);
   const statusNames = Object.fromEntries(configFor(project).statuses.filter((s) => s.enabled).map((s) => [s.id, s.name]));
-  const items = data.items.filter((x) => x.projectId === project.id),
+  const items = data.items.filter((x) => x.projectId === project.id).map(item => { const readOnlyReason = sprintReadOnlyReason(item,data.items,data.sprints,project); return {...item,readOnly:!!readOnlyReason,readOnlyReason}; }),
     stories = items.filter((x) => isWorkItem(x, project)),
     sprintItems = sprintPlanningItems(items, project),
     sprints = data.sprints.filter((x) => x.projectId === project.id),
@@ -1176,7 +1178,7 @@ function App() {
       </main>
       </>}
       <Presence present={!!selectedItem} onClose={() => setSelected(null)}>
-        {selectedItem && (
+        {selectedItem && (selectedItem.readOnly ? <WorkItemDialog modal={{item:selectedItem,readOnlyReason:selectedItem.readOnlyReason}} project={project} onClose={() => setSelected(null)}/> :
           <Detail
             busy={busy}
             onProjectSettings={openProjectSettings}
@@ -1377,7 +1379,7 @@ function Detail({
   useEffect(()=>{if(isSubtask(i,project)&&tab==='children')setTab('detail');},[i.id,i.kind,tab,project,setTab]);
   const kinds = typeNames(project);
   const statusNames = statusNamesFor(project);
-  const possibleParents = parentCandidates(project, items, i.kind, i.id);
+  const possibleParents = parentCandidates(project, items, i.kind, i.id).filter(item=>!sprintReadOnlyReason(item,data.items,data.sprints,project));
   const parentItem = items.find((p) => p.id === i.parentId);
   const ancestors = [];
   let ancestor = parentItem;
@@ -1960,7 +1962,7 @@ function EditorModal({
     } else setError("操作未完成，请查看提示并调整后重试。");
   }
   const parentKind = configFor(project).types.some((t) => t.enabled && canParent(project, itemKind, { kind: t.id }));
-  const possibleParents = parentCandidates(project, items, itemKind);
+  const possibleParents = parentCandidates(project, items, itemKind).filter(item=>!sprintReadOnlyReason(item,data.items,data.sprints,project));
   const parentItem = items.find((i) => i.id === itemParent);
   const minDate = [project.startDate, parentItem?.startDate].filter(Boolean).sort().at(-1);
   const maxDate = [project.endDate, parentItem?.endDate].filter(Boolean).sort()[0];

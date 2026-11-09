@@ -1,4 +1,4 @@
-import { aiExecutionEnabled, typeNames, isWorkItem, isExecutionItem, runTargetId, categoryOf, allowedTransition, workflowFor, workflowStatuses } from "../shared/work-config.mjs";
+import { sprintReadOnlyReason, aiExecutionEnabled, typeNames, isWorkItem, isExecutionItem, runTargetId, categoryOf, allowedTransition, workflowFor, workflowStatuses } from "../shared/work-config.mjs";
 
 export function workItemEntries({ item: i, snapshot = false, project, data, handlers: h }) {
   const items = data.items.filter((x) => x.projectId === project.id);
@@ -15,6 +15,12 @@ export function workItemEntries({ item: i, snapshot = false, project, data, hand
     copy,
   ];
   if (!live) return [{label:"工作项已删除", disabled:true}];
+  const readOnlyReason = sprintReadOnlyReason(live,items,data.sprints,project);
+  if (readOnlyReason) return [
+    {label:"查看详情（只读）",run:()=>h.open(live)},
+    {label:"已完成冲刺 · 只读",disabled:true,reason:readOnlyReason},
+    copy,
+  ];
   const update = (patch) => h.update(i.id, patch);
   const choice = (label, value, current, field) => ({label, checked:value === current, run:() => update({[field]:value})});
   const group = (label, children, separator = false) => ({label, children, separator, searchable:["设置负责人","安排到 Sprint","安排到版本"].includes(label), disabled:!children.length, reason:!children.length ? "暂无可用选项" : ""});

@@ -10,7 +10,7 @@ export default function RoadmapFieldCell({item,column,project,items,releases,val
  const [editing,setEditing]=useState(false),[draft,setDraft]=useState(item[column.id]??''),[error,setError]=useState(''),[saving,setSaving]=useState(false),pending=useRef(false),cancelled=useRef(false),base=useRef(item[column.id]??'');
  const field=column.id,label=column.label+'：'+item.title;
  async function save(next){
-  if(pending.current||cancelled.current)return;
+  if(item.readOnly||pending.current||cancelled.current)return;
   if((next??'')===(item[field]??'')){setEditing(false);return;}
   if((item[field]??'')!==base.current){setError('字段已有更新，请按 Esc 取消后重新编辑。');return;}
   if(field==='points'&&(!Number.isFinite(next)||next<0||next>1000)){setError('故事点须在 0 至 1000 之间');return;}
@@ -19,8 +19,8 @@ export default function RoadmapFieldCell({item,column,project,items,releases,val
   catch(e){setError(e.message||'未保存，请重试');}
   finally{pending.current=false;setSaving(false);}
  }
- const edit=()=>{cancelled.current=false;base.current=item[field]??'';setDraft(item[field]??'');setError('');setEditing(true);};
- const disabled=busy||saving;
+ const edit=()=>{if(item.readOnly)return;cancelled.current=false;base.current=item[field]??'';setDraft(item[field]??'');setError('');setEditing(true);};
+ const disabled=busy||saving||item.readOnly;
  let control;
  if(editing){
   if(field==='startDate'||field==='endDate'){
@@ -34,7 +34,7 @@ export default function RoadmapFieldCell({item,column,project,items,releases,val
   }
  }
  return <div className={'roadmap-editable-cell field-'+field+(editing?' is-editing':'')} onKeyDown={e=>{if(e.key==='Escape'&&!pending.current){cancelled.current=true;e.stopPropagation();setEditing(false);}}}>
-  {editing?control:<ReplicaButton className="roadmap-field-value" aria-label={label} disabled={busy} onClick={edit} title={'点击编辑'+column.label+'：'+value}>{field==='owner'&&<i>{(item.owner||'?').slice(0,1)}</i>}{field==='status'&&<StatusIcon value={item.status}/>}<span>{value===''||value==null?'—':value}</span></ReplicaButton>}
+  {editing?control:<ReplicaButton className="roadmap-field-value" aria-label={label} disabled={busy||item.readOnly} onClick={edit} title={item.readOnlyReason||'点击编辑'+column.label+'：'+value}>{field==='owner'&&<i>{(item.owner||'?').slice(0,1)}</i>}{field==='status'&&<StatusIcon value={item.status}/>}<span>{value===''||value==null?'—':value}</span></ReplicaButton>}
   {error&&<Tooltip title={error} open><ReplicaButton className="roadmap-field-retry" type="button" aria-label={'重试保存'+column.label} onClick={()=>save(field==='points'?Number(draft):field==='releaseId'?(draft||null):draft)}>重试</ReplicaButton></Tooltip>}
  </div>;
 }

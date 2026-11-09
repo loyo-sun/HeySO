@@ -86,6 +86,7 @@ export default function Roadmap({ project, items, releases, onOpen, onCreate, on
   useEffect(clearSortDrag, [project.id, filtered, top, bottom]);
   async function saveOrder(item, target, position) {
     if (!canSort || sortPending.current || !item || !target) return;
+    if (item.readOnly || position==='inside'&&target.readOnly) {setNotice(item.readOnlyReason||target.readOnlyReason);return;}
     const plan=roadmapMovePlan(project,items,item,target,position);
     if(plan.error){setNotice('无法移动：'+plan.error);return;}
     const siblings = roadmapSiblings(items,item);
@@ -108,13 +109,14 @@ export default function Roadmap({ project, items, releases, onOpen, onCreate, on
     if (!canSort || !source) return;
     const bounds=event.currentTarget.getBoundingClientRect(),position=roadmapDropPosition(event.clientY-bounds.top,bounds.height);
     const plan=roadmapMovePlan(project,items,source,target,position);
+    if (source.readOnly || position==='inside'&&target.readOnly) plan.error=source.readOnlyReason||target.readOnlyReason;
     event.preventDefault();event.dataTransfer.dropEffect=plan.error?'none':'move';
     const preview={id:target.id,position,error:plan.error,x:event.clientX,y:event.clientY};
     dropPreview.current=preview;setDrop(preview);
   }
   function startRowDrag(event, item) {
     const origin=rowDragOrigin.current;
-    if (!canSort || origin?.itemId===item.id && origin.protected) {event.preventDefault();return;}
+    if (item.readOnly || !canSort || origin?.itemId===item.id && origin.protected) {event.preventDefault();return;}
     event.stopPropagation();event.dataTransfer.setData('application/x-heyso-roadmap-item',item.id);event.dataTransfer.effectAllowed='move';
     suppressRowClick.current=true;setDragged(item.id);
   }
@@ -131,6 +133,7 @@ export default function Roadmap({ project, items, releases, onOpen, onCreate, on
     clearSortDrag();saveOrder(source,target,position);
   }
   function sortKey(event, item) {
+    if (item.readOnly) return;
     if (!['ArrowUp','ArrowDown','Escape'].includes(event.key)) return;
     event.preventDefault();event.stopPropagation();
     if (event.key==='Escape') {clearSortDrag();return;}
@@ -166,14 +169,14 @@ export default function Roadmap({ project, items, releases, onOpen, onCreate, on
             const range = itemRange(item), bar = roadmapBar(item, window), progress = roadmapProgress(item, items, project);
             const overdue = range && range.end < dayNumber(today) && !terminal(item, project);
             const type = typeFor(project, item.kind), title = `${item.title} · ${names[item.status] || item.status} · ${item.owner || '未分配'}\n${range ? `${range.startDate} 至 ${range.endDate}` : '日期待设置'}${progress.total ? `\n已完成 ${progress.done}/${progress.total} · ${progress.percent}%` : ''}`;
-            return <React.Fragment key={item.id}><div className={`roadmap-row${contextOnly ? ' context-only' : ''}${overdue ? ' is-overdue' : ''}${hasChildren?' is-parent':''}${dragged===item.id?' is-sort-dragging':''}${drop?.id===item.id?' sort-drop-'+(drop.error?'invalid':drop.position):''}`} data-work-item-id={item.id} tabIndex={0} draggable={canSort} aria-describedby="roadmap-drag-help" onPointerDownCapture={event=>{rowDragOrigin.current={itemId:item.id,protected:!!event.target.closest('input,textarea,select,[contenteditable="true"],[role="combobox"],.roadmap-editable-cell.is-editing,.roadmap-row-add,.roadmap-fold,.roadmap-bar')};}} onDragStart={event=>startRowDrag(event,item)} onDragEnd={endRowDrag} onClickCapture={event=>{if(suppressRowClick.current){event.preventDefault();event.stopPropagation();suppressRowClick.current=false;}}} onKeyDown={event=>{if(!event.target.closest('input,textarea,select,[contenteditable="true"],[role="combobox"],.roadmap-editable-cell.is-editing,.roadmap-bar')&&(event.altKey||event.key==='Escape'))sortKey(event,item);}} onDragOver={event=>dragOver(event,item)} onDragLeave={event=>{if(!event.currentTarget.contains(event.relatedTarget))setDrop(old=>old?.id===item.id?null:old);}} onDrop={event=>dropOrder(event,item)}>
+            return <React.Fragment key={item.id}><div className={`roadmap-row${contextOnly ? ' context-only' : ''}${overdue ? ' is-overdue' : ''}${hasChildren?' is-parent':''}${dragged===item.id?' is-sort-dragging':''}${drop?.id===item.id?' sort-drop-'+(drop.error?'invalid':drop.position):''}`} data-work-item-id={item.id} tabIndex={0} draggable={canSort&&!item.readOnly} aria-describedby="roadmap-drag-help" onPointerDownCapture={event=>{rowDragOrigin.current={itemId:item.id,protected:!!event.target.closest('input,textarea,select,[contenteditable="true"],[role="combobox"],.roadmap-editable-cell.is-editing,.roadmap-row-add,.roadmap-fold,.roadmap-bar')};}} onDragStart={event=>startRowDrag(event,item)} onDragEnd={endRowDrag} onClickCapture={event=>{if(suppressRowClick.current){event.preventDefault();event.stopPropagation();suppressRowClick.current=false;}}} onKeyDown={event=>{if(!event.target.closest('input,textarea,select,[contenteditable="true"],[role="combobox"],.roadmap-editable-cell.is-editing,.roadmap-bar')&&(event.altKey||event.key==='Escape'))sortKey(event,item);}} onDragOver={event=>dragOver(event,item)} onDragLeave={event=>{if(!event.currentTarget.contains(event.relatedTarget))setDrop(old=>old?.id===item.id?null:old);}} onDrop={event=>dropOrder(event,item)}>
               <div className="roadmap-label" style={{ paddingLeft: 12 + Math.min(depth, 6) * 16 }}>
                 {hasChildren ? <ReplicaButton className="roadmap-fold icon-btn" aria-label={(folded ? '展开' : '收起') + item.title} aria-expanded={!folded} onClick={() => toggle(item.id)} disabled={filtered}>{folded ? <ChevronRight size={14}/> : <ChevronDown size={14}/>}</ReplicaButton> : <span className="roadmap-fold-placeholder"/>}
                 <TypeIcon kind={item.kind}/><ReplicaButton className="roadmap-item-name" onClick={() => {if(!dragged)onOpen(item);}} title={title+(filtered?'\n清除筛选后可排序':'\n拖动整行调整同级顺序 · Alt + ↑ / ↓ 移动')}><small>{project.code}-{item.number}</small><span>{item.title}</span></ReplicaButton>
-                <ReplicaButton type="button" className="roadmap-row-add icon-btn" aria-label={'在此行下方新建工作项：'+item.title} title="新建工作项" disabled={busy||!!creating} onClick={()=>insertRow(item,depth)}><Plus size={14}/></ReplicaButton>
+                <ReplicaButton type="button" className="roadmap-row-add icon-btn" aria-label={'在此行下方新建工作项：'+item.title} title="新建工作项" disabled={busy||!!creating||item.readOnly} onClick={()=>insertRow(item,depth)}><Plus size={14}/></ReplicaButton>
               </div>
               <div className="roadmap-fields">{shownFields.map(c=><RoadmapFieldCell key={c.id} item={item} column={c} project={project} items={items} releases={releases} value={fieldValue(item,c.id)} busy={busy} onSave={onSchedule}/>)}</div>
-              <div className="roadmap-track" onClick={e=>{if(!e.target.closest("button"))onOpen(item);}}>{grid}{nowLine}{bar ? <RoadmapBar item={item} items={items} project={project} window={window} progress={progress} color={colorBy==='status'?({done:'#36B37E',active:'#4BADE8',review:'#6554C0',blocked:'#FF5630',cancelled:'#8993a4'}[categoryOf(project,item.status,item.kind)]||'#8993a4'):workTypeColor(item.kind,type)} compact={!barLabels} summary={hasChildren} overdue={overdue} title={title} status={names[item.status]} busy={busy} onOpen={onOpen} onSchedule={onSchedule}/> : <div className="roadmap-outside">{range ? <><span>当前时间段外 · {range.startDate} — {range.endDate}</span><ReplicaButton className="text-btn" onClick={() => setAnchor(range.startDate)}>定位</ReplicaButton></> : <ReplicaButton className="roadmap-unscheduled" disabled={busy} onClick={() => onOpen(item)}>待排期 · 设置日期</ReplicaButton>}</div>}</div>
+              <div className="roadmap-track" onClick={e=>{if(!e.target.closest("button"))onOpen(item);}}>{grid}{nowLine}{bar ? <RoadmapBar item={item} items={items} project={project} window={window} progress={progress} color={colorBy==='status'?({done:'#36B37E',active:'#4BADE8',review:'#6554C0',blocked:'#FF5630',cancelled:'#8993a4'}[categoryOf(project,item.status,item.kind)]||'#8993a4'):workTypeColor(item.kind,type)} compact={!barLabels} summary={hasChildren} overdue={overdue} title={title} status={names[item.status]} busy={busy} onOpen={onOpen} onSchedule={onSchedule}/> : <div className="roadmap-outside">{range ? <><span>当前时间段外 · {range.startDate} — {range.endDate}</span><ReplicaButton className="text-btn" onClick={() => setAnchor(range.startDate)}>定位</ReplicaButton></> : <ReplicaButton className="roadmap-unscheduled" disabled={busy} onClick={() => onOpen(item)}>{item.readOnly?'未记录日期 · 查看详情':'待排期 · 设置日期'}</ReplicaButton>}</div>}</div>
             </div>{creating?.source?.id===item.id&&<RoadmapInlineCreate project={project} items={items} source={item} depth={depth} onSave={saveNew} onCancel={()=>setCreating(null)}/>}</React.Fragment>;
           })}
           {showReleases && visibleReleases.length > 0 && <><div className="roadmap-section-heading"><Flag size={14}/>版本里程碑<span>计划 / 实际发布日期</span><ReplicaButton className="text-btn" onClick={()=>onReleases()}>管理版本</ReplicaButton></div>{visibleReleases.map(r => {
