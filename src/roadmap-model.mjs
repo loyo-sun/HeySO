@@ -59,6 +59,7 @@ export function roadmapTimeline(anchor, scale, project, items = [], releases = [
   return { ...focus, start, end, days, startDate: iso(start), endDate: iso(end), segments, ticks };
 }
 export function shiftRoadmap(anchor, scale, direction) {
+  if (scale === 'week') return iso(dayNumber(anchor) + direction * 7);
   if (scale === 'day') return iso(dayNumber(anchor) + direction * 14);
   const date = new Date(dayNumber(anchor) * DAY);
   return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + direction * (scale === 'year' ? 12 : scale === 'quarter' ? 3 : 1), 1)).toISOString().slice(0, 10);
@@ -131,7 +132,10 @@ export function roadmapPlanWindow(anchor, mode, project, items = [], releases = 
     start = Math.min(...dates) - 7; end = Math.max(...dates) + 7;
   } else {
     start = dayNumber(anchor); const d = new Date(start * DAY);
-    end = Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + (mode === 'year' ? 12 : 3), d.getUTCDate()) / DAY - 1;
+    if(mode==='week') end=start+6;
+    else {const months=mode==='year'?12:mode==='month'?1:3;
+      const lastDay=new Date(Date.UTC(d.getUTCFullYear(),d.getUTCMonth()+months+1,0)).getUTCDate();
+      end=Date.UTC(d.getUTCFullYear(),d.getUTCMonth()+months,Math.min(d.getUTCDate(),lastDay))/DAY-1;}
   }
   // Keep very long project plans practical while retaining all dates in fit mode.
   const days = end - start + 1, segments = [], ticks = [], monthly = days > 180;
@@ -141,7 +145,7 @@ export function roadmapPlanWindow(anchor, mode, project, items = [], releases = 
       const next = Date.UTC(year, month + 1, 1) / DAY;
       segments.push({label:`${year}年${month + 1}月`,left:(n-start)/days*100,width:(Math.min(next,end+1)-n)/days*100});
     }
-    if (n === start || (monthly ? d.getUTCDate() === 1 : d.getUTCDay() === 1)) ticks.push({date:iso(n),left:(n-start)/days*100,label:`${month+1}/${d.getUTCDate()}`,weekend:[0,6].includes(d.getUTCDay())});
+    if (n === start || (days<=31 ? true : monthly ? d.getUTCDate() === 1 : d.getUTCDay() === 1)) ticks.push({date:iso(n),left:(n-start)/days*100,label:`${month+1}/${d.getUTCDate()}`,weekend:[0,6].includes(d.getUTCDay())});
   }
   return {start,end,days,startDate:iso(start),endDate:iso(end),segments,ticks,label:`${iso(start)} — ${iso(end)}`};
 }

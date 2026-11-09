@@ -8,7 +8,7 @@ export const viewPreferenceKeys={
  reports:['report','owner','kind','release','unit','group','scope','aiScope','dateField','from','to','sprintId','directoryCategory','directoryQuery','favorites','recent'],
 };
 const columns=['workItem','status','priority','owner','points','kind','parentId','startDate','endDate','sprintId','releaseId','createdAt','updatedAt'];
-const enums={scale:['quarter','year','fit','custom'],colorBy:['type','status'],filter:['unreleased','released','all','archived'],tab:['items','notes'],unit:['points','count'],group:['status','kind','priority','owner','releaseId','sprintId'],scope:['current','done','unfinished','added','removed'],aiScope:['period','pending'],dateField:['createdAt','updatedAt','endDate','completedAt']};
+const enums={scale:['quarter','year','month','week','fit','custom'],colorBy:['type','status'],filter:['unreleased','released','all','archived'],tab:['items','notes'],unit:['points','count'],group:['status','kind','priority','owner','releaseId','sprintId'],scope:['current','done','unfinished','added','removed'],aiScope:['period','pending'],dateField:['createdAt','updatedAt','endDate','completedAt']};
 const plain=v=>!!v&&typeof v==='object'&&!Array.isArray(v)&&Object.getPrototypeOf(v)===Object.prototype;
 const string=v=>typeof v==='string'&&v.length<=1000;
 const ids=v=>Array.isArray(v)&&v.length<=1000&&v.every(s=>typeof s==='string'&&s.length<=200);

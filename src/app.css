@@ -7804,3 +7804,11 @@ body .roadmap-plan-popover .roadmap-search {padding:8px 11px;}
 .cloud-sync-notice>div{min-width:0}.cloud-sync-notice strong{display:block;font-size:13px}.cloud-sync-notice small{display:block;font-size:12px;color:#63738d;overflow-wrap:anywhere;max-height:70px;overflow:auto;margin-top:3px}
 .cloud-sync-notice.blocked{border-color:#ebc18f;color:#8a4c14}.cloud-sync-notice.synced{padding:6px 10px;bottom:14px;opacity:.9;border-color:#d9e7db;color:#3c7752;box-shadow:none}
 .sync-review-modal table{width:100%;border-collapse:collapse;table-layout:fixed}.sync-review-modal th,.sync-review-modal td{padding:8px;border:1px solid #e8ebef;white-space:pre-wrap;overflow-wrap:anywhere;vertical-align:top}.sync-review-modal .modal-body{max-height:60vh;overflow:auto}.sync-review-modal footer{display:flex;gap:8px;flex-wrap:wrap}
+
+/* Sync recovery belongs to cloud settings, without covering the work area. */
+.cloud-sync-notice,.cloud-sync-notice.synced{position:static;transform:none;margin:16px 24px;width:auto;max-width:none;box-shadow:none}
+
+/* Fixed visual scale independent of the number of release items. */
+.release-workspace .version-meter{flex:none;width:180px;min-width:180px;height:8px;display:flex;overflow:hidden;}
+.release-workspace .version-meter>span{display:block;height:100%;flex-shrink:0;}
+.roadmap-plan-time .ant-picker{max-width:270px;}
