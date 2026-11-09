@@ -11,7 +11,12 @@ export const useHosting = () => useContext(Hosting);
 export default function AccessGate({ children }) {
   const [session, setSession] = useState(null), [password, setPassword] = useState(''), [error, setError] = useState(''), [busy, setBusy] = useState(false);
   const [bootstrap, setBootstrap] = useState(null);
-  async function configure() {
+  function requestConnectionChange(proceed) {
+    const event=new CustomEvent('heyso-before-connection-change',{cancelable:true,detail:{proceed}});
+    if(window.dispatchEvent(event))return proceed();
+  }
+  async function configure() {return requestConnectionChange(configureNow);}
+  async function configureNow() {
     const response = await fetch('/api/setup');
     if (!response.ok) { setError('无法打开云端存储设置，请稍后重试'); return; }
     setBootstrap(await response.json());
@@ -42,7 +47,8 @@ export default function AccessGate({ children }) {
       setPassword(''); await check();
     } catch (e) { setError(e.message); } finally { setBusy(false); }
   }
-  async function logout() {
+  async function logout() {return requestConnectionChange(logoutNow);}
+  async function logoutNow() {
     const res = await fetch('/api/session', { method: 'DELETE' });
     if (res.ok) { setSession({ hosted: true, authenticated: false }); setError(''); }
   }
