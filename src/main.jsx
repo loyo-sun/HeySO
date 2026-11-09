@@ -15,6 +15,8 @@ import ReleaseWorkspace from "./ReleaseWorkspace.jsx";
 import BacklogTable from './BacklogTable.jsx';
 import {WorkspaceLinksProvider,WorkspaceLink} from './WorkspaceLinks.jsx';
 import {WorkspaceSync,watchWorkspaceUpdates} from './workspace-sync.mjs';
+import {DurableWorkspaceSync,guardPending} from './durable-workspace-sync.mjs';
+import SyncNotice from './SyncNotice.jsx';
 import React, { useState, useEffect, useRef } from "react";
 import AccessGate, { useHosting } from './AccessGate.jsx';
 import { createRoot } from "react-dom/client";
@@ -225,6 +227,8 @@ function App() {
     [toast, setToast] = useState(""),
     [busy, setBusy] = useState(false),
     [connection, setConnection] = useState(null),
+    [syncStatus,setSyncStatus] = useState(null),
+    [syncNavigation,setSyncNavigation] = useState(null),
     [online, setOnline] = useState(true);
   const boardPreferences=useViewPreferences(data?.projects.find(p=>p.id===projectId)||projectId,'board',{query:'',status:'all',sprint:'all',release:'all',showSubtasks:false,owner:'all'});
   const [query,setQuery]=boardPreferences.field('query'),[filter,setFilter]=boardPreferences.field('status'),[sprintFilter,setSprintFilter]=boardPreferences.field('sprint'),[boardReleaseFilter,setBoardReleaseFilter]=boardPreferences.field('release'),[boardShowSubtasks,setBoardShowSubtasks]=boardPreferences.field('showSubtasks'),[ownerFilter,setOwnerFilter]=boardPreferences.field('owner');
@@ -245,8 +249,8 @@ function App() {
     else navigate();
   };
   routeGuard.current = {
-    blocked: () => view === 'settings' && settingsDirtyRef.current,
-    request: requestSettingsNavigation,
+    blocked: () => (view === 'settings' && settingsDirtyRef.current)||!!(selected&&syncRef.current?.hasPending?.()),
+    request: navigate=>{if(syncRef.current?.hasPending?.())setSyncNavigation(()=>navigate);else requestSettingsNavigation(navigate);},
   };
   const receiveCloudState = (result) => {
     syncRef.current.receive(result.state);
@@ -257,7 +261,22 @@ function App() {
     if(fileId){setView('settings');setSettingsSection('integrations');}
   },[]);
   const syncRef=useRef(null);
-  if(!syncRef.current)syncRef.current=new WorkspaceSync({cloud:hosting.provider==='loyocloud',onData:setData,onBusy:setBusy,onMessage:setToast,onOnline:setOnline,onExpired:()=>{if(hosting.hosted)window.dispatchEvent(new Event('heyso-session-expired'));}});
+  if(!syncRef.current){
+    const options={cloud:hosting.provider==='loyocloud',onData:setData,onBusy:setBusy,onMessage:setToast,onOnline:setOnline,onExpired:()=>{if(hosting.hosted)window.dispatchEvent(new Event('heyso-session-expired'));}};
+    syncRef.current=hosting.provider==='loyocloud'&&hosting.storageScope
+      ?new DurableWorkspaceSync({...options,scope:hosting.storageScope,onStatus:setSyncStatus}):new WorkspaceSync(options);
+  }
+  const requestSyncNavigation=(navigate)=>{
+    if(syncRef.current.hasPending?.())setSyncNavigation(()=>navigate);else navigate();
+  };
+  const closeWorkItem=()=>requestSyncNavigation(()=>setSelected(null));
+  useEffect(()=>{
+    const beforeUnload=event=>guardPending(syncRef.current,event);
+    const connectionChange=event=>{if(syncRef.current.hasPending?.()){event.preventDefault();setSyncNavigation(()=>event.detail.proceed);}};
+    window.addEventListener('beforeunload',beforeUnload);
+    window.addEventListener('heyso-before-connection-change',connectionChange);
+    return ()=>{window.removeEventListener('beforeunload',beforeUnload);window.removeEventListener('heyso-before-connection-change',connectionChange);syncRef.current.dispose?.();};
+  },[]);
   const refresh=()=>syncRef.current.refresh();
   useEffect(() => {
     return watchWorkspaceUpdates(syncRef.current,{intervalMs:hosting.hosted?2000:3500});
@@ -897,7 +916,7 @@ function App() {
         </ReplicaButton></div>
       </header>
       {page === "dashboard" && <main className="dashboard-main" id="panel-dashboard" role="tabpanel" aria-labelledby="heyso-workspace-tabs-tab-dashboard">
-        {!online && <AntAlert className="offline-banner">服务连接已断开，恢复连接后可继续保存。</AntAlert>}
+        {!online && <AntAlert className="offline-banner">服务连接已断开，云端修改将在恢复连接后重试。</AntAlert>}
         <Dashboard data={data} onRefresh={refresh} onProject={(id) => { switchProject(id); go("roadmap"); }}
           onOpen={(item) => { switchProject(item.projectId); go("backlog"); open(item); }}
           onCreateProject={() => setModal({ type: "project" })}/>
@@ -1040,7 +1059,7 @@ function App() {
 
         {!online && (
           <AntAlert className="offline-banner">
-            服务连接已断开，恢复连接后可继续保存。
+            服务连接已断开，云端修改将在恢复连接后重试。
           </AntAlert>
         )}
         <div className={"content view-" + view} key={project.id + view} onContextMenu={handleContextMenu} onKeyDown={handleContextMenu}>
@@ -1177,7 +1196,7 @@ function App() {
         </div>
       </main>
       </>}
-      <Presence present={!!selectedItem} onClose={() => setSelected(null)}>
+      <Presence present={!!selectedItem} onClose={closeWorkItem}>
         {selectedItem && (selectedItem.readOnly ? <WorkItemDialog modal={{item:selectedItem,readOnlyReason:selectedItem.readOnlyReason}} project={project} onClose={() => setSelected(null)}/> :
           <Detail
             busy={busy}
@@ -1189,7 +1208,7 @@ function App() {
             sprints={sprints}
             releases={releases}
             action={action}
-            close={() => setSelected(null)}
+            close={closeWorkItem}
             tab={tab}
             setTab={setTab}
             create={create}
@@ -1257,6 +1276,12 @@ function App() {
           </ReplicaModal>
         </div>}
       </Presence>
+      {syncStatus&&<SyncNotice sync={syncRef.current} status={syncStatus} configure={hosting.configure}/>}
+      {syncNavigation&&<div className="replica-dialog-host"><ReplicaModal className="modal unsaved-settings-modal" role="dialog" aria-modal="true" aria-labelledby="sync-leave-title">
+        <header><h2 id="sync-leave-title">修改尚未同步到云端</h2></header>
+        <div className="modal-body"><p>还有 {syncRef.current.queue?.length||1} 项操作未获云端确认。{syncStatus?.localSaved?'修改已保存在本地；离开后保留待同步记录，下次打开原账号与空间时恢复。':'本地保存尚未确认，请继续等待，避免丢失修改。'}</p></div>
+        <footer><ReplicaButton disabled={!syncStatus?.localSaved} onClick={()=>{const navigate=syncNavigation;setSyncNavigation(null);navigate();}}>保留本地并离开</ReplicaButton><ReplicaButton className="primary" aria-label="继续同步" onClick={()=>setSyncNavigation(null)}>继续同步</ReplicaButton></footer>
+      </ReplicaModal></div>}
       <ViewPreferencesNotice project={project}/>
       {toast && (
         <AntToast className="toast" role="status">
