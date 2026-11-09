@@ -69,7 +69,7 @@ function itemDates(item, project, mandatory = false) {
   if (item.startDate && item.endDate && item.startDate > item.endDate) fail(`「${item.title}」结束日期不能早于开始日期`);
   if (
     (item.startDate || item.endDate) &&
-    (!project.startDate || !project.endDate)
+    (!project.startDate || !project.endDate) && !project.longTerm
   )
     fail("请先在项目设置中填写项目开始日期和结束日期");
   const end = item.endDate || item.dueDate;
@@ -474,6 +474,8 @@ export function validate(s) {
     required(p.name, "项目名称");
     if (p.name.length > 120) fail("项目名称不能超过 120 字");
     checkWorkConfig(p.workConfig);
+    if (p.longTerm !== undefined && typeof p.longTerm !== "boolean") fail("长期项目设置无效");
+    if (p.longTerm && (p.startDate || p.endDate)) fail("长期项目无需设置项目日期");
     dateRange(p.startDate, p.endDate, `项目「${p.name}」`);
     if (!Array.isArray(p.members) || !p.members.length || p.members.some((m) => typeof m !== "string" || !m.trim())) fail("项目成员格式错误");
     try { checkMemberRoles(p); } catch (e) { fail(e.message); }
@@ -593,9 +595,11 @@ export function act(s, a) {
     out = emptyProject(p.name, p.description || "");
     out.code = p.code !== undefined ? String(p.code).trim().toUpperCase() : availableProjectCode(s.projects);
     out.goal = required(p.goal, "项目目标");
-    dateRange(p.startDate, p.endDate, "项目", true);
-    out.startDate = p.startDate;
-    out.endDate = p.endDate;
+    if (p.longTerm !== undefined && typeof p.longTerm !== "boolean") fail("长期项目设置无效");
+    out.longTerm = p.longTerm === true;
+    if (!out.longTerm) dateRange(p.startDate, p.endDate, "项目", true);
+    out.startDate = out.longTerm ? "" : p.startDate;
+    out.endDate = out.longTerm ? "" : p.endDate;
     s.projects.push(out);
     addEvent(s, out.id, "project", "创建项目", out.name);
   } else if (type === "project.workConfig") {
@@ -676,8 +680,13 @@ export function act(s, a) {
     }
     try { checkMemberRoles(pr); } catch (e) { fail(e.message); }
     pr.roles = pr.roles.map((role) => ({ ...role, name: role.name.trim(), description: role.description.trim() }));
-    if (p.startDate !== undefined || p.endDate !== undefined)
-      dateRange(pr.startDate, pr.endDate, "项目", true);
+    if (p.longTerm !== undefined) {
+      if (typeof p.longTerm !== "boolean") fail("长期项目设置无效");
+      pr.longTerm = p.longTerm;
+    }
+    if (pr.longTerm) { pr.startDate = ""; pr.endDate = ""; }
+    if (p.startDate !== undefined || p.endDate !== undefined || p.longTerm !== undefined)
+      dateRange(pr.startDate, pr.endDate, "项目", !pr.longTerm);
     if (sharedKeys.some((key, i) => (pr[key] || "") !== previousContext[i])) {
       for (const story of s.items.filter((i) => i.projectId === pr.id && work(s, i))) {
         story.contentVersion = (story.contentVersion || 1) + 1;
@@ -1037,6 +1046,8 @@ export function act(s, a) {
       }
       snapshot(s, sp.id);
       sp.finalStories = structuredClone(storiesIn(s, sp.id));
+      const project = projectOf(s, sp);
+      sp.finalItems = structuredClone(s.items.filter(i=>i.projectId===sp.projectId && effectiveSprintId(i,s.items,project)===sp.id).map(i=>({...i,sprintId:sp.id})));
       sp.completedAt = now();
       sp.status = "closed";
       sp.carryover = [];

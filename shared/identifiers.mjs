@@ -39,7 +39,7 @@ export function migrateIdentifiers(state) {
     const preferred = key(p.code);
     p.code = availableProjectCode(processed,p.accountId,validProjectCode(preferred) ? preferred : "HS");
     const items = state.items.filter((i) => i.projectId === p.id);
-    const historical = [...(state.sprints || []).filter((s) => s.projectId === p.id).flatMap((s) => [...(s.baseline || []),...(s.finalStories || [])]), ...(state.releases || []).filter((r) => r.projectId === p.id).flatMap((r) => r.publishedStories || [])];
+    const historical = [...(state.sprints || []).filter((s) => s.projectId === p.id).flatMap((s) => [...(s.baseline || []),...(s.finalStories || []),...(s.finalItems || [])]), ...(state.releases || []).filter((r) => r.projectId === p.id).flatMap((r) => r.publishedStories || [])];
     p.nextItemNumber = Math.max(p.nextItemNumber || 1, ...[...items,...historical].map((i) => Number.isSafeInteger(i.number) ? i.number + 1 : 1));
     const seen = new Set();
     for (const i of items) {

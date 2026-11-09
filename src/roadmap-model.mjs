@@ -126,8 +126,8 @@ export function roadmapPlanWindow(anchor, mode, project, items = [], releases = 
   if (mode === 'custom' && dayNumber(custom.startDate) !== null && dayNumber(custom.endDate) !== null && dayNumber(custom.endDate) >= dayNumber(custom.startDate)) {
     start = dayNumber(custom.startDate); end = dayNumber(custom.endDate);
   } else if (mode === 'fit') {
-    const dates = [...items.flatMap(i => [i.startDate, i.endDate || i.dueDate]), ...releases.map(r => r.releasedDate || r.plannedDate)].map(dayNumber).filter(n => n !== null);
-    if (!dates.length) dates.push(...[project.startDate, project.endDate, anchor].map(dayNumber).filter(n => n !== null));
+    const dates = items.flatMap(i => {const range=itemRange(i);return range?[range.start,range.end]:[];});
+    if (!dates.length) dates.push(dayNumber(anchor) ?? dayNumber(localDay()));
     start = Math.min(...dates) - 7; end = Math.max(...dates) + 7;
   } else {
     start = dayNumber(anchor); const d = new Date(start * DAY);

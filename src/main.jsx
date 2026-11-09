@@ -10,7 +10,7 @@ import SprintWorkspace, {SprintStatusCounts} from "./SprintWorkspace.jsx";
 import SubtaskFilter from './SubtaskFilter.jsx';
 import {RoadmapNavigationIcon,SmartNavigationIcon} from './NavigationIcons.jsx';
 import {detailStatusOptions} from './detail-status-options.mjs';
-import {sprintPlanningItems} from './sprint-items.mjs';
+import {sprintPlanningItems,sprintHistoryItems} from './sprint-items.mjs';
 import ReleaseWorkspace from "./ReleaseWorkspace.jsx";
 import BacklogTable from './BacklogTable.jsx';
 import {WorkspaceLinksProvider,WorkspaceLink} from './WorkspaceLinks.jsx';
@@ -1287,7 +1287,7 @@ function SprintCard({
   const setExpanded=value=>personal.set(old=>({expandedSprints:{...old.expandedSprints,[sp.id]:value}}));
   const rows =
       sp.status === "closed"
-        ? sp.finalStories || []
+        ? sprintHistoryItems(sp,stories,project)
         : stories.filter((x) => x.sprintId === sp.id),
     done = rows.filter((x) => hasStatus(x, project, "done"));
   const visibleRows = scopeFilter ? rows.filter(scopeFilter) : rows;
@@ -1310,6 +1310,7 @@ function SprintCard({
       </div>
       {expanded && (
         <>
+              {sp.status === 'closed' && rows.some(i=>i.historyRecovered) && <AntAlert>此冲刺的旧快照未保存全部工作项；补充项及子任务显示当前数据，原有历史快照保持不变。</AntAlert>}
               {workRows(rows)}
               {sp.status !== "closed" && <div className="sprint-create-row"><ReplicaButton className="text-btn" disabled={busy} onClick={onCreate}><Plus size={15}/>新建工作项</ReplicaButton></div>}
               {sp.status === "closed" && sp.carryover?.length > 0 && (
