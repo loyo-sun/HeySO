@@ -36,7 +36,7 @@ export class LiveWorkspaceSync extends DurableWorkspaceSync {
  constructor(options){
   let restored=[];const storage=options.storage||new SyncStorage(options.scope);
   const boundary={read:async()=>{const saved=await storage.read();if(!saved)return saved;restored=[...(saved.failed||[]),...(saved.queue||[]).filter(e=>rejected(e.phase))];return {...saved,queue:(saved.queue||[]).filter(e=>!rejected(e.phase))};},write:value=>storage.write(value)};
-  super({...options,storage:boundary,refreshIntervalMs:0});this.failed=[];
+  super({...options,storage:boundary,refreshIntervalMs:0});this.failed=[];this.needsFullRefresh=true;
   this.ready=this.ready.then(()=>{this.failed=restored;if(!this.readOnly&&!this.storageFailed)this.report(this.queue[0]?.phase||'synced');});
  }
  hasBlockingPending(){return super.hasPending();}
@@ -97,7 +97,7 @@ export class LiveWorkspaceSync extends DurableWorkspaceSync {
       this.queue=this.queue.filter(x=>x.id!==entry.id);this.epoch++;this.publish();
      });
      this.onMessage((e.message||'保存被拒绝')+'；草稿已保留在项目设置中');
-     this.refreshQueued=true;
+     this.refreshQueued=true;this.needsFullRefresh=true;
      this.report(this.queue.length?'pending':'synced');
     }else{
      entry.phase=e.status===401?'expired':'retrying';entry.error=e.message;
@@ -115,17 +115,17 @@ export class LiveWorkspaceSync extends DurableWorkspaceSync {
  async refresh(){
   await this.ready;if(this.disposed)return;
   this.pump();if(this.refreshing)return this.refreshing;
-  const epoch=this.epoch;
+  const epoch=this.epoch,full=this.needsFullRefresh;
   this.refreshing=(async()=>{
    try{
-    const result=await this.request('/api/live/state',{storageScope:this.scope,...(this.confirmed?{heads:headsOf(this.confirmed)}:{})});
+    const result=await this.request('/api/live/state',{storageScope:this.scope,...(this.confirmed&&!full?{heads:headsOf(this.confirmed)}:{})});
     await this.transact(async()=>{
      if(this.disposed||this.epoch!==epoch)return;
      const sameManifest=JSON.stringify((result.manifest||[]).map(h=>[h.fileId,h.headId]).sort())===JSON.stringify(headsOf(this.confirmed).map(h=>[h.fileId,h.headId]).sort());
      if(this.confirmed&&result.delta&&!result.state.projects.length&&sameManifest){this.onOnline(true);return;}
      const next=mergeLive(this.confirmed,result);
      if(!this.readOnly&&!this.storageFailed)await this.persist(next);
-     this.confirmed=next;this.publish();this.onOnline(true);
+     this.confirmed=next;if(full)this.needsFullRefresh=false;this.publish();this.onOnline(true);
     });
    }catch(e){this.onOnline(false);if(!this.confirmed)this.onMessage(e.message||'无法读取云端项目');}
    finally{this.refreshing=null;}

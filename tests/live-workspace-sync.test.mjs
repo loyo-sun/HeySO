@@ -81,3 +81,20 @@ test('compact reorder preserves server order and the next move passes concurrenc
  assert.deepEqual(merged.items.map(i=>i.id),server.items.map(i=>i.id));
  act(server,{type:'item.reorder',payload:{projectId:project.id,id:source.id,targetId:target.id,position:'after',expectedSiblingIds:roadmapSiblings(merged.items,source).map(i=>i.id)}});
 });
+
+test('startup repairs a stale ordered cache even when its head matches the server',async t=>{
+ const cached=ws(),remote=ws();remote.items.reverse();let read;
+ const {c}=await setup(t,{fetcher:async(path,init)=>{assert.equal(path,'/api/live/state');read=JSON.parse(init.body);return Response.json(Object.hasOwn(read,'heads')?{delta:true,state:{...remote,projects:[],items:[]},manifest:[{fileId:'f',headId:'h1'}]}:remote);}});
+ assert.deepEqual(c.state.items.map(i=>i.id),cached.items.map(i=>i.id));
+ await c.refresh();assert.equal(Object.hasOwn(read,'heads'),false);assert.deepEqual(c.state.items.map(i=>i.id),['j','i']);assert.equal(c.needsFullRefresh,false);
+});
+test('ordering conflict forces a full read instead of accepting an unchanged manifest',async t=>{
+ let fullRead=false;const remote=ws();remote.items.reverse();
+ const {c}=await setup(t,{fetcher:async(path,init)=>{
+  if(path==='/api/live/action')return Response.json({error:'工作项顺序或层级已有更新，请刷新后重新排序'},{status:409});
+  const body=JSON.parse(init.body);fullRead=fullRead||!Object.hasOwn(body,'heads');return Response.json(remote);
+ }});
+ c.needsFullRefresh=false;
+ await c.action('item.reorder',{id:'i',targetId:'j',position:'after',expectedSiblingIds:['i','j']},'p');await idle(c);await c.refresh();
+ assert.ok(fullRead);assert.deepEqual(c.state.items.map(i=>i.id),['j','i']);assert.equal(c.failed.length,1);assert.equal(c.failed[0].payload.id,'i');
+});
