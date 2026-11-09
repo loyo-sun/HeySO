@@ -7798,3 +7798,9 @@ body .roadmap-plan-popover .roadmap-search {padding:8px 11px;}
 .project-period-note strong{font-size:13px;font-weight:500;line-height:20px;}
 .project-period-note p{font-size:12px;line-height:20px;color:var(--muted);margin:4px 0 0;}
 @media(max-width:600px){.project-period-modes.ant-radio-group{max-width:none;}.project-period-dates .date-range-fields{grid-template-columns:minmax(0,1fr);}.project-period-field{margin-top:20px;}}
+
+/* Sync state is global and persistent, independent from dismissible toasts. */
+.cloud-sync-notice{position:fixed;z-index:55;bottom:22px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:12px;width:max-content;max-width:min(680px,calc(100vw - 36px));padding:12px 16px;background:#fff;border:1px solid #c7d9fb;border-radius:10px;box-shadow:0 5px 24px #15284b18;color:#244d91}
+.cloud-sync-notice>div{min-width:0}.cloud-sync-notice strong{display:block;font-size:13px}.cloud-sync-notice small{display:block;font-size:12px;color:#63738d;overflow-wrap:anywhere;max-height:70px;overflow:auto;margin-top:3px}
+.cloud-sync-notice.blocked{border-color:#ebc18f;color:#8a4c14}.cloud-sync-notice.synced{padding:6px 10px;bottom:14px;opacity:.9;border-color:#d9e7db;color:#3c7752;box-shadow:none}
+.sync-review-modal table{width:100%;border-collapse:collapse;table-layout:fixed}.sync-review-modal th,.sync-review-modal td{padding:8px;border:1px solid #e8ebef;white-space:pre-wrap;overflow-wrap:anywhere;vertical-align:top}.sync-review-modal .modal-body{max-height:60vh;overflow:auto}.sync-review-modal footer{display:flex;gap:8px;flex-wrap:wrap}
