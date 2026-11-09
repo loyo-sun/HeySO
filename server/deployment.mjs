@@ -119,10 +119,12 @@ export async function handleDeployment(request, env, options = {}) {
     if (!config && legacy) return handleHosted(request, env, options.nativeStorage || { run: callback => redisStorage(env, options.fetcher).run(callback) });
     if (!config) return json({ hosted: true, authenticated: false, setupRequired: true, ownerConfigured, platform: options.platform || 'hosted' }, path === '/api/session' ? 200 : 401);
     const effective = effectiveEnv(env, config);
-    if (path === '/api/session' && request.method === 'GET') return json({ hosted: true, authenticated: authenticated(request, effective), setupRequired: false, provider: config.provider, version: 'alpha_0.1' });
+    const storageScope=config.provider==='loyocloud'?fingerprint(['heyso-sync-v1',config.base,config.user.id]):undefined;
+    if (path === '/api/session' && request.method === 'GET') return json({ hosted: true, authenticated: authenticated(request, effective), setupRequired: false, provider: config.provider, storageScope:authenticated(request,effective)?storageScope:undefined, version: 'alpha_0.1' });
     if (config.provider === 'loyocloud') {
       if (path === '/mcp') return json({ error: 'LoyoCloud 模式请使用云端 OAuth MCP 地址：' + config.base + '/mcp/heyso' }, 400);
       const input = request.method === 'POST' ? await readBody(request) : {};
+      if(input.storageScope && input.storageScope!==storageScope) return json({error:'账号或云端空间已切换，请返回原账号同步',scopeMismatch:true},409);
       let response;
       try { response = await handleLoyo(request, config, effective, input, options.fetcher); }
       catch (error) {
