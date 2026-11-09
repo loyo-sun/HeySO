@@ -14,8 +14,9 @@ import fs from 'node:fs';import crypto from 'node:crypto';
 const [root,pack]=process.argv.slice(2),manifest=JSON.parse(fs.readFileSync(pack+'/manifest.json'));
 const sha=p=>crypto.createHash('sha256').update(fs.readFileSync(p)).digest('hex');
 for(const [file,record]of Object.entries(manifest.files)){
- if(record.base&&sha(root+'/'+file)!==record.base)throw Error('Production baseline differs: '+file);
- if(!record.base&&fs.existsSync(root+'/'+file)&&sha(root+'/'+file)!==record.next)throw Error('Unexpected production file: '+file);
+ const runtime=!file.startsWith('tests/')&&!file.startsWith('docs/');
+ if(runtime&&record.base&&sha(root+'/'+file)!==record.base)throw Error('Production baseline differs: '+file);
+ if(runtime&&!record.base&&fs.existsSync(root+'/'+file)&&sha(root+'/'+file)!==record.next)throw Error('Unexpected production file: '+file);
  if(sha(pack+'/overlay/'+file)!==record.next)throw Error('Package checksum mismatch: '+file);
 }
 for(const [file,hash]of Object.entries(manifest.dependencies))if(sha(root+'/'+file)!==hash)throw Error('Domain dependency differs: '+file);

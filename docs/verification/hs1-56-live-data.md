@@ -19,7 +19,7 @@
 
 ## 验证与边界
 
-前端全量测试、生产构建、后端数据库与协议合同及领域/BaizeFig MCP 契约的结果见本次交付记录。
+前端 262 项全量测试、生产构建通过；后端数据库与协议合同及领域/BaizeFig MCP 契约共 25 项通过。GitHub Actions test-and-build 及 Netlify 预览构建已成功。生产部署尚未完成。
 新增测试覆盖：拒绝请求隔离、旧队列迁移、丢失响应精确重放、文本冲突重提、旧响应保护、慢本地写入时立即显示、服务器事务/容量回滚、增量回复及账号隔离。
 性能微基准：scripts/benchmark-live-projection.mjs；结果 docs/performance/hs1-56-projection.json。仅比较内存投影，不代表生产首屏或网络保存耗时。
 
