@@ -121,7 +121,7 @@ test('filtered reorder reads authoritative siblings before saving and supports s
   const result=await c.action('item.reorder',{projectId:project.id,id:b.id,targetId:a.id,position,expectedSiblingIds:roadmapSiblings(c.state.items,b).map(i=>i.id)},project.id);await idle(c);assert.ok(result);
   assert.deepEqual(c.state.items.map(i=>i.id),server.items.map(i=>i.id));
  }
- assert.equal(reads,2);assert.equal(writes,2);assert.equal(c.failed.length,0);assert.ok(c.state.items.some(i=>i.id===hidden.id));
+ assert.equal(reads,1);assert.equal(writes,2);assert.equal(c.failed.length,0);assert.ok(c.state.items.some(i=>i.id===hidden.id));
 });
 
 test('a genuine reorder race rebases once automatically with a new persisted request identity',async t=>{
@@ -143,5 +143,34 @@ test('preflight refuses a changed target hierarchy and retains the intended move
  const remote=ws();remote.items[1].parentId='another-parent';let writes=0;
  const {c}=await setup(t,{fetcher:async(path)=>{if(path==='/api/live/state')return Response.json(remote);writes++;throw Error('must not mutate changed hierarchy');}});
  const result=await c.action('item.reorder',{id:'i',targetId:'j',position:'after',expectedSiblingIds:['i','j']},'p');await idle(c);
- assert.equal(result,null);assert.equal(writes,0);assert.equal(c.failed.length,1);assert.equal(c.failed[0].payload.targetId,'j');assert.match(c.failed[0].error,/层级已被修改/);
+ assert.ok(result.pendingSync);assert.equal(writes,0);assert.equal(c.failed.length,1);assert.equal(c.failed[0].payload.targetId,'j');assert.match(c.failed[0].error,/层级已被修改/);
+});
+
+test('drag updates immediately during a slow save with no normal preflight read',async t=>{
+ let finish;const slow=new Promise(r=>finish=r),paths=[];
+ const {c}=await setup(t,{fetcher:async(path)=>{paths.push(path);return slow;}});
+ c.needsFullRefresh=false;
+ const result=await c.action('item.reorder',{id:'i',targetId:'j',position:'after',expectedSiblingIds:['i','j']},'p');
+ assert.ok(result.pendingSync);assert.deepEqual(c.state.items.map(i=>i.id),['j','i']);await flush();
+ assert.deepEqual(paths,['/api/live/action']);
+ const saved=ws();saved.items.reverse();finish(Response.json({state:saved,result:{id:'i'}}));await idle(c);
+ assert.deepEqual(c.state.items.map(i=>i.id),['j','i']);assert.equal(c.queue.length,0);
+});
+test('consecutive drags remain visible while earlier cloud writes are pending',async t=>{
+ const pending=[],paths=[];const {c}=await setup(t,{fetcher:async(path)=>{paths.push(path);return new Promise(resolve=>pending.push(resolve));}});
+ c.needsFullRefresh=false;
+ await c.action('item.reorder',{id:'i',targetId:'j',position:'after',expectedSiblingIds:['i','j']},'p');await flush();
+ await c.action('item.reorder',{id:'i',targetId:'j',position:'before',expectedSiblingIds:['j','i']},'p');
+ assert.deepEqual(c.state.items.map(i=>i.id),['i','j']);
+ const first=ws();first.items.reverse();pending.shift()(Response.json({state:first,result:{id:'i'}}));
+ for(let n=0;n<30&&!pending.length;n++)await flush();
+ assert.deepEqual(c.state.items.map(i=>i.id),['i','j']);assert.equal(pending.length,1);
+ pending.shift()(Response.json({state:ws(),result:{id:'i'}}));await idle(c);
+ assert.deepEqual(paths,['/api/live/action','/api/live/action']);assert.equal(c.failed.length,0);
+});
+test('a rejected optimistic move restores confirmed order and retains the failed intent',async t=>{
+ const {c}=await setup(t,{fetcher:async path=>path==='/api/live/state'?Response.json(ws()):Response.json({error:'不能移动该工作项'},{status:400})});
+ c.needsFullRefresh=false;
+ const result=await c.action('item.reorder',{id:'i',targetId:'j',position:'after',expectedSiblingIds:['i','j']},'p');assert.ok(result.pendingSync);
+ await idle(c);assert.deepEqual(c.state.items.map(i=>i.id),['i','j']);assert.equal(c.failed.length,1);
 });

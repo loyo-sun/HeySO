@@ -70,28 +70,29 @@ export class LiveWorkspaceSync extends DurableWorkspaceSync {
   const target=payload.projectId||record?.projectId||(this.confirmed?.projects.some(p=>p.id===id)?id:projectId);
   if(type==='project.create'||!this.confirmed?.projects.find(p=>p.id===target)?.cloud?.fileId)return super.action(type,payload,projectId,quiet);
   const entry={id:crypto.randomUUID(),type,payload:structuredClone(payload),projectId:target,phase:'pending',body:null,baseFields:this.captureBaseFields(type,payload),...(roadmapAction(type)?{moveContext:moveContext(this.state,payload)}:{})};
-  const immediate=['item.update','item.move'].includes(type);let completion;
+  const immediate=['item.update','item.move'].includes(type)||roadmapAction(type);let completion;
   if(!immediate)completion=new Promise(resolve=>this.waiters.set(entry.id,resolve));
   this.localWrites=(this.localWrites||0)+1;this.epoch++;this.queue=[...this.queue,entry];this.publish();this.report('saving-local');
   try{await this.transact(async()=>{const queue=this.queue.map(e=>e.phase==='local-error'?{...e,phase:'pending'}:e);await this.persist(this.confirmed,queue);this.queue=queue;});}
   catch(e){entry.phase='local-error';this.persistenceError=true;this.report('storage-error','本地保存失败，请勿关闭页面');this.waiters.delete(entry.id);return null;}
   finally{this.localWrites--;}
   this.report(this.queue[0]?.phase||'synced');this.pump();
-  return immediate?this.state.items.find(i=>i.id===payload.id):completion;
+  return immediate?{...this.state.items.find(i=>i.id===payload.id),...(roadmapAction(type)?{pendingSync:true}:{})}:completion;
  }
  async prepareRoadmap(entry){
   if(entry.body||!roadmapAction(entry.type))return;
   const cloud=this.confirmed.projects.find(p=>p.id===entry.projectId)?.cloud;
-  // An equal head does not prove a legacy cache has the correct array order.
-  // Read the target project unconditionally, keeping other project cursors.
-  const response=await this.request('/api/live/state',{storageScope:this.scope,heads:headsOf(this.confirmed).filter(h=>h.fileId!==cloud?.fileId)});
+  // Normal moves use the confirmed snapshot without a network read.
+  // Legacy caches and definite conflicts reconcile in the background.
+  const readFresh=this.needsFullRefresh||!!entry.rebaseAttempts;
+  const response=readFresh?await this.request('/api/live/state',{storageScope:this.scope,heads:headsOf(this.confirmed).filter(h=>h.fileId!==cloud?.fileId)}):null;
   await this.transact(async()=>{
-   const next=mergeLive(this.confirmed,response),context=moveContext(next,entry.payload);
+   const next=response?mergeLive(this.confirmed,response):this.confirmed,context=moveContext(next,entry.payload);
    if(entry.moveContext&&entry.moveContext!==context)throw Object.assign(Error('移动对象的层级已被修改，本次移动未执行；请核对目标位置'),{status:409});
    const source=next.items.find(i=>i.id===entry.payload.id),project=next.projects.find(p=>p.id===entry.projectId);
    entry.moveContext=context;
    entry.payload={...entry.payload,...(entry.type==='item.reorder'?{expectedSiblingIds:roadmapSiblings(next.items,source).map(i=>i.id)}:{expectedTree:roadmapTreeSnapshot(next.items,project)})};
-   await this.persist(next);this.confirmed=next;this.epoch++;this.publish();
+   await this.persist(next);this.confirmed=next;if(readFresh)this.needsFullRefresh=false;this.epoch++;this.publish();
   });
  }
  // Called synchronously by the base action after its local transaction commits.

@@ -101,7 +101,7 @@ export default function Roadmap({ project, items, releases, onOpen, onCreate, on
         const level=typeFor(project,plan.kind)?.level??0;
         if(level<bottom)setBottom(level);if(level>top)setTop(level);
       }
-      setNotice(result?(position==='inside'?`已移入「${target.title}」，层级和顺序已保存。`:'工作项层级和顺序已保存。'):'移动未保存，请检查错误提示后重试。');
+      setNotice(result?.pendingSync?'':result?(position==='inside'?`已移入「${target.title}」，层级和顺序已保存。`:'工作项层级和顺序已保存。'):'移动未保存，请检查错误提示后重试。');
     } catch(error) {setNotice(error.message||'移动未保存，请刷新后重试。');}
     finally {sortPending.current=false;setSorting(false);}
   }

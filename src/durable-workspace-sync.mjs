@@ -1,3 +1,5 @@
+import {roadmapSiblings,reorderedSiblingIds,roadmapMovePlan} from '../shared/roadmap-order.mjs';
+import {categoryOf,statusFor,effectiveSprintId} from '../shared/work-config.mjs';
 import {WorkspaceSync,mergeWorkspace,headsOf} from './workspace-sync.mjs';
 import {SyncStorage} from './sync-storage.mjs';
 
@@ -5,16 +7,30 @@ const collections=['items','sprints','releases','notes','runs','events'];
 const editable=['kind','title','description','acceptance','owner','priority','status','points','releaseId','sprintId','parentId','dueDate','startDate','endDate','aiEnabled','aiDisabled','goal','boardRank','sprintRank'];
 export function projectPending(state,queue) {
   if(!state) return state;
-  const patches=new Map();
+  let next=state;
   for(const entry of queue){
-    if(!['item.update','item.move'].includes(entry.type))continue;
-    const original=patches.get(entry.payload.id)||state.items.find(i=>i.id===entry.payload.id);
-    if(!original)continue;
-    const item={...original};
-    for(const field of editable)if(entry.payload[field]!==undefined)item[field]=entry.payload[field];
-    patches.set(item.id,item);
+    const payload=entry.payload,source=next.items.find(i=>i.id===payload.id);
+    if(!source)continue;
+    if(['item.update','item.move'].includes(entry.type)){
+      const item={...source};for(const field of editable)if(payload[field]!==undefined)item[field]=payload[field];
+      next={...next,items:next.items.map(i=>i.id===item.id?item:i)};
+    }else if(entry.type==='item.reorder'){
+      const target=next.items.find(i=>i.id===payload.targetId);
+      if(!target||(source.parentId||null)!==(target.parentId||null))continue;
+      const siblings=roadmapSiblings(next.items,source),order=reorderedSiblingIds(siblings,source.id,target.id,payload.position);
+      if(!order)continue;
+      const byId=new Map(siblings.map(i=>[i.id,i]));let index=0;
+      next={...next,items:next.items.map(i=>byId.has(i.id)?byId.get(order[index++]):i)};
+    }else if(entry.type==='item.roadmap.move'){
+      const project=next.projects.find(p=>p.id===source.projectId),target=next.items.find(i=>i.id===payload.targetId);
+      const plan=roadmapMovePlan(project,next.items,source,target,payload.position);if(plan.error)continue;
+      const changed=source.kind!==plan.kind||(source.parentId||null)!==plan.parentId;
+      const item=changed?{...source,...plan,sprintId:plan.kind==='subtask'?null:source.kind==='subtask'?effectiveSprintId(source,next.items,project):source.sprintId,status:source.kind===plan.kind?source.status:statusFor(project,categoryOf(project,source.status,source.kind),plan.kind)}:source;
+      const remaining=next.items.filter(i=>i.id!==source.id),anchor=payload.position==='inside'?(remaining.filter(i=>i.parentId===target.id).at(-1)||target):target;
+      remaining.splice(remaining.findIndex(i=>i.id===anchor.id)+(payload.position==='before'?0:1),0,item);
+      next={...next,items:remaining};
+    }
   }
-  const next=patches.size?{...state,items:state.items.map(item=>patches.get(item.id)||item)}:state;
   return next;
 }
 export function guardPending(sync,event) {
