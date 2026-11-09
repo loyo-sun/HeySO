@@ -98,3 +98,50 @@ test('ordering conflict forces a full read instead of accepting an unchanged man
  await c.action('item.reorder',{id:'i',targetId:'j',position:'after',expectedSiblingIds:['i','j']},'p');await idle(c);await c.refresh();
  assert.ok(fullRead);assert.deepEqual(c.state.items.map(i=>i.id),['j','i']);assert.equal(c.failed.length,1);assert.equal(c.failed[0].payload.id,'i');
 });
+
+test('filtered reorder reads authoritative siblings before saving and supports successive moves',async t=>{
+ const {seed,act}=await import('../server/model.mjs');
+ const {roadmapSiblings}=await import('../shared/roadmap-order.mjs');
+ const server=seed(),project=server.projects[0];project.cloud={fileId:'f',headId:'h1'};
+ const make=title=>act(server,{type:'item.create',payload:{projectId:project.id,kind:'task',title}});
+ const a=make('visible A'),hidden=make('hidden sibling'),b=make('visible B');
+ const storage=memory();storage.value.state=structuredClone(server);
+ // The cache carries the current head but an outdated order.
+ server.items=[...server.items.filter(i=>i.id!==b.id),b];
+ const scope=roadmapSiblings(server.items,a),ids=scope.map(i=>i.id).reverse(),map=new Map(scope.map(i=>[i.id,i]));let idx=0;
+ server.items=server.items.map(i=>map.has(i.id)?map.get(ids[idx++]):i);
+ let writes=0,reads=0;
+ const {c}=await setup(t,{storage,fetcher:async(path,init)=>{
+  const body=JSON.parse(init.body);
+  if(path==='/api/live/state'){reads++;assert.ok(!body.heads.some(h=>h.fileId==='f'));return Response.json(server);}
+  writes++;assert.deepEqual(body.action.payload.expectedSiblingIds,roadmapSiblings(server.items,b).map(i=>i.id));
+  const result=act(server,body.action);return Response.json({state:server,result});
+ }});
+ for(const position of ['before','after']){
+  const result=await c.action('item.reorder',{projectId:project.id,id:b.id,targetId:a.id,position,expectedSiblingIds:roadmapSiblings(c.state.items,b).map(i=>i.id)},project.id);await idle(c);assert.ok(result);
+  assert.deepEqual(c.state.items.map(i=>i.id),server.items.map(i=>i.id));
+ }
+ assert.equal(reads,2);assert.equal(writes,2);assert.equal(c.failed.length,0);assert.ok(c.state.items.some(i=>i.id===hidden.id));
+});
+
+test('a genuine reorder race rebases once automatically with a new persisted request identity',async t=>{
+ const remote=ws(),requests=[];let reads=0;
+ const {c,storage}=await setup(t,{fetcher:async(path,init)=>{
+  const body=JSON.parse(init.body);
+  if(path==='/api/live/state'){reads++;return Response.json(remote);}
+  requests.push(body);
+  if(requests.length===1){remote.items.push({id:'hidden-new',projectId:'p'});return Response.json({error:'工作项顺序或层级已有更新，请刷新后重新排序'},{status:409});}
+  assert.deepEqual(body.action.payload.expectedSiblingIds,['i','j','hidden-new']);
+  assert.equal(storage.value.queue[0].body.requestId,body.requestId);
+  remote.items=[remote.items[1],remote.items[0],remote.items[2]];return Response.json({state:remote,result:{id:'i'}});
+ }});
+ const result=await c.action('item.reorder',{id:'i',targetId:'j',position:'after',expectedSiblingIds:['i','j']},'p');await idle(c);
+ assert.ok(result);assert.equal(reads,2);assert.notEqual(requests[0].requestId,requests[1].requestId);assert.equal(c.failed.length,0);assert.deepEqual(c.state.items.map(i=>i.id),['j','i','hidden-new']);
+});
+
+test('preflight refuses a changed target hierarchy and retains the intended move without sending it',async t=>{
+ const remote=ws();remote.items[1].parentId='another-parent';let writes=0;
+ const {c}=await setup(t,{fetcher:async(path)=>{if(path==='/api/live/state')return Response.json(remote);writes++;throw Error('must not mutate changed hierarchy');}});
+ const result=await c.action('item.reorder',{id:'i',targetId:'j',position:'after',expectedSiblingIds:['i','j']},'p');await idle(c);
+ assert.equal(result,null);assert.equal(writes,0);assert.equal(c.failed.length,1);assert.equal(c.failed[0].payload.targetId,'j');assert.match(c.failed[0].error,/层级已被修改/);
+});

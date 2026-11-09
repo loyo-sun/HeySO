@@ -1,6 +1,13 @@
+import {roadmapSiblings,roadmapTreeSnapshot} from '../shared/roadmap-order.mjs';
 import {DurableWorkspaceSync} from './durable-workspace-sync.mjs';
 import {mergeWorkspace,headsOf} from './workspace-sync.mjs';
 import {SyncStorage} from './sync-storage.mjs';
+const roadmapAction=type=>['item.reorder','item.roadmap.move'].includes(type);
+function moveContext(state,payload){
+ const source=state?.items.find(i=>i.id===payload.id),target=state?.items.find(i=>i.id===payload.targetId);
+ if(!source||!target)throw Object.assign(Error('移动的工作项或目标已不存在'),{status:409});
+ return JSON.stringify([source.id,source.parentId||null,source.kind||'',target.id,target.parentId||null,target.kind||'']);
+}
 export function mergeLive(current,response){
  if(response.patch){
   if(!current)throw Error('请先读取项目');
@@ -49,7 +56,7 @@ export class LiveWorkspaceSync extends DurableWorkspaceSync {
   catch(e){this.persistenceError=true;throw e;}
  }
  buildBody(entry){
-  const body=super.buildBody(entry);return {...body,consistency:'live-v1',...(entry.baseFields?{baseFields:entry.baseFields}:{})};
+  const body=super.buildBody(entry);return {...body,requestId:entry.requestId||body.requestId,consistency:'live-v1',...(entry.baseFields?{baseFields:entry.baseFields}:{})};
  }
  captureBaseFields(type,payload){
   const record=this.state?.items.find(i=>i.id===payload.id);
@@ -62,7 +69,7 @@ export class LiveWorkspaceSync extends DurableWorkspaceSync {
   const id=payload.id||payload.itemId||payload.storyId||payload.runId,record=records.find(r=>r.id===id);
   const target=payload.projectId||record?.projectId||(this.confirmed?.projects.some(p=>p.id===id)?id:projectId);
   if(type==='project.create'||!this.confirmed?.projects.find(p=>p.id===target)?.cloud?.fileId)return super.action(type,payload,projectId,quiet);
-  const entry={id:crypto.randomUUID(),type,payload:structuredClone(payload),projectId:target,phase:'pending',body:null,baseFields:this.captureBaseFields(type,payload)};
+  const entry={id:crypto.randomUUID(),type,payload:structuredClone(payload),projectId:target,phase:'pending',body:null,baseFields:this.captureBaseFields(type,payload),...(roadmapAction(type)?{moveContext:moveContext(this.state,payload)}:{})};
   const immediate=['item.update','item.move'].includes(type);let completion;
   if(!immediate)completion=new Promise(resolve=>this.waiters.set(entry.id,resolve));
   this.localWrites=(this.localWrites||0)+1;this.epoch++;this.queue=[...this.queue,entry];this.publish();this.report('saving-local');
@@ -72,12 +79,28 @@ export class LiveWorkspaceSync extends DurableWorkspaceSync {
   this.report(this.queue[0]?.phase||'synced');this.pump();
   return immediate?this.state.items.find(i=>i.id===payload.id):completion;
  }
+ async prepareRoadmap(entry){
+  if(entry.body||!roadmapAction(entry.type))return;
+  const cloud=this.confirmed.projects.find(p=>p.id===entry.projectId)?.cloud;
+  // An equal head does not prove a legacy cache has the correct array order.
+  // Read the target project unconditionally, keeping other project cursors.
+  const response=await this.request('/api/live/state',{storageScope:this.scope,heads:headsOf(this.confirmed).filter(h=>h.fileId!==cloud?.fileId)});
+  await this.transact(async()=>{
+   const next=mergeLive(this.confirmed,response),context=moveContext(next,entry.payload);
+   if(entry.moveContext&&entry.moveContext!==context)throw Object.assign(Error('移动对象的层级已被修改，本次移动未执行；请核对目标位置'),{status:409});
+   const source=next.items.find(i=>i.id===entry.payload.id),project=next.projects.find(p=>p.id===entry.projectId);
+   entry.moveContext=context;
+   entry.payload={...entry.payload,...(entry.type==='item.reorder'?{expectedSiblingIds:roadmapSiblings(next.items,source).map(i=>i.id)}:{expectedTree:roadmapTreeSnapshot(next.items,project)})};
+   await this.persist(next);this.confirmed=next;this.epoch++;this.publish();
+  });
+ }
  // Called synchronously by the base action after its local transaction commits.
  pump(){
   if(this.localWrites||this.processing||this.disposed||this.retryTimer||!this.queue.length||this.readOnly||this.storageFailed)return;
   const entry=this.queue[0];if(['expired','local-error'].includes(entry.phase))return;
   this.processing=(async()=>{
    try{
+    await this.prepareRoadmap(entry);
     await this.transact(async()=>{if(!entry.body)entry.body=this.buildBody(entry);await this.persist();});
     this.report('syncing');
     const result=await this.request('/api/live/action',entry.body);
@@ -87,6 +110,10 @@ export class LiveWorkspaceSync extends DurableWorkspaceSync {
      this.waiters.get(entry.id)?.(result.result);this.waiters.delete(entry.id);this.report(queue.length?'pending':'synced');
     });
    }catch(e){
+    if(roadmapAction(entry.type)&&e.status===409&&/工作项顺序.*已有更新/.test(e.message)&&(entry.rebaseAttempts||0)<1){
+     await this.transact(async()=>{entry.rebaseAttempts=(entry.rebaseAttempts||0)+1;entry.requestId=crypto.randomUUID();entry.body=null;entry.phase='pending';await this.persist();});
+     this.report('pending');return;
+    }
     const definite=e.status>=400&&e.status<500&&![401,408,429].includes(e.status);
     if(definite){
      await this.transact(async()=>{
@@ -96,7 +123,7 @@ export class LiveWorkspaceSync extends DurableWorkspaceSync {
       catch(err){this.failed=previous;throw err;}
       this.queue=this.queue.filter(x=>x.id!==entry.id);this.epoch++;this.publish();
      });
-     this.onMessage((e.message||'保存被拒绝')+'；草稿已保留在项目设置中');
+     this.onMessage((roadmapAction(entry.type)?'移动未保存：'+(e.message||'目标位置已变化').replace(/请刷新后重新排序|请刷新后重新拖动/g,'请重新选择目标位置'):e.message||'保存被拒绝')+'；草稿已保留在项目设置中');
      this.refreshQueued=true;this.needsFullRefresh=true;
      this.report(this.queue.length?'pending':'synced');
     }else{
