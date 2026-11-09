@@ -1,0 +1,47 @@
+{
+  "backendCommit": "0bfcca69ab13be38029c480e30e7dd508500c09e",
+  "baseCommit": "df86ae9453687093c85390703394536fc6b179b6",
+  "files": {
+    "src/editor-origins.mjs": {
+      "base": "18853abf5586f78ba28ca7c9b471f86a0dc66747278a9dcbab8a219c41cf5f53",
+      "next": "673bb5f2852c69dd0fd20771f546637fec48741b23fde5baf73dee7ef2d6180e"
+    },
+    "tests/heyso-live-origin.test.mjs": {
+      "base": null,
+      "next": "813fefbdb1d113ba7631ba97c3c753e23cc2381a9209b56a875279872d4a035a"
+    },
+    "tests/heyso-live.test.mjs": {
+      "base": "c0800c1d207e553b8809b01a079214b6d031f80d84addedc1d4238b731feed39",
+      "next": "c0800c1d207e553b8809b01a079214b6d031f80d84addedc1d4238b731feed39"
+    },
+    "tests/heyso-domain.test.mjs": {
+      "base": "14f54bcbe3363c96653a6b12ab066545740842256404de0a76aa4f8e034c3202",
+      "next": "14f54bcbe3363c96653a6b12ab066545740842256404de0a76aa4f8e034c3202"
+    },
+    "tests/closed-sprint-domain.test.mjs": {
+      "base": "51cf03405ef47073522b2e7fbe7185e11e1ccb37d89a918e9afa08cc35c4e80c",
+      "next": "51cf03405ef47073522b2e7fbe7185e11e1ccb37d89a918e9afa08cc35c4e80c"
+    },
+    "tests/mcp-contracts.test.mjs": {
+      "base": "4e942e6ecd0386f4add521c6da17c5d66d0daf46ca613a21056a0fc643efec1a",
+      "next": "4e942e6ecd0386f4add521c6da17c5d66d0daf46ca613a21056a0fc643efec1a"
+    },
+    "tests/hs1-35-domain.test.mjs": {
+      "base": "4416440da6d234c850bd37308ed52b751fb4bc53c8d5271dee0dc50e583bd1e9",
+      "next": "4416440da6d234c850bd37308ed52b751fb4bc53c8d5271dee0dc50e583bd1e9"
+    },
+    "tests/hs1-36-domain.test.mjs": {
+      "base": "dca525f92ac36f72517e7b38a451b104cd523f67359d480a8b9a6bcb2bba1504",
+      "next": "dca525f92ac36f72517e7b38a451b104cd523f67359d480a8b9a6bcb2bba1504"
+    }
+  },
+  "dependencies": {
+    "src/server.mjs": "bba360814282ab15aa614243684c789abb148af564fb3b9b4dbc49a5e4396fb7",
+    "src/heyso.mjs": "074d8c676428e1a36f6adef0dec7cfe21d60393c2d4854473789887a3becb9ad",
+    "src/heyso-live.mjs": "d3fdaef03a5cbcdca2796f8bea1ff8bbc1f01b102f8d2a1dd1b107fa5516d9fc",
+    "src/security.mjs": "da428c02ab325fe56467846c6a55e8681a97980ef671b3efc0ab6814c9a61ac7",
+    "src/baizefig-contracts.mjs": "64833e1f9f736680eed6a268e92816c2dc0fc69b7761133d7195b8159f140c43",
+    "package.json": "eaa299601be910e8571768245e0ffac183e897700ea6d8891a7b31bd658658a2",
+    "package-lock.json": "4708bf823e20bb1c8a7f424c342c5de6e24c77aece0b8318980e4b98b3243e4b"
+  }
+}

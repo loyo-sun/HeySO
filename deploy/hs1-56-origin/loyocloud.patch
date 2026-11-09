@@ -1,0 +1,59 @@
+diff --git a/docs/HS1-56-LIVE-DATA.md b/docs/HS1-56-LIVE-DATA.md
+index e908382..7dbb511 100644
+--- a/docs/HS1-56-LIVE-DATA.md
++++ b/docs/HS1-56-LIVE-DATA.md
+@@ -5,3 +5,5 @@ Introduces live-v1 project actions, latest-state reads and authenticated long-po
+ Additive migration: cloud_documents.heyso_live. Legacy clients still use their previous-head check; once a document is migrated, both protocols use mutable current storage. Internal heads invalidate caches; they are not user-facing history versions. Stale text edits without a base are rejected for explicit review.
+ 
+ Tests: tests/heyso-live.test.mjs runs real routes and PGlite transactions without listening on a network port. This is not production/browser verification. Deploy only as a matched frontend/backend pair, after checking the production baseline and taking the existing backup. Frontend deployment sources and the server overlay are in the HeySO HS1-56 candidate branch.
++
++Production follow-up: the self-hosted origin middleware must recognize the exact state, updates and capabilities routes, in addition to file routes. tests/heyso-live-origin.test.mjs drives the full Express middleware with in-memory HTTP streams and verifies both successful reads and origin/app/token rejection without a TCP listener.
+diff --git a/src/editor-origins.mjs b/src/editor-origins.mjs
+index 4911f38..79a6078 100644
+--- a/src/editor-origins.mjs
++++ b/src/editor-origins.mjs
+@@ -11,6 +11,7 @@ export function selfHostedHeysoOrigin(value) {
+ export const allowsEditorOrigin = (origins, app, origin) => origins.has(origin) || (app === 'heyso' && selfHostedHeysoOrigin(origin));
+ export function selfHostedEditorRoute(path, method, bearer) {
+   if (/^\/api\/v1\/editor\/(exchange|session|logout)$/.test(path)) return true;
++  if (/^\/api\/v1\/heyso\/(?:state|updates|capabilities)$/.test(path)) return true;
+   if (/^\/api\/v1\/heyso\/files(?:\/[^/]+(?:\/(?:action|view-preferences))?)?$/.test(path)) return true;
+   return /^\/api\/v1\/space(?:\/|$)/.test(path) && (method === 'OPTIONS' || bearer);
+ }
+diff --git a/tests/heyso-live-origin.test.mjs b/tests/heyso-live-origin.test.mjs
+new file mode 100644
+index 0000000..a5ef886
+--- /dev/null
++++ b/tests/heyso-live-origin.test.mjs
+@@ -0,0 +1,31 @@
++import test from 'node:test';import assert from 'node:assert/strict';
++import {PassThrough} from 'node:stream';import {IncomingMessage,ServerResponse} from 'node:http';
++import {randomUUID} from 'node:crypto';import {PGlite} from '@electric-sql/pglite';
++import {createCloud} from '../src/server.mjs';import {putSecret} from '../src/security.mjs';
++// Drive the full HTTP middleware and real routes using in-memory sockets.
++// No listening TCP socket is opened, so Host/Origin/CORS/auth are still exercised.
++async function inject(app,{path,body={},origin,token,method='POST'}){
++ const socket=new PassThrough();socket.remoteAddress='127.0.0.1';
++ const req=new IncomingMessage(socket);req.method=method;req.url=path;req.headers={host:'cloud.test',origin,...(token?{authorization:'Bearer '+token}:{}),'content-type':'application/json'};
++ const raw=JSON.stringify(body);req.headers['content-length']=String(Buffer.byteLength(raw));
++ const res=new ServerResponse(req);res.assignSocket(socket);let data='';socket.on('data',d=>data+=d);
++ const done=new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(Error(JSON.stringify({path,status:res.statusCode,headers:res.headersSent,finished:res.writableFinished,ended:req.readableEnded,body:req.body!==undefined,data}))),1500);res.on('finish',()=>{clearTimeout(timer);resolve();});res.on('error',reject);});
++ app.handle(req,res);req.complete=true;req.push(raw);req.push(null);await done;socket.destroy();
++ return {status:res.statusCode,body:JSON.parse(data.split('\r\n\r\n').slice(1).join('\r\n\r\n'))};
++}
++test('full application admits live routes only with the origin-bound HeySO session, preserving BaizeFig isolation',async()=>{
++ const db=new PGlite(),cloud=await createCloud({db,base:'https://cloud.test',origins:['https://legacy.example']});
++ const user=randomUUID(),origin='https://hexu.netlify.app';
++ try{
++  await db.query("INSERT INTO users(id,username,password_hash,workspace_id) VALUES($1,$2,'unused',$3)",[user,user,randomUUID()]);
++  const token=await putSecret(db,'editor',user,{app:'heyso',origin},60000),baize=await putSecret(db,'editor',user,{app:'baizefig',origin},60000);
++  const state=await inject(cloud.app,{path:'/api/v1/heyso/state',origin,token});assert.equal(state.status,200,JSON.stringify(state.body));assert.deepEqual(state.body.files,[]);
++  const updates=await inject(cloud.app,{path:'/api/v1/heyso/updates',body:{heads:[{fileId:'old',headId:'old'}]},origin,token});assert.equal(updates.status,200);assert.equal(updates.body.changed,true);
++  const caps=await inject(cloud.app,{path:'/api/v1/heyso/capabilities',method:'GET',origin,token});assert.equal(caps.status,200);assert.equal(caps.body.protocol,'live-v1');
++  assert.equal((await inject(cloud.app,{path:'/api/v1/heyso/state',origin:'https://other.example',token})).status,401);
++  assert.equal((await inject(cloud.app,{path:'/api/v1/heyso/state',origin,token:baize})).status,401);
++  assert.equal((await inject(cloud.app,{path:'/api/v1/heyso/state',origin})).status,401);
++  assert.equal((await inject(cloud.app,{path:'/api/v1/heyso/state/admin',origin,token})).status,403);
++  assert.equal((await inject(cloud.app,{path:'/lygl',origin,token})).status,403);
++ }finally{await cloud.close();await db.close();}
++});
