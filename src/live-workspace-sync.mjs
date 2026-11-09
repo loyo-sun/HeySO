@@ -9,10 +9,12 @@ export function mergeLive(current,response){
   if((existing.cloud?.dataRevision||0)>(project.cloud?.dataRevision||0))return current;
   const next={...current,revision:response.revision,projects:current.projects.map(p=>p.id===project.id?project:p)};
   for(const key of ['items','sprints','releases','notes','runs','events']){
-   const change=response.changes[key];if(!change||!change.upsert.length&&!change.remove.length)continue;
+   const change=response.changes[key];if(!change||!change.upsert.length&&!change.remove.length&&!change.order)continue;
    const removed=new Set(change.remove),updated=new Map(change.upsert.map(r=>[r.id,r]));
    const records=current[key].filter(r=>!removed.has(r.id)).map(r=>{const value=updated.get(r.id)||r;updated.delete(r.id);return value;});
-   next[key]=[...records,...updated.values()];
+   const merged=[...records,...updated.values()];
+   if(change.order){const byId=new Map(merged.map(r=>[r.id,r])),scope=new Set(change.order);next[key]=[...merged.filter(r=>!scope.has(r.id)&&r.projectId!==project.id),...change.order.map(id=>byId.get(id)).filter(Boolean)];}
+   else next[key]=merged;
   }return next;
  }
  const state=response.state||response;
@@ -94,7 +96,8 @@ export class LiveWorkspaceSync extends DurableWorkspaceSync {
       catch(err){this.failed=previous;throw err;}
       this.queue=this.queue.filter(x=>x.id!==entry.id);this.epoch++;this.publish();
      });
-     this.onMessage('有一项修改未保存，草稿已保留在项目设置中；其他操作可继续');
+     this.onMessage((e.message||'保存被拒绝')+'；草稿已保留在项目设置中');
+     this.refreshQueued=true;
      this.report(this.queue.length?'pending':'synced');
     }else{
      entry.phase=e.status===401?'expired':'retrying';entry.error=e.message;
@@ -106,6 +109,7 @@ export class LiveWorkspaceSync extends DurableWorkspaceSync {
    }
   })().catch(e=>{this.persistenceError=true;this.report('storage-error',e.message||'本地保存失败，请勿关闭页面');}).finally(()=>{
    this.processing=null;if(this.queue.length&&this.status.phase==='pending')this.pump();
+   else if(this.refreshQueued){this.refreshQueued=false;this.refresh();}
   });
  }
  async refresh(){

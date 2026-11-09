@@ -65,3 +65,19 @@ test('visible edit does not wait for a slow browser database write',async t=>{
  const action=c.action('item.update',{id:'i',title:'instant'},'p');await flush();assert.equal(c.state.items[0].title,'instant');assert.equal(c.status.localSaved,false);assert.equal(sends,0);
  finish();await action;await idle(c);assert.equal(sends,1);assert.equal(c.hasPending(),false);
 });
+
+test('compact reorder preserves server order and the next move passes concurrency checks',async()=>{
+ const {seed,act}=await import('../server/model.mjs');
+ const {mergeLive}=await import('../src/live-workspace-sync.mjs');
+ const {roadmapSiblings}=await import('../shared/roadmap-order.mjs');
+ const server=seed(),project=server.projects[0];
+ for(const title of ['visible a','hidden','visible b'])act(server,{type:'item.create',payload:{projectId:project.id,kind:'task',title}});
+ const source=server.items.find(i=>i.title==='visible b'),target=server.items.find(i=>i.title==='visible a');
+ const initial=structuredClone(server);initial.projects[0].cloud={fileId:'f',headId:'h1'};
+
+ act(server,{type:'item.reorder',payload:{projectId:project.id,id:source.id,targetId:target.id,position:'before',expectedSiblingIds:roadmapSiblings(server.items,source).map(i=>i.id)}});
+ const changes=Object.fromEntries(['items','sprints','releases','notes','runs','events'].map(key=>[key,{upsert:server[key],remove:[],order:server[key].map(r=>r.id)}]));
+ const merged=mergeLive(initial,{patch:true,project:{...server.projects[0],cloud:{fileId:'f',headId:'h2'}},revision:2,changes});
+ assert.deepEqual(merged.items.map(i=>i.id),server.items.map(i=>i.id));
+ act(server,{type:'item.reorder',payload:{projectId:project.id,id:source.id,targetId:target.id,position:'after',expectedSiblingIds:roadmapSiblings(merged.items,source).map(i=>i.id)}});
+});
