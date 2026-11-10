@@ -1,7 +1,7 @@
 import {roadmapSiblings,roadmapTreeSnapshot} from '../shared/roadmap-order.mjs';
 import {DurableWorkspaceSync} from './durable-workspace-sync.mjs';
 import {mergeWorkspace,headsOf} from './workspace-sync.mjs';
-import {SyncStorage} from './sync-storage.mjs';
+import {TabSyncStorage} from './sync-storage.mjs';
 const roadmapAction=type=>['item.reorder','item.roadmap.move'].includes(type);
 function moveContext(state,payload){
  const source=state?.items.find(i=>i.id===payload.id),target=state?.items.find(i=>i.id===payload.targetId);
@@ -41,12 +41,16 @@ const rejected=phase=>['conflict','rejected'].includes(phase);
 // blocks later valid operations. Uncertain requests retain their original ID/body.
 export class LiveWorkspaceSync extends DurableWorkspaceSync {
  constructor(options){
-  let restored=[];const storage=options.storage||new SyncStorage(options.scope);
+  let restored=[];const storage=options.storage||new TabSyncStorage(options.scope,{locks:options.locks});
   const boundary={read:async()=>{const saved=await storage.read();if(!saved)return saved;restored=[...(saved.failed||[]),...(saved.queue||[]).filter(e=>rejected(e.phase))];return {...saved,queue:(saved.queue||[]).filter(e=>!rejected(e.phase))};},write:value=>storage.write(value)};
-  super({...options,storage:boundary,refreshIntervalMs:0});this.failed=[];this.needsFullRefresh=true;
+  super({...options,locks:null,storage:boundary,refreshIntervalMs:0});this.failed=[];this.needsFullRefresh=true;this.tabStorage=storage;
   this.ready=this.ready.then(()=>{this.failed=restored;if(!this.readOnly&&!this.storageFailed)this.report(this.queue[0]?.phase||'synced');});
  }
  hasBlockingPending(){return super.hasPending();}
+ dispose(){
+  super.dispose();
+  Promise.allSettled([this.ready,this.writing,this.processing]).then(()=>this.tabStorage.dispose?.());
+ }
  hasPending(){return super.hasPending()||!!this.failed?.length;}
  report(phase,error=''){
   super.report(phase,error);this.status.failedCount=this.failed?.length||0;this.onStatus({...this.status});
@@ -189,3 +193,4 @@ export function watchLiveUpdates(sync,{document:doc=globalThis.document,window:w
  doc.addEventListener('visibilitychange',wake);win.addEventListener('online',wake);win.addEventListener('focus',wake);tick();
  return()=>{stopped=true;clearTimer(timer);doc.removeEventListener('visibilitychange',wake);win.removeEventListener('online',wake);win.removeEventListener('focus',wake);};
 }
+

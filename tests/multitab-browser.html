@@ -1,0 +1,31 @@
+<!doctype html><meta charset="utf-8"><title>HeySO 多页面存储回归</title>
+<h1>HeySO 多页面存储回归</h1><pre id="result">正在验证真实 IndexedDB / Web Locks…</pre>
+<script type="module">
+import {TabSyncStorage,SyncStorage} from '../src/sync-storage.mjs';
+const result=document.querySelector('#result'),scope='heyso-regression-'+crypto.randomUUID(),opened=[],checks=[];
+function assert(value,message){if(!value)throw Error(message);checks.push('通过：'+message);result.textContent=checks.join('\n');}
+try{
+ const first=new TabSyncStorage(scope);opened.push(first);
+ await first.write({state:{revision:1},queue:[{id:'pending-A',body:{requestId:'frozen-A',headId:'h1'}}],failed:[{id:'draft-A'}]});
+ const second=new TabSyncStorage(scope);opened.push(second);await second.ready;
+ assert(await second.read()===undefined,'第二页面不占用或导入仍在编辑的第一页面队列');
+ await second.write({state:{revision:2},queue:[{id:'pending-B'}],failed:[]});
+ assert((await first.read()).queue[0].id==='pending-A','第二页面保存不覆盖第一页面草稿');
+ assert((await second.read()).queue[0].id==='pending-B','第二页面可以独立持久化');
+ first.dispose();await first.lease;
+ const third=new TabSyncStorage(scope);opened.push(third);await third.ready;
+ const recovered=await third.read();
+ assert(recovered.queue[0].body.requestId==='frozen-A'&&recovered.failed[0].id==='draft-A','关闭第一页面后原始请求和失败草稿被原子恢复');
+ assert((await second.read()).queue[0].id==='pending-B','恢复过程不影响仍在使用的第二页面');
+ const legacyScope=scope+'-legacy',legacy=new SyncStorage(legacyScope);
+ await legacy.write({state:{revision:1},queue:[{id:'legacy'}]});
+ const upgraded=new TabSyncStorage(legacyScope);opened.push(upgraded);await upgraded.ready;
+ assert((await upgraded.read()).queue[0].id==='legacy'&&await legacy.read()===undefined,'旧版工作空间草稿原子迁移且保留请求标识');
+ result.textContent+='\n全部 6 项真实浏览器存储检查通过。';
+}catch(error){result.textContent+='\n失败：'+error.stack;}finally{
+ for(const storage of opened){storage.dispose();await storage.lease;}
+ const db=await new SyncStorage(scope).open();
+ const tx=db.transaction('workspaces','readwrite'),store=tx.objectStore('workspaces'),request=store.getAllKeys();
+ request.onsuccess=()=>{for(const key of request.result)if(typeof key==='string'&&key.startsWith(scope))store.delete(key);};
+}
+</script>
