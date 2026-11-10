@@ -1,0 +1,14 @@
+import assert from 'node:assert/strict';
+import {build} from 'esbuild';
+import {fileURLToPath} from 'node:url';
+const {JSDOM}=await import(process.env.HEYSO_JSDOM_MODULE);
+const root=fileURLToPath(new URL('..',import.meta.url));
+const built=await build({stdin:{contents:`import React,{useState} from 'react';import {createRoot} from 'react-dom/client';import Presence from './src/Presence.jsx';function App(){const [open,setOpen]=useState(true);return <><button id="toggle" onClick={()=>setOpen(v=>!v)}>toggle</button><Presence present={open}><button id="inside">drawer content</button></Presence></>;}createRoot(document.getElementById('root')).render(<App/>);`,resolveDir:root,loader:'jsx'},bundle:true,write:false,format:'iife',define:{'process.env.NODE_ENV':'"production"'}});
+const dom=new JSDOM('<div id="root"></div>',{pretendToBeVisual:true,runScripts:'dangerously'}),w=dom.window;
+w.eval(built.outputFiles[0].text);const wait=ms=>new Promise(r=>setTimeout(r,ms));await wait(40);
+const inside=w.document.getElementById('inside');inside.focus();assert.equal(w.document.activeElement,inside);
+w.document.getElementById('toggle').click();await wait(40);
+let presence=w.document.querySelector('.presence');assert.equal(presence.dataset.state,'closing');assert.ok(presence.hasAttribute('inert'));assert.equal(presence.hasAttribute('aria-hidden'),false,'focused descendant must not get an aria-hidden ancestor');
+w.document.getElementById('toggle').click();await wait(40);presence=w.document.querySelector('.presence');assert.equal(presence.dataset.state,'open');assert.equal(presence.hasAttribute('inert'),false);await wait(220);assert.ok(w.document.getElementById('inside'),'reopening cancels exit unmount');
+w.document.getElementById('toggle').click();await wait(250);assert.equal(w.document.querySelector('.presence'),null);
+console.log('PASS: focused exit has inert without aria-hidden, reopen cancels exit, close unmounts');dom.window.close();
