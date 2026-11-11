@@ -13,6 +13,13 @@ try{
  await dialog.getByRole('textbox',{name:'验收标准',exact:true}).waitFor();
  const labels=await dialog.locator('.ant-form-item-label').allTextContents();
  assert.deepEqual(labels.map(s=>s.replaceAll('*','').trim()).filter(Boolean),['负责人','优先级','父工作','故事点','冲刺','版本','计划周期','工作描述','验收标准']);
+ // A title validation message must not vertically center the type picker against the taller field.
+ await dialog.getByRole('button',{name:'保存',exact:true}).click();
+ await dialog.getByText('请填写标题',{exact:true}).waitFor();
+ const [typeBox,titleBox]=await dialog.locator('.create-item-type .ant-select,input[name=title]').evaluateAll(nodes=>nodes.map(node=>({y:node.getBoundingClientRect().y})));
+ assert.ok(Math.abs(typeBox.y-titleBox.y)<2,'type and title controls remain top aligned during validation');
+ await mkdir('docs/verification/hs1-30',{recursive:true});
+ await page.screenshot({animations:'disabled',path:'docs/verification/hs1-30/create-title-validation.png'});
  const choose=async(label,text)=>{await dialog.getByRole('combobox',{name:label,exact:true}).click();await page.locator('.ant-select-dropdown:visible .ant-select-item-option').filter({hasText:text}).first().click();};
  assert.equal(await dialog.locator('.create-item-heading .ant-form-item-label:visible').count(),0);
  assert.equal(await dialog.locator('input[name=title]').getAttribute('placeholder'),null);

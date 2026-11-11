@@ -7754,7 +7754,7 @@ body .roadmap-plan-popover .roadmap-search {padding:8px 11px;}
 .create-item-form .modal-body { display:flex;flex-direction:column;gap:16px; }
 .create-item-form .modal-body .field { margin:0; }
 .create-item-form .form-grid { display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px 20px;margin:0; }
-.create-item-form .create-item-heading { grid-template-columns:60px minmax(0,1fr);gap:12px;align-items:center; }
+.create-item-form .create-item-heading { grid-template-columns:60px minmax(0,1fr);gap:12px;align-items:start; }
 .create-item-form .form-grid > * { min-width:0; }
 .create-item-form .create-item-heading .ant-form-item-label { display:none; }
 .create-item-form .create-item-type .select-trigger { width:60px; }

@@ -991,8 +991,8 @@ export function act(s, a) {
         fail("请先结束当前冲刺");
       const items = storiesIn(s, sp.id);
       if (!items.length) fail("请先为冲刺安排故事");
-      if (items.some((x) => !x.owner || !x.acceptance?.trim()))
-        fail("故事需要负责人和验收标准后才能进入冲刺");
+      if (items.some((x) => !x.owner?.trim()))
+        fail("工作项需要负责人后才能启动冲刺");
       const plan = { ...sp, ...Object.fromEntries(["name", "goal", "startDate", "endDate", "capacity"].filter(k => p[k] !== undefined).map(k => [k, p[k]])) };
       required(plan.name, "Sprint 名称"); required(plan.goal, "冲刺目标"); dateRange(plan.startDate, plan.endDate, "冲刺", true);
       if (!Number.isFinite(Number(plan.capacity)) || Number(plan.capacity) < 0) fail("计划容量必须是非负数");

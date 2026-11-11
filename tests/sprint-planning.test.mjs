@@ -47,3 +47,19 @@ test('invalid startup confirmation cannot change dates or capture a baseline',t=
  assert.throws(()=>run(store,'sprint.start',{id:'sp2',name:'无效确认',startDate:'2026-02-30',endDate:'2026-03-10'}),/有效日期/);
  assert.deepEqual(store.read(),before);
 });
+
+test('starting a sprint requires owners but permits blank or missing acceptance criteria',t=>{
+ const store=fresh(t);close(store);
+ const rows=store.read().items.filter(i=>i.sprintId==='sp2');assert.ok(rows.length);
+ rows.forEach((item,index)=>run(store,'item.update',{id:item.id,owner:'我',acceptance:index?'   ':''}));
+ run(store,'sprint.start',{id:'sp2'});
+ const state=store.read(),sprint=state.sprints.find(sp=>sp.id==='sp2');
+ assert.equal(sprint.status,'active');assert.ok(sprint.startedAt);assert.equal(sprint.baseline.length,rows.length);
+ assert.ok(state.items.filter(i=>i.sprintId==='sp2').every(i=>!i.acceptance.trim()));
+});
+test('starting rejects an unassigned owner without changing sprint state or baseline',t=>{
+ const store=fresh(t);close(store);
+ const item=store.read().items.find(i=>i.sprintId==='sp2');
+ run(store,'item.update',{id:item.id,owner:'',acceptance:'已有验收标准'});
+ const before=store.read();assert.throws(()=>run(store,'sprint.start',{id:'sp2'}),/负责人/);assert.deepEqual(store.read(),before);
+});
