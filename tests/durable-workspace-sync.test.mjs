@@ -45,9 +45,9 @@ test('second tab cannot overwrite another tab outbox',async t=>{
 });
 test('server returns an opaque account scope and rejects another account outbox before reaching upstream',async()=>{
  const origin='https://heyso.test',env={HEYSO_SETUP_KEY:'setup-key-for-scope-regression-0001'},config={provider:'loyocloud',base:'https://cloud.test',origin,token:'test-token',user:{id:'owner'},password:'gateway-test-password',mcpKey:'gateway-test-mcp-key',expires:Date.now()+60000};
- const cookie='heyso_config='+seal(config,env.HEYSO_SETUP_KEY,'config')+'; '+sessionCookie(new Request(origin),{HEYSO_PASSWORD:config.password}).split(';')[0],headers={Cookie:cookie,Origin:origin,'Content-Type':'application/json','X-HeySO-Client':'local-ui'};let calls=0;const fetcher=async()=>{calls++;throw Error('must not reach upstream');};
+ const cookie='heyso_config='+seal(config,env.HEYSO_SETUP_KEY,'config')+'; '+sessionCookie(new Request(origin),{HEYSO_PASSWORD:config.password}).split(';')[0],headers={Cookie:cookie,Origin:origin,'Content-Type':'application/json','X-HeySO-Client':'local-ui'};let calls=0;const fetcher=async()=>{calls++;return Response.json({app:'heyso',user:{id:'owner'}});};
  const session=await (await handleDeployment(new Request(origin+'/api/session',{headers}),env,{fetcher})).json();assert.match(session.storageScope,/^[a-f0-9]{64}$/);assert.ok(!JSON.stringify(session).includes('test-token'));
- const res=await handleDeployment(new Request(origin+'/api/action',{method:'POST',headers,body:JSON.stringify({storageScope:'different-account',action:{type:'item.update',payload:{id:'i',title:'wrong'}}})}),env,{fetcher});assert.equal(res.status,409);assert.equal(calls,0);assert.equal((await res.json()).scopeMismatch,true);
+ const res=await handleDeployment(new Request(origin+'/api/action',{method:'POST',headers,body:JSON.stringify({storageScope:'different-account',action:{type:'item.update',payload:{id:'i',title:'wrong'}}})}),env,{fetcher});assert.equal(res.status,409);assert.equal(calls,1,'only initial identity verification reaches upstream; mismatched outbox is rejected locally');assert.equal((await res.json()).scopeMismatch,true);
 });
 test('queued create replays its original request after lost ACK without duplicate creation',async t=>{
  const storage=memory(),requests=new Map();let creates=0,lost=true;

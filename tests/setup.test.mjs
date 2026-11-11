@@ -106,9 +106,9 @@ async function choose(c, provider, platform, mock) {
 for (const platform of ['netlify', 'vercel', 'cloudflare']) for (const provider of ['loyocloud', 'upstash', 'cloudflare']) {
   test(`${platform} frontend with ${provider}: first-run wizard, persistence and authorization`, async () => {
     const mock = services(), native = memory();
-    const options = { platform, fetcher: mock.fetcher, ...(platform === 'cloudflare' ? { nativeStorage: native } : {}) };
+    const options = { platform, fetcher: mock.fetcher, configurationStorage:memory(), ...(platform === 'cloudflare' ? { nativeStorage: native } : {}) };
     const c = client(options);
-    const initial = await (await c.call('/api/session')).json(); assert.equal(initial.setupRequired, true);
+    const initial = await (await c.call('/api/session')).json(); assert.equal(initial.setupRequired, false);
     assert.equal((await c.call('/api/state')).status, 401);
     assert.equal((await c.call('/api/setup/unlock', { setupKey: 'wrong' })).status, 401);
     assert.equal((await c.call('/api/setup/unlock', { setupKey: env.HEYSO_SETUP_KEY }, { Origin: 'https://evil.example' })).status, 403);
@@ -145,7 +145,7 @@ for (const platform of ['netlify', 'vercel', 'cloudflare']) for (const provider 
   });
 }
 test('setup completion rejects changed credentials, cookie tampering, missing owner key and unsafe URLs', async () => {
-  const mock = services(), c = client({ platform: 'netlify', fetcher: mock.fetcher });
+  const mock = services(), c = client({ platform: 'netlify', fetcher: mock.fetcher,configurationStorage:memory() });
   assert.equal((await c.call('/api/setup/test', { provider: 'upstash' })).status, 401);
   await c.call('/api/setup/unlock', { setupKey: env.HEYSO_SETUP_KEY });
   for (const url of ['http://redis.example', 'https://127.0.0.1', 'https://localhost', 'https://redis.example/path', 'https://user:pass@redis.example']) assert.equal((await c.call('/api/setup/test', { provider: 'upstash', url, token: 'secret' })).status, 400);
@@ -154,7 +154,8 @@ test('setup completion rejects changed credentials, cookie tampering, missing ow
   assert.equal((await c.call('/api/setup/complete', { ...selected, token: 'changed', password })).status, 400);
   await c.call('/api/setup/complete', { ...selected, password });
   c.jar.set('heyso_config', c.jar.get('heyso_config').slice(0,-10) + 'broken');
-  assert.equal((await (await c.call('/api/session')).json()).setupRequired, true);
+  assert.equal((await (await c.call('/api/session')).json()).setupRequired, false);
+  assert.equal((await (await c.call('/api/session')).json()).provider,'upstash');
   const missing = client({ platform: 'vercel' }, {});
   assert.equal((await (await missing.call('/api/setup')).json()).ownerConfigured, false);
   assert.equal((await missing.call('/api/setup/unlock', { setupKey: 'anything' })).status, 503);
@@ -167,4 +168,22 @@ test('legacy AI credentials never authorize the Cloudflare raw storage gateway',
   const token = 'legacy-ai-token-32-characters-long';
   const response = await worker.fetch(new Request('https://storage.example/storage/v1', { method: 'POST', headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' }, body: '{}' }), { HEYSO_MCP_TOKEN: token });
   assert.equal(response.status, 401);
+});
+
+test('manual independent storage requires a durable deployment install instead of claiming browser-only setup is complete',async()=>{
+ const mock=services(),options={platform:'vercel',fetcher:mock.fetcher},c=client(options);
+ await c.call('/api/setup/unlock',{setupKey:env.HEYSO_SETUP_KEY});
+ const selected={provider:'upstash',url:'https://redis.example',token:'test-redis-read-write-token'};
+ assert.equal((await c.call('/api/setup/test',selected)).status,200);
+ const result=await(await c.call('/api/setup/complete',{...selected,password})).json();assert.equal(result.requiresEnvironment,true);assert.equal(result.ok,false);assert.equal(c.jar.has('heyso_config'),false);
+ assert.ok(!result.deploymentConfig.includes(password));
+ const fresh=client(options,{...env,HEYSO_DEPLOYMENT_CONFIG:result.deploymentConfig});
+ assert.equal((await(await fresh.call('/api/session')).json()).workspaceAvailable,true);
+ assert.equal((await fresh.call('/api/session',{password})).status,200);
+});
+test('Cloudflare native deployment configuration survives a new browser without configuration cookies',async()=>{
+ const mock=services(),native=memory(),options={platform:'cloudflare',fetcher:mock.fetcher,nativeStorage:native},c=client(options);
+ await choose(c,'cloudflare','cloudflare',mock);
+ const fresh=client(options),initial=await(await fresh.call('/api/session')).json();assert.equal(initial.workspaceAvailable,true);assert.equal(initial.authenticated,false);
+ assert.equal((await fresh.call('/api/session',{password})).status,200);
 });

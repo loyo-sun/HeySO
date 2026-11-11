@@ -64,7 +64,7 @@ export async function handleLoyo(request, config, env, input, fetcher = fetch) {
       return json({ ok: true }, 200, { 'Set-Cookie': sessionCookie(request, env) });
     }
   }
-  if (!authenticated(request, env)) return json({ error: '请先输入访问密码' }, 401);
+  if (config.authMode !== 'account' && !authenticated(request, env)) return json({ error: '请先输入访问密码' }, 401);
   if (!['GET', 'POST'].includes(request.method)) fail('不支持此请求方法', 405);
   if (request.method === 'POST' && request.headers.get('x-heyso-client') !== 'local-ui') fail('需要客户端标识', 403);
   if (path === '/api/cloud/status') return json({ connected: true, base: config.base, user: config.user, primary: true, mcpUrl: config.base + '/mcp/heyso' });

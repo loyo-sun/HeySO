@@ -1,4 +1,5 @@
 import { createHash, randomBytes } from 'node:crypto';
+import {entryMode, entryCookie, cloudEnabled, workspaceEnabled, loginInfo, handleEntryAuth, readWorkspaceConfig, saveWorkspaceConfig} from './entry-auth.mjs';
 import { handleHosted, readBody } from './hosted.mjs';
 import { toolDefinitions } from './mcp-tools.mjs';
 import { redisStorage } from './redis-storage.mjs';
@@ -65,12 +66,24 @@ export async function handleDeployment(request, env, options = {}) {
     const origin = env.HEYSO_PUBLIC_URL ? new URL(env.HEYSO_PUBLIC_URL).origin : url.origin;
     if (request.headers.get('origin') && request.headers.get('origin') !== origin) fail('来源未授权', 403);
     const ownerConfigured = secret.length >= (env.HEYSO_SETUP_KEY ? 32 : 16);
-    let config = ownerConfigured ? decodedCookie(request, env, 'config') : null;
+    const authResponse=await handleEntryAuth(request,env,options,readBody);
+    if(authResponse)return authResponse;
+    const browserConfig = ownerConfigured ? decodedCookie(request, env, 'config') : null;
+    // Cloud login remains usable during an independent storage outage.
+    const mode=entryMode(request,env);
+    const wantsCloud=cloudEnabled(env)&&mode!=='workspace'&&browserConfig?.provider==='loyocloud';
+    let workspaceConfig=null, workspaceError=null;
+    try{if(workspaceEnabled(env)&&(!wantsCloud||path.startsWith('/api/setup')))workspaceConfig=await readWorkspaceConfig(env,options);}catch(error){workspaceError=error;}
+    const independent=workspaceConfig||(browserConfig?.provider!=='loyocloud'?browserConfig:null);
+    let config=wantsCloud?{...browserConfig,authMode:'account'}:mode==='loyocloud'?null:independent;
+    if(config?.provider==='loyocloud'&&!cloudEnabled(env))config=null;
+    if(config?.provider!=='loyocloud'&&!workspaceEnabled(env))config=null;
     const mcp = request.headers.get('authorization')?.match(/^Bearer hs1\.(.+)$/);
     if (mcp && path === '/mcp') config = unseal(mcp[1], secret, 'mcp');
     const unlocked = ownerConfigured && !!decodedCookie(request, env, 'unlock');
-    const legacy = !env.HEYSO_SETUP_KEY && configured(env) && (options.nativeStorage || env.UPSTASH_REDIS_REST_URL || env.KV_REST_API_URL);
-    if (path === '/api/setup' && request.method === 'GET') return json({ hosted: true, setupRequired: !config && !legacy, ownerConfigured, unlocked, platform: options.platform || 'hosted', nativeCloudflare: !!options.nativeStorage, provider: config?.provider || null, redisKey: env.HEYSO_STORAGE_KEY || 'heyso:workspace:v1', loyoBase: env.HEYSO_CLOUD_URL || 'https://cloud.loyo.work', hasEnvironmentRedis: !!((env.UPSTASH_REDIS_REST_URL || env.KV_REST_API_URL) && (env.UPSTASH_REDIS_REST_TOKEN || env.KV_REST_API_TOKEN)), hasEnvironmentCloudflare: !!(env.HEYSO_CLOUDFLARE_URL && env.HEYSO_CLOUDFLARE_TOKEN) });
+    const legacy = workspaceEnabled(env) && configured(env) && (options.nativeStorage || env.UPSTASH_REDIS_REST_URL || env.KV_REST_API_URL);
+    const info=()=>loginInfo(env,independent||legacy,config);
+    if (path === '/api/setup' && request.method === 'GET') return json({ hosted: true, setupRequired: !config && !legacy, ownerConfigured, unlocked, platform: options.platform || 'hosted', nativeCloudflare: !!options.nativeStorage, provider: config?.provider || null, redisKey: env.HEYSO_STORAGE_KEY || 'heyso:workspace:v1', loyoBase: env.HEYSO_CLOUD_URL || 'https://cloud.loyo.work', persistentConfiguration:!!workspaceConfig, workspaceError:workspaceError?'独立工作空间连接暂时不可用':null, hasEnvironmentRedis: !!((env.UPSTASH_REDIS_REST_URL || env.KV_REST_API_URL) && (env.UPSTASH_REDIS_REST_TOKEN || env.KV_REST_API_TOKEN)), hasEnvironmentCloudflare: !!(env.HEYSO_CLOUDFLARE_URL && env.HEYSO_CLOUDFLARE_TOKEN) });
     if (path.startsWith('/api/setup/') && request.method === 'POST') {
       if (!ownerConfigured) fail('请先在部署平台设置至少 32 位的 HEYSO_SETUP_KEY，再重新部署', 503);
       const input = await readBody(request);
@@ -79,7 +92,7 @@ export async function handleDeployment(request, env, options = {}) {
         return resultCookies(json({ ok: true }), [configCookie(request, names.unlock, seal({ expires: Date.now() + 15 * 60000 }, secret, 'unlock'), 900)]);
       }
       if (path === '/api/setup/reset') {
-        if (!unlocked && !(config && authenticated(request, effectiveEnv(env, config)))) fail('请先登录或验证初始化密钥', 401);
+        if (!unlocked) fail('请先登录或验证初始化密钥', 401);
         return resultCookies(json({ ok: true }), [configCookie(request, names.config, '', 0), sessionCookie(request, env, true)]);
       }
       if (!unlocked) fail('请先验证部署时设置的初始化密钥', 401);
@@ -111,17 +124,42 @@ export async function handleDeployment(request, env, options = {}) {
         if (typeof input.password !== 'string' || input.password.length < 16) fail('工作空间访问密码至少需要 16 位');
         const value = { ...selected, password: input.password, mcpKey: randomBytes(32).toString('base64url'), expires: Date.now() + 30 * 86400000 };
         const effective = effectiveEnv(env, value);
-        return resultCookies(json({ ok: true, provider: selected.provider }), [configCookie(request, names.config, seal(value, secret, 'config')), sessionCookie(request, effective), ...['unlock','cloud','tested'].map(name => configCookie(request, names[name], '', 0))]);
+        if(selected.provider!=='loyocloud'){
+          const persisted=await saveWorkspaceConfig(value,env,options);
+          if(!persisted.saved)return json({ok:false,requiresEnvironment:true,deploymentConfig:persisted.deploymentConfig,message:'请将加密配置保存为部署环境变量 HEYSO_DEPLOYMENT_CONFIG，重新部署后即可供所有成员使用。'});
+        }
+        return resultCookies(json({ ok: true, provider: selected.provider }), [entryCookie(request,env,selected.provider==='loyocloud'?'loyocloud':'workspace'),configCookie(request, names.config, seal(value, secret, 'config')), sessionCookie(request, effective), ...['unlock','cloud','tested'].map(name => configCookie(request, names[name], '', 0))]);
       }
       fail('配置接口不存在', 404);
     }
     if (path === '/api/health') return json({ status: config || legacy ? 'ok' : 'setup_required', version: 'alpha_0.1', tools: toolDefinitions.length, hosted: true, provider: config?.provider || null });
-    if (!config && legacy) return handleHosted(request, env, options.nativeStorage || { run: callback => redisStorage(env, options.fetcher).run(callback) });
-    if (!config) return json({ hosted: true, authenticated: false, setupRequired: true, ownerConfigured, platform: options.platform || 'hosted' }, path === '/api/session' ? 200 : 401);
+    if (!config && legacy && mode!=='loyocloud') {
+      const response=await handleHosted(request, env, options.nativeStorage || { run: callback => redisStorage(env, options.fetcher).run(callback) });
+      if(path==='/api/session'&&request.method==='GET')return json({...await response.json(),...info(),provider:options.nativeStorage?'cloudflare':'upstash'});
+      return response;
+    }
+    if (!config) return json({hosted:true,authenticated:false,...info(),ownerConfigured,workspaceError:workspaceError?'独立工作空间连接暂时不可用':null,platform:options.platform||'hosted'},path==='/api/session'?200:401);
     const effective = effectiveEnv(env, config);
     const storageScope=config.provider==='loyocloud'?fingerprint(['heyso-sync-v1',config.base,config.user.id]):undefined;
-    if (path === '/api/session' && request.method === 'GET') return json({ hosted: true, authenticated: authenticated(request, effective), setupRequired: false, provider: config.provider, storageScope:authenticated(request,effective)?storageScope:undefined, version: 'alpha_0.1' });
+    if (path === '/api/session' && request.method === 'GET') {
+      if(config.provider==='loyocloud'){
+        try{
+          const identity=await loyoApi(config,options.fetcher)('/api/v1/editor/session');
+          if(identity.app!=='heyso'||identity.user?.id!==config.user.id)fail('云账号身份不一致',401);
+        }catch(error){
+          if(error.status!==401)throw error;
+          return resultCookies(json({hosted:true,authenticated:false,...info(),provider:'loyocloud'}),[configCookie(request,names.config,'',0)]);
+        }
+        return json({hosted:true,...info(),authenticated:true,loginRequired:false,provider:'loyocloud',user:config.user,storageScope});
+      }
+      return json({ hosted:true,...info(),authenticated:authenticated(request,effective),provider:config.provider,version:'alpha_0.1' });
+    }
+    if(path==='/api/session'&&request.method==='DELETE'&&config.provider==='loyocloud'){
+      try{await loyoApi(config,options.fetcher)('/api/v1/editor/logout',{});}catch(error){if(error.status!==401)throw error;}
+      return resultCookies(json({ok:true}),[configCookie(request,names.config,'',0),sessionCookie(request,effective,true)]);
+    }
     if (config.provider === 'loyocloud') {
+      if(path==='/api/session'&&request.method==='POST')return json({error:'请使用 LoyoCloud 账号登录'},405);
       if (path === '/mcp') return json({ error: 'LoyoCloud 模式请使用云端 OAuth MCP 地址：' + config.base + '/mcp/heyso' }, 400);
       const input = request.method === 'POST' ? await readBody(request) : {};
       if(input.storageScope && input.storageScope!==storageScope) return json({error:'账号或云端空间已切换，请返回原账号同步',scopeMismatch:true},409);
@@ -129,9 +167,9 @@ export async function handleDeployment(request, env, options = {}) {
       try { response = await handleLoyo(request, config, effective, input, options.fetcher); }
       catch (error) {
         if (error.status !== 401) throw error;
-        return resultCookies(json({ error: 'LoyoCloud 登录已过期，请重新连接', setupRequired: true }, 401), [configCookie(request, names.config, '', 0)]);
+        return resultCookies(json({ error: 'LoyoCloud 登录已过期，请重新连接', setupRequired:false,loginRequired:true }, 401), [configCookie(request, names.config, '', 0)]);
       }
-      if (response.status === 401 && path !== '/api/session') return resultCookies(json({ error: 'LoyoCloud 登录已过期，请重新配置连接', setupRequired: true }, 401), [configCookie(request, names.config, '', 0)]);
+      if (response.status === 401 && path !== '/api/session') return resultCookies(json({ error: 'LoyoCloud 登录已过期，请重新登录', setupRequired:false,loginRequired:true }, 401), [configCookie(request, names.config, '', 0)]);
       return response;
     }
     if (mcp && path === '/mcp') { const headers = new Headers(request.headers); headers.set('Authorization', 'Bearer ' + effective.HEYSO_MCP_TOKEN); request = new Request(request, { headers }); }

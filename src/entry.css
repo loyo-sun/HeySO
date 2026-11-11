@@ -1,0 +1,6 @@
+.entry-modes { display: flex; gap: 8px; margin: 20px 0; }
+.entry-modes > * { flex: 1; }
+.entry-modes [aria-pressed="true"] { background: var(--primary-bg, #eef3f2); border-color: var(--primary, #427568); color: var(--primary, #427568); }
+.entry-panel { display: grid; gap: 12px; margin: 20px 0; }
+.entry-panel p { margin: 0; }
+.entry-admin { margin-top: 20px; }
