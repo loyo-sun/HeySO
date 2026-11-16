@@ -1,4 +1,3 @@
-import { sprintHistoryItems } from './sprint-items.mjs';
 import { isWorkItem, isSubtask, terminal, categoryOf, effectiveSprintId } from '../shared/work-config.mjs';
 
 export function localDay(date = new Date()) {
@@ -31,11 +30,11 @@ export function relativeDueDate(value, today = localDay()) {
 
 export function dashboardSprints(data, projectId = 'all') {
   const projects = new Map(data.projects.map(p => [p.id,p]));
-  return (data.sprints || []).filter(s => projects.has(s.projectId) && (projectId === 'all' || s.projectId === projectId)).map(sprint => {
+  return (data.sprints || []).filter(s => s.status === 'active' && projects.has(s.projectId) && (projectId === 'all' || s.projectId === projectId)).map(sprint => {
     const project = projects.get(sprint.projectId);
-    const rows = (sprint.status === 'closed' ? sprintHistoryItems(sprint,data.items,project) : data.items.filter(i => i.projectId === project.id && effectiveSprintId(i,data.items,project) === sprint.id)).filter(i => isWorkItem(i,project) || isSubtask(i,project));
+    const rows = data.items.filter(i => i.projectId === project.id && effectiveSprintId(i,data.items,project) === sprint.id).filter(i => isWorkItem(i,project) || isSubtask(i,project));
     const done = rows.filter(i => categoryOf(project,i.status,i.kind) === 'done').length;
     const cancelled = rows.filter(i => categoryOf(project,i.status,i.kind) === 'cancelled').length;
     return {sprint,project,total:rows.length,done,cancelled,percent:rows.length ? Math.round(done / rows.length * 100) : 0};
-  }).sort((a,b) => ({active:0,planned:1,planning:1,closed:2}[a.sprint.status] ?? 3) - ({active:0,planned:1,planning:1,closed:2}[b.sprint.status] ?? 3) || (b.sprint.endDate || '').localeCompare(a.sprint.endDate || ''));
+  }).sort((a,b) => (b.sprint.endDate || '').localeCompare(a.sprint.endDate || ''));
 }

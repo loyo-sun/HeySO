@@ -29,3 +29,5 @@ HEYSO_JSDOM_MODULE=/path/to/jsdom/lib/api.js node tests/hs1-36-dom.mjs
 ```
 
 浏览器脚本默认使用 `/usr/bin/chromium`，可通过 `HEYSO_CHROMIUM` 覆盖。验证工具安装在临时目录，未加入项目运行依赖。本次交付代码和验收记录，按用户要求同步至 GitHub main，未执行部署；MCP 交付将目标项置为待人工验收。
+
+后续 HS1-42、HS1-51 的人工退回意见、修正与截图见 [验收修改记录](../2026-11-16-hs1-36-review/README.md)。仪表盘冲刺范围现已按验收要求限定为进行中。

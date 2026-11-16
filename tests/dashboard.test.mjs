@@ -47,7 +47,7 @@ test('relative deadlines count calendar days over month and year boundaries', as
   assert.equal(relativeDueDate('2027-01-02', '2026-12-31'), '2 天后');
 });
 
-test('sprint summaries include inherited children and frozen history without counting cancelled as done', async () => {
+test('sprint summaries only show active sprints, include inherited children and keep cancellation separate', async () => {
   const {dashboardSprints} = await import('../src/dashboard.mjs');
   const project = {id:'p', workConfig:defaultWorkConfig()};
   project.workConfig.workflowScheme.defaultWorkflowId = 'delivery';
@@ -59,8 +59,8 @@ test('sprint summaries include inherited children and frozen history without cou
   const before = structuredClone(data), rows = dashboardSprints(data);
   assert.equal(rows[0].sprint.id,'live');
   assert.deepEqual([rows[0].total,rows[0].done,rows[0].cancelled,rows[0].percent],[3,1,1,33]);
-  assert.equal(rows.find(r=>r.sprint.id==='old').percent,100);
-  assert.equal(rows.find(r=>r.sprint.id==='empty').percent,0);
+  assert.deepEqual(rows.map(r=>r.sprint.id),['live']);
+  assert.deepEqual(dashboardSprints({...data,sprints:data.sprints.filter(s=>s.status!=='active')}),[]);
   assert.deepEqual(dashboardSprints(data,'missing'),[]);
   assert.deepEqual(data,before);
 });

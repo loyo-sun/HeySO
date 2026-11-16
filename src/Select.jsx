@@ -1,6 +1,7 @@
 import {ReplicaButton,BindField,SidebarTip} from './ReplicaControls.jsx';
 import React, {
   Children,
+  useCallback,
   Fragment,
   useRef,
   useState,
@@ -188,6 +189,8 @@ export default function Select({children,value,defaultValue,onChange,name,requir
   const current=value===undefined?local:String(value),kind=givenKind||fieldKind(label,name);
   const canSearch=searchable??!['priority','decision','points','note','type'].includes(kind);
   const [open,setOpen]=useState(false),[query,setQuery]=useState(''),select=useRef(null);
+  // Popup inputs mount in a portal before placement; ordinary autofocus scrolls the page to its initial position.
+  const focusSearch=useCallback(node=>{if(open)node?.focus({preventScroll:true});},[open]);
   const selected=options.find(o=>o.value===current),iconOnly=selectedIconOnly||className.includes('detail-status-picker');
   const change=next=>{if(value===undefined)setLocal(next);onChange?.({target:{value:next,name},currentTarget:{value:next,name}});};
   const renderLabel=option=><>{option&&<OptionIcon kind={kind} option={option}/>}{kind==='project'&&<ChevronsUpDown size={18} className="sidebar-project-switch-icon" aria-hidden="true"/>}{!iconOnly&&<span className="select-value"><span>{option?.label||'请选择'}</span>{kind==='project'&&<small>{option?.code||'项目'} · 当前项目</small>}</span>}</>;
@@ -204,7 +207,7 @@ export default function Select({children,value,defaultValue,onChange,name,requir
       styles={{popup:{root:{width:popupWidth??(kind==='project'?320:240),maxWidth:'calc(100vw - 16px)'}}}}
       optionFilterProp="label" optionRender={({data:option})=><>{kind!=='project'&&<OptionIcon kind={kind} option={option}/>}<span className="select-option-label"><span>{option.label}</span>{kind==='project'&&<small>{option.code}{option.description?` · ${option.description}`:''}</small>}</span>{option.value===current&&<Check size={14} className="select-check"/>}</>}
       menuItemSelectedIcon={null}
-      popupRender={menu=><>{kind==='project'&&<div className="select-heading">切换项目 <span>{options.length}</span></div>}{canSearch&&<div className="select-search"><Search size={15}/><Input autoFocus aria-label={`搜索${kind==='project'?'项目':'选项'}`} placeholder={kind==='project'?'搜索项目名称或标识…':'搜索选项…'} value={query} onChange={e=>setQuery(e.target.value)} onKeyDown={e=>{if(e.key==='Escape')setOpen(false);if(['ArrowDown','ArrowUp'].includes(e.key)){e.preventDefault();select.current?.focus();}}}/>{query&&<ReplicaButton type="button" aria-label="清空搜索" onClick={()=>setQuery('')}><X size={13}/></ReplicaButton>}</div>}{menu}{onCreate&&<div className="select-footer"><ReplicaButton type="button" onClick={()=>{setOpen(false);onCreate();}}><Plus size={15}/>创建新项目</ReplicaButton></div>}</>}
+      popupRender={menu=><>{kind==='project'&&<div className="select-heading">切换项目 <span>{options.length}</span></div>}{canSearch&&<div className="select-search"><Search size={15}/><Input ref={focusSearch} aria-label={`搜索${kind==='project'?'项目':'选项'}`} placeholder={kind==='project'?'搜索项目名称或标识…':'搜索选项…'} value={query} onChange={e=>setQuery(e.target.value)} onKeyDown={e=>{if(e.key==='Escape')setOpen(false);if(['ArrowDown','ArrowUp'].includes(e.key)){e.preventDefault();select.current?.focus();}}}/>{query&&<ReplicaButton type="button" aria-label="清空搜索" onClick={()=>setQuery('')}><X size={13}/></ReplicaButton>}</div>}{menu}{onCreate&&<div className="select-footer"><ReplicaButton type="button" onClick={()=>{setOpen(false);onCreate();}}><Plus size={15}/>创建新项目</ReplicaButton></div>}</>}
       filterOption={false} {...(query?{options:options.filter(o=>`${o.label} ${o.code||''}`.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()))}:{})}/>
     </BindField></SidebarTip>
   </div>;

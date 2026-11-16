@@ -40,7 +40,7 @@ export default function Dashboard({ data, onOpen, onProject, onRefresh, onCreate
         <div><strong>{sprint.name}</strong><small>{project.name}</small></div><AntTag>{({planned:'待开始',planning:'待开始',active:'进行中',closed:'已结束'})[sprint.status] || sprint.status}</AntTag>
         <div className="dashboard-sprint-progress"><progress aria-label={sprint.name + '完成比例'} value={done} max={total || 1}/><span>{done}/{total} · {percent}%{cancelled ? ` · 已取消 ${cancelled}` : ''}</span></div>
       </div>)}
-      {!sprintSummaries.length && <p className="muted">暂无冲刺</p>}
+      {!sprintSummaries.length && <p className="muted">暂无进行中的冲刺</p>}
     </AntCard>
     <div className="dashboard-layout">
       <AntCard className="panel dashboard-todos" aria-label="项目待办">
