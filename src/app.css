@@ -7812,3 +7812,14 @@ body .roadmap-plan-popover .roadmap-search {padding:8px 11px;}
 .release-workspace .version-meter{flex:none;width:180px;min-width:180px;height:8px;display:flex;overflow:hidden;}
 .release-workspace .version-meter>span{display:block;height:100%;flex-shrink:0;}
 .roadmap-plan-time .ant-picker{max-width:270px;}
+
+.type-color-swatch{display:inline-block;width:14px;height:14px;border-radius:3px;margin-right:8px;vertical-align:middle}
+.type-management-table tr[data-type-row]{cursor:pointer}
+.type-management-table td small{display:block;color:var(--muted);margin-top:4px}
+.type-edit-dialog footer{display:flex;justify-content:flex-end;gap:8px;margin-top:20px}
+.dashboard-sprints{margin-bottom:20px}
+.dashboard-sprint{display:flex;align-items:center;gap:16px;padding:12px 20px;border-top:1px solid #eef0f3;flex-wrap:wrap}
+.dashboard-sprint>div:first-child{min-width:150px;flex:1}
+.dashboard-sprint small{display:block;color:var(--muted);margin-top:4px}
+.dashboard-sprint-progress{display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:12px}
+.dashboard-sprint-progress progress{width:160px;accent-color:#00a878}

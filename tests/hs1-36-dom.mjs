@@ -52,7 +52,9 @@ console.log('PASS roadmap closed sprint fields, resizing and drag disabled');
 [...w.document.querySelectorAll('summary,button')].find(b=>b.textContent.trim()==='筛选').click();await wait();
 const search=w.document.querySelector('input[placeholder*="搜索"]');
 Object.getOwnPropertyDescriptor(w.HTMLInputElement.prototype,'value').set.call(search,'新对话');search.dispatchEvent(new w.Event('input',{bubbles:true}));await wait();click('适应');await wait();
-assert.ok(w.document.querySelector('.roadmap-period').textContent.includes('2026-10-19'));
+const target=state.items.find(i=>i.title.includes('新对话'));
+const expectedStart=new Date(Date.parse(target.startDate+'T00:00:00Z')-7*86400000).toISOString().slice(0,10);
+assert.ok(w.document.querySelector('.roadmap-period').textContent.includes(expectedStart));
 console.log('PASS filtered roadmap fit');
 w.document.querySelector('.project-switcher .ant-select').dispatchEvent(new w.MouseEvent('mousedown',{bubbles:true}));await wait();click('创建新项目');await wait();
 for(const [name,value] of [['name','测试长期项目'],['code','LT'],['goal','持续运营']]){const el=w.document.querySelector(`[name=${name}]`);Object.getOwnPropertyDescriptor(el.tagName==='TEXTAREA'?w.HTMLTextAreaElement.prototype:w.HTMLInputElement.prototype,'value').set.call(el,value);el.dispatchEvent(new w.Event('input',{bubbles:true}));el.dispatchEvent(new w.Event('change',{bubbles:true}));}

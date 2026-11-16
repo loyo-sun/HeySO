@@ -14,7 +14,7 @@ export function readWorkspaceRoute(url, { views, sections, fallbackProject = '' 
     ...(requested === 'releases' && params.get('release') ? {releaseId:params.get('release')} : {}),
     view: cloud || legacyMemory ? 'settings' : views.includes(normalized) ? normalized : fallbackView,
     settingsSection: cloud ? 'integrations' : legacyMemory ? 'memory' : sections.includes(params.get('section')) ? params.get('section') : 'general',
-    selected: page === 'projects' ? params.get('item') || null : null,
+    selected: params.get('item') || null,
     tab: ['detail', 'children', 'runs', 'history'].includes(params.get('detail')) ? params.get('detail') : 'detail',
   };
 }
@@ -32,6 +32,11 @@ export function workspaceRouteUrl(currentUrl, route) {
       url.searchParams.set('item', route.selected);
       if (route.tab !== 'detail') url.searchParams.set('detail', route.tab);
     }
+  }
+  if (route.page === 'dashboard' && route.selected) {
+    if (route.projectId) url.searchParams.set('project', route.projectId);
+    url.searchParams.set('item', route.selected);
+    if (route.tab !== 'detail') url.searchParams.set('detail', route.tab);
   }
   if(route.view!=='reports')for(const key of [...url.searchParams.keys()])if(key==='report'||key.startsWith('r_'))url.searchParams.delete(key);
   return url;

@@ -83,7 +83,7 @@ test("hierarchy: moves validate project, parent type, self/cycles and parent dat
   assert.throws(() => act(s, "item.move", { id: "ep1", projectId: project(s).id, parentId: "f1" }), /父级/);
   act(s, "item.move", { id: task.id, projectId: project(s).id, parentId: "ep1" });
   assert.equal(s.read().items.find((i) => i.id === task.id).parentId, "ep1");
-  const short = make(s, "task", { startDate: "2026-10-29", endDate: "2026-10-30" });
+  const short = make(s, "task", { startDate: project(s).startDate, endDate: project(s).startDate });
   assert.throws(() => act(s, "item.move", { id: "t1", projectId: project(s).id, parentId: short.id }), /周期/);
 });
 

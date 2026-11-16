@@ -14,7 +14,7 @@ import { configFor, checkWorkConfig, hierarchyConflicts, workflowMigrationGroups
 
 export const settingsPages = [
   ["general", "常规", Settings], ["members", "成员", Users], ["roles", "角色", Users],
-  ["types", "工作项类型", Layers],
+  ["types", "工作类型", Layers],
   ["states", "工作流", Rows3], ["workflow", "协作约定", ListChecks], ["integrations", "MCP", Plug],
   ["memory", "记忆", BookOpen],
   ["data", "数据与备份", Database],
@@ -26,7 +26,7 @@ export const settingsDescriptions = {
   memory: "保存项目背景、关键决定和经验，供团队与 AI 共享。",
   members: "维护项目成员、分配角色与指定项目负责人。",
   roles: "独立维护项目角色，供成员选择。",
-  types: "定义工作项类型，按项目需要启用或添加类型。",
+  types: "定义工作类型，按项目需要启用或添加类型。",
   states: "自定义流程、复用状态，并按工作类型绑定。",
   workflow: "明确协作方式与所有故事共同遵循的交付标准。",
   integrations: "检查服务，配置外部 AI 工具的连接。",

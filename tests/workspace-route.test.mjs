@@ -11,7 +11,7 @@ test('shared links take precedence over the recipient’s last selected project 
   assert.equal(readWorkspaceRoute('https://heyso.example/?view=board', options).view, 'board');
 });
 test('dashboard links clear project details while keeping unrelated URL parameters', () => {
-  const route = { ...readWorkspaceRoute('https://heyso.example/?view=board&item=1', options), page: 'dashboard' };
+  const route = { ...readWorkspaceRoute('https://heyso.example/?view=board&item=1', options), page: 'dashboard', selected: null };
   const url = workspaceRouteUrl('https://heyso.example/?project=p&view=board&item=1&detail=runs&source=cloud', route);
   assert.equal(url.search, '?source=cloud&tab=dashboard');
   assert.equal(readWorkspaceRoute(url, options).selected, null);
@@ -70,4 +70,14 @@ test('report URLs retain report filters and remove them when navigating elsewher
  assert.equal(workspaceRouteUrl('https://heyso.example/?report=cycle&r_owner=甲',route).searchParams.get('report'),'cycle');
  const next=workspaceRouteUrl('https://heyso.example/?report=cycle&r_owner=甲',{...route,view:'roadmap'});
  assert.equal(next.searchParams.has('report'),false);assert.equal(next.searchParams.has('r_owner'),false);
+});
+
+ test('dashboard details retain project and item when shared or refreshed', () => {
+  const route = {...readWorkspaceRoute('https://heyso.example/?tab=dashboard', options), projectId:'other-project',selected:'item-42',tab:'history'};
+  const url = workspaceRouteUrl('https://heyso.example/', route);
+  const restored = readWorkspaceRoute(url, options);
+  assert.equal(restored.page,'dashboard');
+  assert.equal(restored.projectId,'other-project');
+  assert.equal(restored.selected,'item-42');
+  assert.equal(restored.tab,'history');
 });

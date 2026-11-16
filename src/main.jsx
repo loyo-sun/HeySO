@@ -924,7 +924,7 @@ function App() {
       {page === "dashboard" && <main className="dashboard-main" id="panel-dashboard" role="tabpanel" aria-labelledby="heyso-workspace-tabs-tab-dashboard">
         {!online && <AntAlert className="offline-banner">服务连接已断开，云端修改将在恢复连接后重试。</AntAlert>}
         <Dashboard data={data} onRefresh={refresh} onProject={(id) => { switchProject(id); go("roadmap"); }}
-          onOpen={(item) => { switchProject(item.projectId); go("backlog"); open(item); }}
+          onOpen={(item) => { setProjectId(item.projectId); open(item); }}
           onCreateProject={() => setModal({ type: "project" })}/>
       </main>}
       {page === "projects" && <>

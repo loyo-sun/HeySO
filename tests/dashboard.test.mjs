@@ -36,3 +36,31 @@ test('empty workspaces and local calendar dates are supported', () => {
   assert.deepEqual(dashboardTodos({ projects: [], items: [] }), []);
   assert.equal(localDay(new Date(2026, 10, 4, 0, 15)), '2026-11-04');
 });
+
+test('relative deadlines count calendar days over month and year boundaries', async () => {
+  const {relativeDueDate} = await import('../src/dashboard.mjs');
+  assert.equal(relativeDueDate('', '2026-12-31'), '未设截止日期');
+  assert.equal(relativeDueDate('2026-12-31', '2026-12-31'), '今天');
+  assert.equal(relativeDueDate('2027-01-01', '2026-12-31'), '明天');
+  assert.equal(relativeDueDate('2026-12-30', '2026-12-31'), '昨天 · 已逾期');
+  assert.equal(relativeDueDate('2026-12-28', '2026-12-31'), '已逾期 3 天');
+  assert.equal(relativeDueDate('2027-01-02', '2026-12-31'), '2 天后');
+});
+
+test('sprint summaries include inherited children and frozen history without counting cancelled as done', async () => {
+  const {dashboardSprints} = await import('../src/dashboard.mjs');
+  const project = {id:'p', workConfig:defaultWorkConfig()};
+  project.workConfig.workflowScheme.defaultWorkflowId = 'delivery';
+  const data = {projects:[project],items:[
+    {id:'parent',projectId:'p',sprintId:'live',kind:'story',status:'done'},
+    {id:'child',parentId:'parent',projectId:'p',kind:'subtask',status:'todo'},
+    {id:'cancelled',projectId:'p',sprintId:'live',kind:'task',status:'cancelled'},
+  ],sprints:[{id:'old',projectId:'p',status:'closed',finalItems:[{id:'historic',kind:'task',status:'done'}]}, {id:'live',projectId:'p',status:'active'}, {id:'empty',projectId:'p',status:'planning'}]};
+  const before = structuredClone(data), rows = dashboardSprints(data);
+  assert.equal(rows[0].sprint.id,'live');
+  assert.deepEqual([rows[0].total,rows[0].done,rows[0].cancelled,rows[0].percent],[3,1,1,33]);
+  assert.equal(rows.find(r=>r.sprint.id==='old').percent,100);
+  assert.equal(rows.find(r=>r.sprint.id==='empty').percent,0);
+  assert.deepEqual(dashboardSprints(data,'missing'),[]);
+  assert.deepEqual(data,before);
+});

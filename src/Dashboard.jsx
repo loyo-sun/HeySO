@@ -2,7 +2,7 @@ import {ReplicaButton,ReplicaInput} from './ReplicaControls.jsx';
 import {AntList,AntTag,AntEmpty,AntCard,AntStatistic} from './AntStructures.jsx';
 import React, { useState } from 'react';
 import { LayoutDashboard, ListChecks, AlertCircle, Calendar, Clock, Search, ArrowUpRight, FolderKanban, Plus, RefreshCw, ArrowRight, CheckCircle2 } from 'lucide-react';
-import { dashboardTodos, matchesTodoScope, localDay } from './dashboard.mjs';
+import { dashboardTodos, matchesTodoScope, localDay, relativeDueDate, dashboardSprints } from './dashboard.mjs';
 import { WorkConfigContext } from './WorkConfigContext.jsx';
 import { statusNamesFor, progressCategory } from '../shared/work-config.mjs';
 import Kind from './WorkType.jsx';
@@ -16,6 +16,7 @@ export default function Dashboard({ data, onOpen, onProject, onRefresh, onCreate
   const [query, setQuery] = useState('');
   const today = localDay();
   const todos = dashboardTodos(data, today);
+  const sprintSummaries = dashboardSprints(data, projectId);
   const owners = [...new Set(todos.map(({ item }) => item.owner || ''))].sort((a,b) => a.localeCompare(b, 'zh-CN'));
   const scoped = todos.filter(({ item, project }) => (projectId === 'all' || project.id === projectId)
     && (owner === 'all' || (item.owner || '') === owner)
@@ -33,6 +34,14 @@ export default function Dashboard({ data, onOpen, onProject, onRefresh, onCreate
         <div className="stat-top"><span>{label}</span><Icon size={17}/></div><AntStatistic>{scoped.filter(row => matchesTodoScope(row, id)).length}<small> 个</small></AntStatistic>
       </AntCard>)}
     </div>
+    <AntCard className="panel dashboard-sprints" aria-label="冲刺完成情况">
+      <div className="panel-title"><h3><CheckCircle2 size={18}/>冲刺完成情况</h3></div>
+      {sprintSummaries.map(({sprint,project,total,done,cancelled,percent}) => <div className="dashboard-sprint" key={sprint.id}>
+        <div><strong>{sprint.name}</strong><small>{project.name}</small></div><AntTag>{({planned:'待开始',planning:'待开始',active:'进行中',closed:'已结束'})[sprint.status] || sprint.status}</AntTag>
+        <div className="dashboard-sprint-progress"><progress aria-label={sprint.name + '完成比例'} value={done} max={total || 1}/><span>{done}/{total} · {percent}%{cancelled ? ` · 已取消 ${cancelled}` : ''}</span></div>
+      </div>)}
+      {!sprintSummaries.length && <p className="muted">暂无冲刺</p>}
+    </AntCard>
     <div className="dashboard-layout">
       <AntCard className="panel dashboard-todos" aria-label="项目待办">
         <div className="panel-title"><h3><ListChecks size={18}/> 项目待办 <span className="count">{visible.length}</span></h3><span className="muted">逾期优先 · 按截止日期排序</span></div>
@@ -46,10 +55,10 @@ export default function Dashboard({ data, onOpen, onProject, onRefresh, onCreate
           {visible.map(({ item, project, dueDate, overdue, today: dueToday }) => <WorkConfigContext.Provider key={item.id} value={project}>
             <ReplicaButton className="dashboard-todo" onClick={() => onOpen(item)}>
               <div className="dashboard-todo-title"><span className="dashboard-item-code">{project.code}-{item.number}</span><strong>{item.title}</strong><ArrowUpRight size={15}/></div>
-              <div className="dashboard-todo-meta"><span className="dashboard-project-name"><FolderKanban size={13}/>{project.name}</span><Kind kind={item.kind}/><AntTag className={`badge ${progressCategory(project, item.status) === 'in_progress' ? 'active' : 'todo'}`}><StatusIcon value={item.status}/>{statusNamesFor(project)[item.status] || item.status}</AntTag><span className="dashboard-priority"><PriorityIcon value={item.priority}/>{{high:'高优先级',medium:'中优先级',low:'低优先级'}[item.priority] || '未设优先级'}</span><span>{item.owner || '未分配'}</span><span className={`dashboard-due ${overdue ? 'overdue' : dueToday ? 'due-today' : ''}`}><Calendar size={13}/>{dueDate ? `${dueDate.slice(5).replace('-', '/')} ${overdue ? '已逾期' : dueToday ? '今日到期' : '截止'}` : '未设截止日期'}</span></div>
+              <div className="dashboard-todo-meta"><span className="dashboard-project-name"><FolderKanban size={13}/>{project.name}</span><Kind kind={item.kind}/><AntTag className={`badge ${progressCategory(project, item.status) === 'in_progress' ? 'active' : 'todo'}`}><StatusIcon value={item.status}/>{statusNamesFor(project)[item.status] || item.status}</AntTag><span className="dashboard-priority"><PriorityIcon value={item.priority}/>{{high:'高优先级',medium:'中优先级',low:'低优先级'}[item.priority] || '未设优先级'}</span><span>{item.owner || '未分配'}</span><span className={`dashboard-due ${overdue ? 'overdue' : dueToday ? 'due-today' : ''}`}><Calendar size={13}/><span title={dueDate || undefined}>{relativeDueDate(dueDate, today)}</span></span></div>
             </ReplicaButton>
           </WorkConfigContext.Provider>)}
-          {!visible.length && <AntEmpty className="empty"><CheckCircle2 size={30}/><h3>{todos.length ? '没有符合条件的待办' : '当前没有未完成的待办'}</h3><p>{todos.length ? '试试其他筛选条件，或清除筛选查看全部。' : '到项目中规划工作，新的待办会自动汇总到这里。'}</p><ReplicaButton onClick={todos.length ? reset : () => onProject(data.projects[0].id)}>{todos.length ? '清除筛选' : '进入项目'}<ArrowRight size={14}/></ReplicaButton></AntEmpty>}
+          {!visible.length && <AntEmpty className="empty"><CheckCircle2 size={30}/><h3>{todos.length ? '没有符合条件的待办' : '当前没有未完成的待办'}</h3><p>{todos.length ? '试试其他筛选条件，或清除筛选查看全部。' : '到项目中规划工作，新的待办会自动汇总到这里。'}</p><ReplicaButton onClick={todos.length ? reset : () => data.projects.length ? onProject(data.projects[0].id) : onCreateProject()}>{todos.length ? '清除筛选' : data.projects.length ? '进入项目' : '创建项目'}<ArrowRight size={14}/></ReplicaButton></AntEmpty>}
         </AntList>
       </AntCard>
       <AntCard className="panel dashboard-projects" aria-label="项目汇总">
