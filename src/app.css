@@ -729,7 +729,7 @@
 .backlog-filter-chip button:last-child { display: inline-flex; align-items: center; padding-left: 3px; }
 .backlog-flat-list [role="columnheader"] { display: flex; align-items: center; gap: 6px; }
 .backlog-flat-list .backlog-sort-trigger { opacity: 0; padding: 2px; transition: opacity .12s; }
-.backlog-flat-list [role="columnheader"]:hover .backlog-sort-trigger,.backlog-flat-list [role="columnheader"]:focus-within .backlog-sort-trigger { opacity: 1; }
+.backlog-flat-list :is(th,[role="columnheader"]):hover .backlog-sort-trigger,.backlog-flat-list :is(th,[role="columnheader"]):focus-within .backlog-sort-trigger { opacity: 1; }
 .backlog-flat-list .backlog-filter-trigger:hover { color: var(--accent-text); }
 .backlog-filter-popover { position: fixed; z-index: 100; display: flex; flex-direction: column; gap: 10px; padding: 14px; border: 1px solid var(--border); border-radius: 8px; background: white; box-shadow: 0 8px 24px #18243024; font-size: 12px; }
 .backlog-filter-popover > strong { font-size: 12px; font-weight: 500; }
@@ -7903,3 +7903,6 @@ body .roadmap-plan-popover .roadmap-search {padding:8px 11px;}
  .type-edit-dialog .type-edit-form>footer{padding:14px 18px;flex-wrap:wrap}
  .type-edit-form>footer>span{flex-basis:100%;margin-bottom:4px}
 }
+
+.backlog-load-more{position:sticky;left:0;display:flex;align-items:center;justify-content:center;gap:12px;padding:14px 18px;min-height:54px;box-sizing:border-box;font-size:12px;color:var(--muted);background:#fff;border-top:1px solid var(--border);white-space:nowrap}
+.backlog-load-more .replica-button{font-size:12px;padding:4px 10px}

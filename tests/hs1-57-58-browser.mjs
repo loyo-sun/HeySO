@@ -1,0 +1,70 @@
+// HEYSO_PLAYWRIGHT_MODULE=/path/to/playwright-core/index.mjs node tests/hs1-57-58-browser.mjs
+import assert from 'node:assert/strict';
+import {seed} from '../server/model.mjs';
+import {migrateState} from '../server/migrate.mjs';
+const {chromium}=await import(process.env.HEYSO_PLAYWRIGHT_MODULE);
+const browser=await chromium.launch({executablePath:process.env.HEYSO_CHROMIUM || '/usr/bin/chromium',headless:true,args:['--no-sandbox']});
+const page=await browser.newPage({viewport:{width:1280,height:800}}),errors=[];
+page.on('pageerror',e=>errors.push(e.message));
+const base=process.env.HEYSO_TEST_URL || 'http://127.0.0.1:4189';
+const data=migrateState(seed()),project=data.projects[0],template=data.items.find(i=>i.kind==='story');
+data.items=Array.from({length:105},(_,i)=>({...template,id:'load-'+(i+1),number:i+1,title:(i>=60?'目标工作 ':'普通工作 ')+String(i+1).padStart(3,'0'),parentId:null,sprintId:null,releaseId:null,status:'todo',priority:'medium',owner:i>=60?'陈默':'我',points:i+1}));
+try {
+  await page.route('**/api/state',route=>route.fulfill({json:data}));
+  await page.goto(base+'/?tab=projects&project='+project.id+'&view=list');
+  const rows=page.locator('.story-row[data-work-item-id]'),scroll=page.locator('.backlog-table-scroll');
+  await rows.first().waitFor();await page.waitForTimeout(250);
+  assert.equal(await rows.count(),30,'only the first batch is mounted');
+  assert.ok((await page.locator('.backlog-list-actions').innerText()).includes('105'));
+  const header=page.locator('th[data-column="workItem"]'),sort=header.getByRole('button',{name:'按工作项排序'});
+  await header.hover();await page.waitForTimeout(160);
+  assert.equal(await sort.evaluate(el=>Number(getComputedStyle(el).opacity)),1,'hover reveals sort on native th');
+  await page.mouse.move(10,10);await sort.focus();await page.waitForTimeout(160);
+  assert.equal(await sort.evaluate(el=>Number(getComputedStyle(el).opacity)),1,'keyboard focus reveals sort');
+  // Clicking the selected sort cycles direction and orders the full result set before slicing.
+  await sort.click();await sort.click();
+  assert.equal(await rows.first().getAttribute('data-work-item-id'),'load-105');
+  assert.equal(await rows.count(),30);
+  assert.equal(await header.getAttribute('aria-sort'),'descending');
+  await page.mouse.move(10,10);await page.getByLabel('搜索清单工作项').focus();
+  await page.waitForTimeout(160);assert.equal(await sort.evaluate(el=>Number(getComputedStyle(el).opacity)),1,'active sort remains visible');
+  const bottom=()=>scroll.evaluate(el=>{el.scrollTop=el.scrollHeight;});
+  await bottom();await page.waitForTimeout(180);assert.equal(await rows.count(),60,'one scroll appends a batch');
+  await bottom();await page.waitForTimeout(180);assert.equal(await rows.count(),90);
+  await bottom();await page.waitForTimeout(180);assert.equal(await rows.count(),105);
+  assert.equal(new Set(await rows.evaluateAll(els=>els.map(e=>e.dataset.workItemId))).size,105,'no duplicates or missing items');
+  await bottom();await page.waitForTimeout(100);assert.equal(await rows.count(),105,'stops at end');
+  assert.ok((await page.locator('.backlog-load-more').innerText()).includes('已全部加载'));
+  // A sort change resets the batch and scroll, rather than sorting only the loaded page.
+  await sort.click();assert.equal(await rows.count(),30);
+  assert.equal(await rows.first().getAttribute('data-work-item-id'),'load-1');
+  assert.equal(await scroll.evaluate(el=>el.scrollTop),0);
+  await page.getByLabel('搜索清单工作项').fill('目标工作');
+  await page.waitForTimeout(100);assert.equal(await rows.count(),30);
+  assert.equal(await rows.first().getAttribute('data-work-item-id'),'load-61','search reaches initially unloaded rows');
+  assert.ok((await page.locator('.backlog-list-actions').innerText()).includes('45'));
+  await bottom();await page.waitForTimeout(180);assert.equal(await rows.count(),45);
+  await rows.last().click();await page.locator('.drawer').waitFor();
+  assert.equal(await page.getByLabel('工作项标题',{exact:true}).inputValue(),'目标工作 105','appended row opens its own detail');
+  await page.keyboard.press('Escape');await page.locator('.drawer').waitFor({state:'hidden'});
+  assert.equal(await rows.count(),45,'closing detail preserves loaded rows');
+  await page.getByLabel('搜索清单工作项').fill('无匹配数据');await page.waitForTimeout(100);
+  assert.equal(await rows.count(),0);assert.ok(await page.locator('.backlog-empty').isVisible());
+  await page.getByLabel('搜索清单工作项').fill('');await page.waitForTimeout(100);
+  assert.equal(await rows.count(),30);
+  // The explicit button also supports users whose viewport fits the entire first batch.
+  await page.getByRole('button',{name:'加载更多',exact:true}).click();assert.equal(await rows.count(),60);
+  await page.getByRole('button',{name:'负责人筛选',exact:true}).click();
+  const filter=page.getByRole('dialog',{name:'负责人筛选',exact:true});
+  await filter.getByRole('checkbox',{name:'陈默',exact:true}).check();
+  await filter.getByRole('button',{name:'应用筛选',exact:true}).click();
+  assert.equal(await rows.count(),30,'column filtering resets the batch');
+  assert.equal(await rows.first().getAttribute('data-work-item-id'),'load-61');
+  assert.ok((await page.locator('.backlog-list-actions').innerText()).includes('45'));
+  await bottom();await page.waitForTimeout(180);assert.equal(await rows.count(),45,'column filter covers the entire data set');
+  await page.getByRole('button',{name:'清除负责人筛选',exact:true}).click();assert.equal(await rows.count(),30);
+  await page.getByLabel('搜索清单工作项').fill('目标工作 105');await page.waitForTimeout(100);
+  assert.equal(await rows.count(),1);assert.equal(await page.getByRole('button',{name:'加载更多',exact:true}).count(),0);
+  assert.deepEqual(errors,[]);
+  console.log('PASS: hover/focus/active sort, first 30 rows, scroll 60/90/105, full-data sort/search, reset, empty state, appended detail and manual fallback');
+} finally {await browser.close();}
