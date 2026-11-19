@@ -99,7 +99,7 @@ import RichTextEditor from "./RichTextEditor.jsx";
 import Board from "./Board.jsx";
 import MarkdownPreview from "./MarkdownPreview.jsx";
 import { workItemEntries, executionInstruction } from "./work-item-actions.mjs";
-import { sprintMutationReason, sprintReadOnlyReason, effectiveSprintId, isExecutionItem, runTargetId, configFor, typeFor, typeNames, statusNamesFor, isWorkItem, isSubtask, categoryOf, hasStatus, terminal, statusFor, allowedTransition, parentCandidates, childTypes, canParent, statusCategories, workflowFor, workflowStatuses, progressCategory, boardStatuses, aiReady } from "../shared/work-config.mjs";
+import { sprintMutationReason, sprintReadOnlyReason, effectiveSprintId, canAiExecute, isExecutionItem, runTargetId, configFor, typeFor, typeNames, statusNamesFor, isWorkItem, isSubtask, categoryOf, hasStatus, terminal, statusFor, allowedTransition, parentCandidates, childTypes, canParent, statusCategories, workflowFor, workflowStatuses, progressCategory, boardStatuses, aiReady } from "../shared/work-config.mjs";
 
 const statusNames = {
   backlog: "待规划",
@@ -535,7 +535,7 @@ function App() {
               <Kind kind={i.kind} iconOnly />
               <small>{project.code}-{i.number}</small>
               <span>{i.title}</span>
-              {i.aiEnabled && <Bot size={14} className="purple" />}
+              {aiExecutionEnabled(i,items,project) && <Bot size={14} className="purple" />}
             </div>
             <Badge status={i.status} />
             <span className={"priority " + i.priority}>
@@ -1120,7 +1120,7 @@ function App() {
               <div className="stats three">
                 {[
                   [
-                    items.filter((x) => isExecutionItem(x, project) && aiExecutionEnabled(x,items)).length,
+                    items.filter((x) => canAiExecute(x, project) && aiExecutionEnabled(x,items,project)).length,
                     "已启用 AI 的工作项",
                   ],
                   [runs.length, "累计执行记录"],
@@ -1413,7 +1413,7 @@ function Detail({
   const parentKind = configFor(project).types.some((t) => t.enabled && canParent(project, i.kind, { kind: t.id }));
   const tasks = items.filter((x) => x.parentId === i.id);
   const story =
-    isWorkItem(i, project)
+    !isSubtask(i, project)
       ? i
       : items.find((x) => x.id === i.parentId && isWorkItem(x, project));
   const runs = data.runs
@@ -1422,7 +1422,7 @@ function Detail({
     .reverse();
   const events = data.events.filter((x) => x.itemId === i.id);
   const prompt = executionInstruction(project, i);
-  const aiOn=aiExecutionEnabled(i,items);
+  const aiOn=aiExecutionEnabled(i,items,project);
   return (
     <div className="replica-dialog-host">
       <div className="drawer-scrim" onClick={close} />
@@ -1439,7 +1439,7 @@ function Detail({
           </div>
           <div>
             <ReplicaButton className="icon-btn" aria-label="复制工作项链接" title="复制工作项链接" onClick={() => copy(window.location.href)}><Link size={17}/></ReplicaButton>
-            {isExecutionItem(i,project)&&<ReplicaButton className={'icon-btn detail-ai-button'+(aiOn?' on':'')} aria-label={aiOn?'停用 AI 执行':'启用 AI 执行'} aria-pressed={aiOn} title={!aiOn&&!aiReady(workflowFor(project,i.kind))?'请先配置执行、验收和完成节点':aiOn?'停用当前工作项的 AI 执行':'启用当前工作项的 AI 执行'} disabled={busy||(isSubtask(i,project)&&!parentItem)||(!aiOn&&!aiReady(workflowFor(project,i.kind)))} onClick={()=>update({aiEnabled:!aiOn,aiDisabled:aiOn})}><Bot size={18}/></ReplicaButton>}
+            {canAiExecute(i,project)&&<ReplicaButton className={'icon-btn detail-ai-button'+(aiOn?' on':'')} aria-label={aiOn?'停用 AI 执行':'启用 AI 执行'} aria-pressed={aiOn} title={project.aiIntervention==='all'?'项目允许全部工作项使用 AI，请在项目设置切换介入级别':!aiOn&&!aiReady(workflowFor(project,i.kind))?'请先配置执行、验收和完成节点':aiOn?'停用当前工作项的 AI 执行':'启用当前工作项的 AI 执行'} disabled={busy||project.aiIntervention==='all'||(isSubtask(i,project)&&!parentItem)||(!aiOn&&!aiReady(workflowFor(project,i.kind)))} onClick={()=>update({aiEnabled:!aiOn,aiDisabled:aiOn})}><Bot size={18}/></ReplicaButton>}
           </div>
         </header>
         <div className="drawer-body">
@@ -1461,7 +1461,7 @@ function Detail({
             {[
               ["detail", "详情"],
               ...(!isSubtask(i,project)?[["children", isWorkItem(i, project) ? "子任务" : "子项"]]:[]),
-              ...(isExecutionItem(i, project) ? [["runs", "交付与验收"]] : []),
+              ...(canAiExecute(i, project) ? [["runs", "交付与验收"]] : []),
               ["history", "活动记录"],
             ].map(([k, v]) => (
               <ReplicaButton
@@ -1585,7 +1585,7 @@ function Detail({
                   placeholder="描述背景、目标与需要提供的材料…"
                 />
               </Field>
-              {isExecutionItem(i, project) && (
+              {canAiExecute(i, project) && (
                 <Field label="验收标准">
                   <RichTextEditor
                     key={i.id + "ac"}
@@ -1605,7 +1605,7 @@ function Detail({
                   />
                 </Field>
               )}
-              {(isWorkItem(i, project) || isSubtask(i, project)) && (
+              {canAiExecute(i, project) && (
                 <div className="instruction-box">
                   <h4>
                     <Bot size={17} />
@@ -1628,7 +1628,7 @@ function Detail({
                 </div>
               )}
               <div className="detail-actions">
-                {isExecutionItem(i, project) && hasStatus(i, project, "review") && (
+                {canAiExecute(i, project) && hasStatus(i, project, "review") && (
                   <ReplicaButton
                     className="primary"
                     onClick={() =>
@@ -1642,7 +1642,7 @@ function Detail({
                     人工验收
                   </ReplicaButton>
                 )}
-                {isExecutionItem(i, project) &&
+                {canAiExecute(i, project) &&
                   !(isSubtask(i,project)&&!parentItem) && !terminal(i, project) && statusFor(project,"review",i.kind) && allowedTransition(project,i.status,statusFor(project,"review",i.kind),i.kind) && (
                     <ReplicaButton disabled={isSubtask(i,project)&&!parentItem} onClick={() => update({ status: statusFor(project, "review", i.kind) })}>
                       提交人工交付

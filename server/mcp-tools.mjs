@@ -53,7 +53,7 @@ export const toolDefinitions = [
   ],
   [
     "update_progress",
-    "仅限已启用 AI 的执行层工作项及其子任务。使用目标 itemId 同步工作项和执行记录为执行中或阻塞，不能验收完成。重用返回的 run.id 继续同一次执行。",
+    "适用于所有工作类型；项目选择全部，或手动模式下工作项已启用 AI 时可执行。使用目标 itemId 同步工作项和执行记录为执行中或阻塞，不能验收完成。重用返回的 run.id 继续同一次执行。",
     z.object({
       itemId: z.string(),
       storyVersion: z.number().int(),
@@ -116,6 +116,7 @@ export function createMcpServer(store) {
                 text: JSON.stringify({
                   error: e.message,
                   status: e.status || 500,
+                  code: e.code || (e.status === 409 ? "VERSION_CONFLICT" : "HEYSO_ERROR"),
                 }),
               },
             ],

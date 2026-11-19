@@ -12,11 +12,11 @@ export const typePalette = [
   ["#B45309", "棕色"], ["#8B5CF6", "紫色"], ["#14B8A6", "蓝绿"],
   ["#EAB308", "黄色"],
 ];
-export function aiExecutionEnabled(item,items=[]) {
-  if(!item||item.aiDisabled)return false;
-  if(item.aiEnabled)return true;
-  const parent=items.find(i=>i.id===item.parentId);
-  return !!(parent?.aiEnabled&&!parent.aiDisabled);
+// Keep the items argument for existing callers; manual permission is per item.
+export function aiExecutionEnabled(item,items=[],project) {
+  if(!item || (project && item.projectId !== project.id))return false;
+  if(project?.aiIntervention === "all")return true;
+  return !!item.aiEnabled && !item.aiDisabled;
 }
 export const typeIcons = {"strategy": "目标", "epic": "史诗", "story": "故事", "task": "任务", "subtask": "子任务", "explore": "探索", "design": "设计", "document": "文档", "operations": "宣传", "data": "数据", "bug": "缺陷", "incident": "星", "release": "里程碑", "change": "循环", "support": "握手", "idea": "想法"};
 export const legacyTypeIcons={target:'strategy',layers:'epic',box:'strategy',book:'story',checklist:'task',branch:'subtask',flag:'release',sparkles:'idea',code:'data',palette:'design',search:'explore',file:'document',rocket:'release',circle:'incident',diamond:'change'};
@@ -70,6 +70,7 @@ export const configFor = (project) => project?.workConfig || defaultWorkConfig()
 export const typeFor = (project, kind) => configFor(project).types.find((t) => t.id === kind);
 export const isWorkItem = (item, project) => typeFor(project, item?.kind)?.level === 0;
 export const isExecutionItem = (item, project) => isWorkItem(item, project) || isSubtask(item, project);
+export const canAiExecute = (item, project) => !!typeFor(project, item?.kind)?.enabled;
 export const runTargetId = (run) => run.itemId || run.storyId;
 export const isSubtask = (item, project) => typeFor(project, item?.kind)?.level === -1;
 export const typeNames = (project) => Object.fromEntries(configFor(project).types.map((t) => [t.id, t.name]));

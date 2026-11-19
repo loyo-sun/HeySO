@@ -7,7 +7,7 @@ import { fitChildSchedules } from '../shared/schedule.mjs';
 import { availableProjectCode, allocateItemNumber, checkIdentifiers, migrateIdentifiers } from "../shared/identifiers.mjs";
 import { rolesForMembers, checkMemberRoles, defaultRoles, defaultMemberRole } from "../shared/member-roles.mjs";
 import { randomUUID, createHash } from "node:crypto";
-import { sprintMutationReason, sprintReadOnlyReason, effectiveSprintId, aiExecutionEnabled, isExecutionItem, runTargetId, defaultWorkConfig, configFor, typeFor, isWorkItem, isSubtask, typeNames, categoryOf, hasStatus, terminal, statusFor, allowedTransition, canParent, checkWorkConfig, workflowFor, workflowStatuses, workflowMigrationGroups, aiReady } from "../shared/work-config.mjs";
+import { sprintMutationReason, sprintReadOnlyReason, effectiveSprintId, canAiExecute, aiExecutionEnabled, runTargetId, defaultWorkConfig, configFor, typeFor, isWorkItem, isSubtask, typeNames, categoryOf, hasStatus, terminal, statusFor, allowedTransition, canParent, checkWorkConfig, workflowFor, workflowStatuses, workflowMigrationGroups, aiReady } from "../shared/work-config.mjs";
 export const statuses = [
   "backlog",
   "todo",
@@ -28,9 +28,10 @@ export const kindLabels = {
 };
 export const now = () => new Date().toISOString();
 export const uid = (prefix = "id") => `${prefix}_${randomUUID().slice(0, 8)}`;
-export function fail(message, status = 400) {
+export function fail(message, status = 400, code) {
   const e = new Error(message);
   e.status = status;
+  if (code) e.code = code;
   throw e;
 }
 const required = (s, label) => {
@@ -101,6 +102,7 @@ export function emptyProject(name = "新项目", description = "") {
     endDate: "",
     definitionOfDone: "验收标准全部满足；成果可检查；由故事负责人确认。",
     workingAgreements: "",
+    aiIntervention: "manual",
     workConfig: defaultWorkConfig(false),
     createdAt: now(),
   };
@@ -350,13 +352,13 @@ export function getItem(s, id) {
 }
 export function storyOf(s, item) {
   const project = s.projects.find((p) => p.id === item.projectId);
-  if (isWorkItem(item, project)) return item;
+  if (canAiExecute(item, project) && !isSubtask(item, project)) return item;
   if (isSubtask(item, project)) {
     if (!item.parentId) fail("请先为子任务选择所属工作项，再使用交付与 AI 执行");
     const parent = getItem(s, item.parentId);
     if (isWorkItem(parent, project)) return parent;
   }
-  return fail("只有执行层工作项及其子任务可以执行");
+  return fail("工作类型不可执行，请检查项目工作类型配置");
 }
 export function storiesIn(s, sprintId) {
   return s.items.filter((x) => isWorkItem(x, s.projects.find((p) => p.id === x.projectId)) && x.sprintId === sprintId);
@@ -435,7 +437,7 @@ export function context(s, id) {
       .map(({history, ...note}) => note),
     executions: s.runs.filter((r) => runTargetId(r) === item.id),
     rules: [
-      "只更新已启用 AI 的工作项或获所属任务授权的子任务。",
+      "执行需项目选择全部，或手动模式下目标工作项已启用 AI；内容编辑另行检查写入权限。",
       "执行记录、交付、状态和验收只归属目标 itemId；子任务不更新父级或其他子任务。",
       "不修改工作项目标、负责人或验收标准。",
       "提交成果后等待目标工作项的人工验收，不自行标记工作项完成。",
@@ -474,6 +476,7 @@ export function validate(s) {
     required(p.name, "项目名称");
     if (p.name.length > 120) fail("项目名称不能超过 120 字");
     checkWorkConfig(p.workConfig);
+    if (p.aiIntervention !== undefined && !["all", "manual"].includes(p.aiIntervention)) fail("AI 介入级别必须为全部或手动");
     if (p.longTerm !== undefined && typeof p.longTerm !== "boolean") fail("长期项目设置无效");
     if (p.longTerm && (p.startDate || p.endDate)) fail("长期项目无需设置项目日期");
     dateRange(p.startDate, p.endDate, `项目「${p.name}」`);
@@ -502,7 +505,7 @@ export function validate(s) {
     if (i.parentId) {
       const p = s.items.find((x) => x.id === i.parentId);
       if (!p || p.projectId !== i.projectId || !canParent(project, i.kind, p))
-        fail("父级类型或项目不匹配");
+        fail("父级类型或项目不匹配，请选择合法的上层工作项", 400, "INVALID_HIERARCHY");
       if (!i.legacyParentDates) parentDates(i, p);
     }
     if (isSubtask(i, project) && i.sprintId) fail("子任务的 Sprint 由父级工作项决定，不能独立分配");
@@ -538,11 +541,11 @@ export function validate(s) {
       fail("版本状态无效");
   for (const r of s.runs) {
     if (
-      !s.items.some(x => x.id === runTargetId(r) && x.projectId === r.projectId && isExecutionItem(x, projectOf(s, x))) ||
+      !s.items.some(x => x.id === runTargetId(r) && x.projectId === r.projectId && canAiExecute(x, projectOf(s, x))) ||
       !s.items.some(
         (x) =>
           x.id === r.storyId &&
-          (work(s, x) || r.deliveryOwnershipVersion >= 1 && x.id === runTargetId(r) && isSubtask(x, projectOf(s,x))) &&
+          (canAiExecute(x, projectOf(s,x)) && !isSubtask(x,projectOf(s,x)) || r.deliveryOwnershipVersion >= 1 && x.id === runTargetId(r) && isSubtask(x, projectOf(s,x))) &&
           x.projectId === r.projectId,
       ) ||
       ![
@@ -574,10 +577,10 @@ export function act(s, a) {
     })).digest('hex');
     const prior = project.mcpRequests?.find(r => r.requestId === input.requestId);
     if (prior) {
-      if (prior.fingerprint !== fingerprint) fail('requestId 已用于不同操作', 409);
+      if (prior.fingerprint !== fingerprint) fail('requestId 已用于不同操作', 409, 'IDEMPOTENCY_CONFLICT');
       return structuredClone(prior.result);
     }
-    if (input.expectedRevision !== s.revision) fail('项目已有更新，请重新调用 query_project 获取 revision 后重试', 409);
+    if (input.expectedRevision !== s.revision) fail('项目已有更新，请重新调用 query_project 获取 revision 后重试', 409, 'VERSION_CONFLICT');
     const {projectId, expectedRevision, requestId, agent, itemId, patch, ...fields} = input;
     if (type === 'mcp.item.update') {
       const item = getItem(s, itemId);
@@ -641,13 +644,17 @@ export function act(s, a) {
     }
     pr.workConfig = next;
     pr.updatedAt = now();
-    for (const item of s.items.filter((i) => i.projectId === pr.id && work(s, i))) item.contentVersion = (item.contentVersion || 1) + 1;
+    for (const item of s.items.filter((i) => i.projectId === pr.id && canAiExecute(i,projectOf(s,i)))) item.contentVersion = (item.contentVersion || 1) + 1;
     addEvent(s, pr.id, "project", "更新工作项配置");
     out = pr;
   } else if (type === "project.update") {
     const pr = s.projects.find((x) => x.id === p.id);
     if (!pr) fail("项目不存在");
     if (p.code !== undefined && p.code !== pr.code) fail("项目 ID 创建后不可修改");
+    if (p.aiIntervention !== undefined) {
+      if (!["all", "manual"].includes(p.aiIntervention)) fail("AI 介入级别必须为全部或手动");
+      pr.aiIntervention = p.aiIntervention;
+    }
     const sharedKeys = ["description", "goal", "definitionOfDone", "workingAgreements"];
     const previousContext = sharedKeys.map((key) => pr[key] || "");
     for (const k of [
@@ -694,7 +701,7 @@ export function act(s, a) {
     if (p.startDate !== undefined || p.endDate !== undefined || p.longTerm !== undefined)
       dateRange(pr.startDate, pr.endDate, "项目", !pr.longTerm);
     if (sharedKeys.some((key, i) => (pr[key] || "") !== previousContext[i])) {
-      for (const story of s.items.filter((i) => i.projectId === pr.id && work(s, i))) {
+      for (const story of s.items.filter((i) => i.projectId === pr.id && canAiExecute(i,projectOf(s,i)))) {
         story.contentVersion = (story.contentVersion || 1) + 1;
         story.updatedAt = now();
       }
@@ -789,7 +796,7 @@ export function act(s, a) {
       let count=-1;
       while(count!==affected.size){count=affected.size;for(const child of s.items)if(affected.has(child.parentId))affected.add(child.id);}
       for(const id of [old.parentId,item.parentId])if(id)affected.add(id);
-      for(const related of s.items)if(related.id!==item.id&&affected.has(related.id)&&work(s,related))related.contentVersion=(related.contentVersion||1)+1;
+      for(const related of s.items)if(related.id!==item.id&&affected.has(related.id)&&canAiExecute(related,projectOf(s,related)))related.contentVersion=(related.contentVersion||1)+1;
       scope(s,item,work(s,old)?old.sprintId:null,work(s,item)?item.sprintId:null,'线路图跨级拖动');
       snapshot(s,oldEffectiveSprint);snapshot(s,effectiveSprintId(item,s.items,project));
     }
@@ -897,7 +904,7 @@ export function act(s, a) {
     )
       fail("不能向已发布版本添加故事");
     if (i.releaseId !== old.releaseId && s.releases.find(r => r.id === i.releaseId)?.archived) fail("不能向已归档版本添加工作项");
-    if (isExecutionItem(i, project) && workflowFor(project,i.kind).rules?.requireReview && cat(s, i) === "done" && categoryOf(project, old.status, old.kind) !== "done")
+    if (canAiExecute(i, project) && workflowFor(project,i.kind).rules?.requireReview && cat(s, i) === "done" && categoryOf(project, old.status, old.kind) !== "done")
       fail("请通过人工验收确认工作项完成");
     if (
       i.sprintId &&
@@ -917,7 +924,7 @@ export function act(s, a) {
       let previous = -1;
       while (previous !== affected.size) { previous = affected.size; for (const child of s.items) if (affected.has(child.parentId)) affected.add(child.id); }
       for (const id of [old.parentId, i.parentId]) if (id) affected.add(id);
-      for (const related of s.items.filter((x) => x.id !== i.id && affected.has(x.id) && work(s, x))) related.contentVersion = (related.contentVersion || 1) + 1;
+      for (const related of s.items.filter((x) => x.id !== i.id && affected.has(x.id) && canAiExecute(x,projectOf(s,x)))) related.contentVersion = (related.contentVersion || 1) + 1;
     }
     if (work(s, i)) {
       scope(s, i, oldSprint, i.sprintId, p.reason || "调整冲刺范围");
@@ -1226,7 +1233,7 @@ export function act(s, a) {
   } else if (type === "run.progress" || type === "run.submit") {
     const i = getItem(s, p.itemId),
       story = storyOf(s, i);
-    if (!aiExecutionEnabled(i,s.items)) fail("该工作项及其所属任务未启用 AI 更新", 403);
+    if (!aiExecutionEnabled(i,s.items,projectOf(s,i))) fail("AI 执行未启用，请在项目设置选择全部，或在手动模式点亮工作项 AI 图标", 403, "AI_EXECUTION_DISABLED");
     if (p.requestId) {
       const prior = s.runs.find((r) => r.requestId === p.requestId || r.progress?.some(entry => entry.requestId === p.requestId));
       if (prior) {
@@ -1345,7 +1352,7 @@ export function act(s, a) {
     out = r;
   } else if (type === "review") {
     const st = getItem(s, p.storyId);
-    if (!isExecutionItem(st, projectOf(s, st))) fail("只能验收执行层工作项及子任务");
+    if (!canAiExecute(st, projectOf(s, st))) fail("工作类型不可验收");
     if (terminal(st, projectOf(s, st)))
       fail("故事已结束，不能重复验收");
     if (

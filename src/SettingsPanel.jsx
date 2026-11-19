@@ -43,7 +43,7 @@ const settingsHelp = {
   data: "备份与恢复覆盖整个工作空间，包含所有项目。备份不包含 MCP 密钥及交付链接对应的外部文件。",
 };
 const groups = {
-  general: ["name", "description", "goal", "startDate", "endDate", "longTerm"],
+  general: ["name", "description", "goal", "startDate", "endDate", "longTerm", "aiIntervention"],
   members: ["owner", "members", "memberRoles"],
   roles: ["roles"],
   workflow: ["definitionOfDone", "workingAgreements"],
@@ -122,7 +122,7 @@ export default function SettingsPanel({
     if (sectionKey === "roles" && roleName.trim()) { setError("请先添加角色，或清空新角色名称后再保存。"); return; }
     const selected = groups[sectionKey];
     const result = await action("project.update", {
-      id: project.id, ...Object.fromEntries(selected.map((key) => [key, form[key] ?? (key === "longTerm" ? false : "")])),
+      id: project.id, ...Object.fromEntries(selected.map((key) => [key, form[key] ?? (key === "longTerm" ? false : key === "aiIntervention" ? "manual" : "")])),
     }, true);
     if (!mounted.current) return;
     if (result) {
@@ -216,6 +216,7 @@ export default function SettingsPanel({
         <Field label="背景与说明"><ReplicaTextArea {...field("description")} placeholder="补充项目背景、受众和工作范围" disabled={busy}/></Field>
         <Field label="项目目标" hint="项目目标和背景会作为共享上下文提供给执行故事的 AI。"><ReplicaTextArea {...field("goal")} required placeholder="描述项目希望实现的结果" disabled={busy}/></Field>
         <ProjectPeriodFields longTerm={!!form.longTerm} onLongTermChange={value => setForm(old => ({...old,longTerm:value,...(value?{startDate:"",endDate:""}:{})}))} start={form.startDate} end={form.endDate} setStart={v=>change("startDate",v)} setEnd={v=>change("endDate",v)} disabled={busy}/>
+        <Field label="AI 介入级别"><Select aria-label="AI 介入级别" value={form.aiIntervention || "manual"} disabled={busy} onChange={e=>change("aiIntervention",e.target.value)}><option value="all">全部</option><option value="manual">手动</option></Select><small>全部：允许全项目工作项使用 AI，无需逐项开启。手动：按工作项点亮 AI 图标。允许执行不会自动开始任务；创建和编辑内容仍需项目写入权限。</small></Field>
         {saveBar("general", "保存更改")}
       </ReplicaForm>
       <section className="settings-section project-danger-zone"><div><h3>删除项目</h3><p>{project.cloud ? "请在 LoyoCloud 云空间管理或删除此 .heyso 文件。" : "永久删除本项目及其需求、冲刺、版本、记忆和交付记录。"}</p></div><ReplicaButton className="danger-button" disabled={busy || dirty || !!project.cloud} onClick={onDelete}><Trash2 size={14}/>删除项目</ReplicaButton></section>
