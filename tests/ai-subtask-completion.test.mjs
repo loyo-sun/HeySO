@@ -69,6 +69,7 @@ test('subtask acceptance preserves parent, siblings and their execution records'
   const x = setup(t), parent = x.make('task', {aiEnabled: true});
   const child = x.make('subtask', {parentId: parent.id});
   const sibling = x.make('subtask', {parentId: parent.id, status: 'todo'});
+  x.act('item.update', {id:child.id, aiEnabled:true});
   const parentRun = x.submit(parent), childRun = x.submit(child);
   const beforeParent = x.item(parent.id), beforeRuns = x.store.read().runs.filter(r => r.id !== childRun.id);
   x.review(child, childRun);
@@ -88,6 +89,7 @@ test('manual delivery acceptance does not cascade and AI parent acceptance prese
   x.review(manual);
   assert.equal(x.item(child.id).status, 'todo');
   const parent = x.make('task', {aiEnabled: true}), aiChild = x.make('subtask', {parentId: parent.id});
+  x.act('item.update', {id:aiChild.id, aiEnabled:true});
   const childRun = x.submit(aiChild), parentRun = x.submit(parent);
   const before = x.store.read().runs.find(r => r.id === childRun.id);
   x.review(parent, parentRun);

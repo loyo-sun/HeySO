@@ -1,0 +1,10 @@
+请继续 HeySO MCP 授权修复的云端核查与升级。代码在 GitHub 仓库 loyo-sun/HeySO 的 fix/mcp-project-ai-authorization 分支，请先读取该分支的 docs/MCP_AUTHORIZATION_FIX.md。本任务不创建业务工作项，不修改生产业务数据，不自动开启 AI，不代用户扩充 OAuth scope 或文件授权。
+
+1. 先仅做只读诊断：定位线上 /mcp/heyso 实际运行的 src/heyso.mjs、vendor/heyso 版本和 OAuth app registry。结合用户提供的失败时间或 requestId，检查 create_item 的拒绝日志，以及对应 identity/grant 的 user/app、是否撤销、scope 名称、document_ids 范围、connection_ids 限制、文件所有者/当前服务实际 ACL。不要输出 token、secret、文件内容或其他租户信息。确认到底是 token 缺 heyso:write、grant 缺 heyso:write、文件范围不含目标文件、连接限制，还是其他部署差异；已有“可以读项目”不能证明拥有写授权。原文“HeySO 操作或文件未获授权”来自这组检查，不是工作项 aiEnabled 或史诗层级检查。当前云工作项文件是 owner-only；成员名册只是职责标签，不能据此授予写入权。若线上有组织/角色 ACL，保留并接入实际 ACL，不能用本包的 owner-only 模型覆盖它。
+2. 在隔离目录检出修复分支，先跑 npm ci、npm test、npm run build。查看 cloud-mcp-authorization.test.mjs：它使用实际 MCP 路由/SDK/领域逻辑和内存基础设施替身，不连接线上数据库。还需在云服务测试环境运行现有 PostgreSQL/PGlite 集成套件，覆盖 token/grant 任一缺写 scope、文件不可访问、跨租户、事务中授权撤销、合法写入、重试和 revision 冲突。
+3. 云端补丁参考 deploy/mcp-authorization/overlay/src/heyso.mjs。该文件以仓库 HS1-56 overlay 为基线，并非已核对的当前生产源码；必须做三方合并，保留之后的修复、租户隔离、真实项目 ACL、编辑锁、文件范围授权、配额、审计、事务、requestId 幂等和 revision 校验。node deploy/mcp-authorization/build-package.mjs /tmp/heyso-mcp-auth-PACKAGE 可生成带 SHA256 的候选源代码包；manifest 的 src/heyso.mjs 基线不一致时停止整文件覆盖，先审阅合并差异。vendor/heyso/server 与 shared 必须同步到修复版本；前端也需部署同一修复版本，才能出现项目“全部／手动”设置。
+4. 核查 OAuth 注册的可申请 scope 和授权页包含 heyso:write；如没有，只更新可申请的 scope 和授权页说明，要求用户通过正常流程明确同意。绝不能 UPDATE 现有 grants/tokens 增加 scope，不能修改现有 document_ids，也不能用聊天指令代替授权。旧连接缺少写授权时，准确提示重新连接并授予写入 scope/所需文件范围。
+5. 本任务当前只授权准备和验证升级方案。完成代码合并、测试和回滚包之后，向用户提供具体变更与发布目标，取得云服务发布授权再切换生产代码。发布不得运行旧 deploy/hs1-56/apply-requirements.mjs 或其他创建/修改业务数据脚本；不得恢复旧业务快照覆盖最新数据。采用原发布系统备份代码并保留可回滚版本，不执行业务数据迁移。
+6. 验证使用隔离测试租户/临时数据库：全部模式全类型可执行且新建项 aiEnabled=false、无自动执行；手动模式逐项开启，开启父级不会自动授权新子项；史诗/自定义规划类型可获取上下文和执行，工作流仍校验；未开启 AI 可创建/编辑/调整合法父级；史诗下任务成功、史诗下直接子任务等非法层级失败；只读、无文件权限、跨租户、版本冲突和重复 requestId 均正确处理。项目设置和列表/详情的 AI 图标显示一致。生产只做无写入健康检查，不调用 create_item/update_item/update_progress/submit_result 来验证业务项目。
+
+交付：线上实际拒绝分支及脱敏证据、合并后的变更清单、测试结果、部署/回滚方案、是否需用户重新授权。不能将本地模拟通过描述成生产已修复；若缺少 incident requestId 或线上访问能力，明确说明证据边界。

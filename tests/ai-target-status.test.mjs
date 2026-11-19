@@ -16,8 +16,8 @@ function setup(t) {
   const parent = store.read().items.find(i => i.id === 's6');
   const child = act('item.create', {projectId:parent.projectId, kind:'subtask', parentId:parent.id, title:'目标子任务', startDate:parent.startDate, endDate:parent.endDate});
   const sibling = act('item.create', {projectId:parent.projectId, kind:'subtask', parentId:parent.id, title:'其他子任务', startDate:parent.startDate, endDate:parent.endDate});
-  act('item.update', {id:child.id, status:'todo'});
-  act('item.update', {id:sibling.id, status:'todo'});
+  act('item.update', {id:child.id, status:'todo', aiEnabled:true});
+  act('item.update', {id:sibling.id, status:'todo', aiEnabled:true});
   const args = {itemId:child.id, storyVersion:context(store.read(), child.id).story.contentVersion, agent:'test'};
   const status = id => store.read().items.find(i => i.id === id).status;
   return {store,act,parent,child,sibling,args,status};
@@ -61,6 +61,9 @@ test('run IDs and delivery request IDs cannot be reused for another child of the
 
 test('missing target review node rejects delivery atomically instead of leaving a stale child', t => {
   const c = setup(t);
+  c.act('project.update', {id:c.parent.projectId, aiIntervention:'all'});
+  c.act('item.update', {id:c.child.id, aiEnabled:false});
+  c.act('item.update', {id:c.sibling.id, aiEnabled:false});
   const config = structuredClone(c.store.read().projects.find(p => p.id === c.parent.projectId).workConfig);
   const childFlow = structuredClone(config.workflows.find(w => w.id === config.workflowScheme.defaultWorkflowId));
   childFlow.id = 'childflow';
