@@ -354,12 +354,7 @@ export default function App() {
     setSelected(null);
     });
   };
-  const openProjectSettings = () => {
-    setSelected(null);
-    setModal(null);
-    setSettingsSection(shellSettings.some(p=>p.id==='general')?'general':shellSettings[0]?.id);
-    go("settings");
-  };
+  const openProjectSettings = () => navigateSettings('general');
   const navigateShell = (target = {}) => {
     const allowed=['page','projectId','view','settingsSection','selected','tab','releaseId'];
     if(Object.keys(target).some(k=>!allowed.includes(k)))throw Error('Unknown navigation field');
@@ -377,10 +372,12 @@ export default function App() {
       settingsDirtyRef.current=false;
       setPage(nextPage);setProjectId(nextProject);setView(nextView);
       if(target.settingsSection)setSettingsSection(target.settingsSection);
-      setSelected(target.selected || null);setTab(target.tab || 'detail');setReleaseId(target.releaseId || null);
+      setSelected(target.selected || null);setTab(target.tab || 'detail');setReleaseId(target.releaseId || null);setModal(null);
       if(nextProject)localStorage.setItem('heyso-project',nextProject);
     });
   };
+  const hasSettingsPage=id=>shellSettings.some(p=>p.id===id);
+  const navigateSettings=id=>navigateShell({settingsSection:hasSettingsPage(id)?id:hasSettingsPage('general')?'general':shellSettings[0].id});
   const shellProject=data?.projects.find(p=>p.id===projectId)||data?.projects[0];
   const shellContext=Object.freeze({
     projectId:shellProject?.id || null,project:projectSummary(shellProject),
@@ -638,7 +635,7 @@ export default function App() {
           project.name,
           project.description || "查看项目进度、当前冲刺和待验收成果。",
         )}
-        <div className="inline" style={{marginBottom:16,gap:12}}><span>{project.cloud ? '在线项目 · LoyoCloud' : hosting.hosted ? '工作空间项目' : '本地项目'}</span><ReplicaButton onClick={()=>{go('settings');setSettingsSection('integrations');}}>{project.cloud ? '云空间与 AI 连接' : hosting.hosted ? '保存至 LoyoCloud' : '转为在线项目'}</ReplicaButton></div>
+        <div className="inline" style={{marginBottom:16,gap:12}}><span>{project.cloud ? '在线项目 · LoyoCloud' : hosting.hosted ? '工作空间项目' : '本地项目'}</span>{hasSettingsPage('integrations')&&<ReplicaButton onClick={()=>navigateSettings('integrations')}>{project.cloud ? '云空间与 AI 连接' : hosting.hosted ? '保存至 LoyoCloud' : '转为在线项目'}</ReplicaButton>}</div>
         {project.cloud?.error&&<AntAlert className="settings-error" role="alert">{project.cloud.error}。当前显示最近读取的内容，联网后刷新。</AntAlert>}
         <div className="project-goal-strip">
           <Target size={18} />
@@ -1020,10 +1017,7 @@ export default function App() {
               aria-label="项目设置"
               data-sidebar-tooltip="项目设置"
               data-sidebar-description="管理项目资料、成员、工作约定和 AI 连接。"
-              onClick={() => {
-                setSettingsSection(shellSettings.some(p=>p.id==='general')?'general':shellSettings[0]?.id);
-                go("settings");
-              }}
+              onClick={openProjectSettings}
             >
               <Settings size={16} />
               <span>项目设置</span>
@@ -1096,11 +1090,8 @@ export default function App() {
               {header(
                 "AI 交付",
                 "跟踪执行进展、查看交付结果，并完成人工验收。",
-                <ReplicaButton
-                  onClick={() => {
-                    setSettingsSection("integrations");
-                    go("settings");
-                  }}
+                hasSettingsPage('integrations')&&<ReplicaButton
+                  onClick={() => navigateSettings('integrations')}
                 >
                   <Settings size={15} />
                   管理 AI 连接

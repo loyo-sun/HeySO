@@ -76,7 +76,7 @@ const application = mountHeySO(document.getElementById('root'), {extensions});
 
 不要直接调用 window.location、history.pushState、setPage 或访问核心内部状态绕过导航保护。不要在 `when` / `active` / `render` 中产生副作用。`navigate` 不承诺返回导航成功状态：有未保存内容时会等待用户继续编辑或放弃。
 
-原有浏览器前进/后退、直接链接继续使用 `useWorkspaceRoute`；宿主新增设置页也参与 section 校验及历史恢复。隐藏/未知设置页链接回退到 general；若 general 隐藏则回退到首个可见设置页。不能隐藏所有内置设置页。
+原有浏览器前进/后退、直接链接继续使用 `useWorkspaceRoute`；宿主新增设置页也参与 section 校验及历史恢复。隐藏/未知设置页链接回退到 general；若 general 隐藏则回退到首个可见设置页。不能隐藏所有内置设置页。隐藏 MCP 设置页时，概览和 AI 交付页的对应快捷入口同时移除；内置设置导航也使用相同的受控导航和已注册页面集合。
 
 ## 项目设置页面
 

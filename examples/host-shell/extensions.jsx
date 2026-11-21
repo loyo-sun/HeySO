@@ -11,7 +11,7 @@ function Account() {
   const container=useOverlayContainer(),[open,setOpen]=useState(false);
   return <><button type="button" aria-label="演示账号" onClick={()=>setOpen(true)}><User size={17}/></button><Modal title="虚构账号面板" open={open} onCancel={()=>setOpen(false)} onOk={()=>setOpen(false)} getContainer={container}><p>演示访客 · 不含真实账号、组织或令牌。</p><Select className="demo-preference" showSearch={false} style={{width:180}} aria-label="演示偏好" defaultValue="light" options={[{value:'light',label:'明亮'},{value:'system',label:'跟随系统'}]}/></Modal></>;
 }
-export const createDemoExtensions=({readOnly=false}={})=>createShellExtensions({
+export const createDemoExtensions=({readOnly=false,hideMcpSettings=false}={})=>createShellExtensions({
   readOnly,
   contractVersion:'1.0.0',theme:{accent:'#287b67'},
   slots:[
@@ -27,6 +27,7 @@ export const createDemoExtensions=({readOnly=false}={})=>createShellExtensions({
     {id:'demo-help',slot:'header.right',order:10,render:ctx=><button type="button" aria-label="宿主帮助" onClick={ctx.openHelp}><HelpCircle size={17}/></button>},
   ],
   settingsPages:[
+    ...(hideMcpSettings?[{id:'integrations',mode:'hide'}]:[]),
     {id:'demo-notes',label:'演示备注',order:50,component:Notes},
     {id:'about',mode:'replace',label:'宿主说明',render:ctx=><p>这是替换后的公开示例页，当前项目：{ctx.project?.name}。没有接入任何 SaaS 私有能力。</p>},
   ],

@@ -35,6 +35,7 @@ try {
  await page.getByRole('heading',{name:'设置尚未保存',exact:true}).waitFor();
  await page.getByRole('button',{name:'继续编辑',exact:true}).click();assert.equal(await page.locator('[name="name"]').inputValue(),'不能丢失的项目名称');
  await page.getByRole('button',{name:'HeySO 项目首页',exact:true}).click();await page.getByRole('button',{name:'放弃并离开',exact:true}).click();await waitParam('view','roadmap');
+ await page.goto(base+'/?project=p_heyso&view=ai');await page.getByRole('button',{name:'管理 AI 连接',exact:true}).click();await waitParam('section','integrations');
  console.log('PASS standalone, no hardcoded top menus, project switching, deep links, browser back/forward and built-in dirty guard');
 
  await page.goto(base+'/examples/host-shell/');await page.getByRole('button',{name:'进入研发',exact:true}).waitFor();
@@ -70,6 +71,15 @@ try {
  await page.setViewportSize({width:390,height:844});await shot('host-mobile');assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
  await page.getByRole('button',{name:'演示账号',exact:true}).click();await page.getByRole('dialog',{name:'虚构账号面板',exact:true}).waitFor();await shot('host-mobile-popup');await page.keyboard.press('Escape');
  await page.goto(base+'/?project=p_heyso&view=list');await page.locator('.backlog-table-scroll').waitFor();await shot('standalone-mobile');assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+ // Hidden settings must not be reopened through built-in overview/AI shortcuts.
+ await page.setViewportSize({width:1440,height:1000});
+ await page.goto(base+'/examples/host-shell/?demoHideMcp=1&view=ai');await page.locator('.view-ai h1').waitFor();
+ assert.equal(await page.getByRole('button',{name:'管理 AI 连接',exact:true}).count(),0);
+ await page.goto(base+'/examples/host-shell/?demoHideMcp=1&view=overview');await page.getByRole('heading',{name:'HeySO 产品研发',exact:true}).waitFor();
+ assert.equal(await page.getByRole('button',{name:'转为在线项目',exact:true}).count(),0);
+ await page.goto(base+'/examples/host-shell/?demoHideMcp=1&view=settings&section=integrations');await page.getByRole('heading',{name:'常规',exact:true}).waitFor();
+ assert.equal(new URL(page.url()).searchParams.get('section'),'general');assert.equal(await page.getByRole('menuitem',{name:'MCP',exact:true}).count(),0);
+ console.log('PASS hidden MCP page has no overview/AI shortcut bypass; default MCP entry remains available');
  // A workspace with no projects still offers creation with the host shell present.
  await page.route('**/api/state',route=>route.fulfill({json:{...data,projects:[],items:[],sprints:[],releases:[],notes:[],runs:[]}}));
  await page.goto(base+'/');await page.getByRole('button',{name:'创建项目',exact:true}).waitFor();await page.getByRole('button',{name:'创建项目',exact:true}).click();await page.locator('[name="name"]').waitFor();

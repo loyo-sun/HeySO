@@ -106,7 +106,7 @@
   },
   "ordering": "ascending numeric order, ties by ASCII id; defaults first, append entries after defaults/replacement",
   "duplicateIds": "throw before mount across all registrations; at most one replace/hide controller per visual slot",
-  "settingsRouting": "additions need unique ids; replace/hide target built-in ids; hidden/unknown deep link falls back to general or first visible settings page",
+  "settingsRouting": "additions need unique ids; replace/hide target built-in ids; hidden/unknown deep link falls back to general or first visible settings page; built-in shortcuts to hidden settings pages are omitted",
   "themes": {
     "colors": [
       "accent",

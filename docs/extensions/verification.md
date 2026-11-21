@@ -60,3 +60,5 @@ node tests/app-shell-browser.mjs
 npm install --prefix /tmp/heyso-shell-types --cache /tmp/npm-cache --no-audit --no-fund typescript @types/react
 /tmp/heyso-shell-types/node_modules/.bin/tsc --strict --noEmit --jsx react --module esnext --moduleResolution bundler --target ES2022 --esModuleInterop --typeRoots /tmp/heyso-shell-types/node_modules/@types tests/app-shell-types.fixture.tsx
 ```
+
+PR #12 合并前的追加审查、隐藏设置页快捷入口修复及最终验证见 [pr-12-review.md](pr-12-review.md)。
