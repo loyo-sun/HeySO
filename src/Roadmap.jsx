@@ -1,3 +1,4 @@
+import {useOverlayContainer} from './extensions/OverlayContext.jsx';
 import useViewPreferences from './useViewPreferences.jsx';
 import {ReplicaNativeSelect,ReplicaButton,ReplicaInput} from './ReplicaControls.jsx';
 import {AntCard,AntSegments,AntDisclosure,AntEmpty} from './AntStructures.jsx';
@@ -18,6 +19,7 @@ import {releaseState} from './release-model.mjs';
 import {roadmapSiblings, reorderedSiblingIds, roadmapMovePlan, roadmapTreeSnapshot, roadmapDropPosition} from '../shared/roadmap-order.mjs';
 
 export default function Roadmap({ project, items, releases, onOpen, onCreate, onReleases, onProjectSettings, onSchedule, onInsert, onReorder, busy }) {
+ const overlayContainer=useOverlayContainer();
   const today = localDay(),config=configFor(project);
   const levels=[...config.levels].sort((a,b)=>b.rank-a.rank).map(l=>({...l,name:config.types.filter(t=>t.level===l.rank&&(t.enabled&&!t.hidden||items.some(i=>i.kind===t.id))).map(t=>t.name).join(' / ')||l.name}));
   const prefs=useViewPreferences(project,'roadmap',{anchor:today<project.startDate||today>project.endDate?project.startDate||today:today,scale:'quarter',query:'',status:'all',owner:'all',version:'all',showReleases:true,top:Math.max(...levels.map(l=>l.rank)),bottom:0,fields:globalThis.innerWidth<1000?['startDate','endDate']:['startDate','endDate','owner','releaseId'],barLabels:false,colorBy:'type',custom:{startDate:project.startDate||today,endDate:project.endDate||today},collapsed:[]});
@@ -191,7 +193,7 @@ export default function Roadmap({ project, items, releases, onOpen, onCreate, on
       <div className="roadmap-footer"><span><i className="roadmap-legend-progress"/>条内深色区域表示已完成比例</span><span><i className="roadmap-legend-overdue"/>逾期未完成</span><span><i className="roadmap-legend-summary"/>斜纹表示父级计划</span><span><i className="roadmap-legend-release"/>版本里程碑</span><small>{visible} 项位于当前时间段 · {undated} 项待排期</small></div>
       <div ref={dock} className="roadmap-scroll-dock" style={{ left: dockBounds.left, width: dockBounds.width, visibility: dockBounds.visible ? 'visible' : 'hidden' }} onScroll={e => syncScroll(e.currentTarget)} tabIndex={0} role="region" aria-label="横向滚动时间轴"><div style={{ width: `calc(var(--roadmap-label-width) + var(--roadmap-fields-width) + ${axisWidth}px)` }}/></div>
     </AntCard>
-    {dragged&&drop&&createPortal(<div className={'roadmap-drag-feedback'+(drop.error?' is-invalid':'')} role="status" aria-live="polite" style={{left:Math.max(8,Math.min(drop.x+14,globalThis.innerWidth-290)),top:Math.max(8,Math.min(drop.y+14,globalThis.innerHeight-80))}}>{drop.error?'无法移动：'+drop.error:drop.position==='inside'?'松开移入此工作项':drop.position==='before'?'松开放到此项之前':'松开放到此项之后'}</div>,document.body)}
+    {dragged&&drop&&createPortal(<div className={'roadmap-drag-feedback'+(drop.error?' is-invalid':'')} role="status" aria-live="polite" style={{left:Math.max(8,Math.min(drop.x+14,globalThis.innerWidth-290)),top:Math.max(8,Math.min(drop.y+14,globalThis.innerHeight-80))}}>{drop.error?'无法移动：'+drop.error:drop.position==='inside'?'松开移入此工作项':drop.position==='before'?'松开放到此项之前':'松开放到此项之后'}</div>,overlayContainer())}
   </>;
 }
 

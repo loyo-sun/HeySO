@@ -5,7 +5,6 @@ import WorkType from './WorkType.jsx';
 import {StatusIcon,PriorityIcon} from './Select.jsx';
 import {X,History,LockKeyhole,Info,CalendarDays,UserRound,Flag,Hash} from 'lucide-react';
 import {typeFor,statusNamesFor} from '../shared/work-config.mjs';
-import './work-item-snapshot.css';
 
 export default function WorkItemDialog({modal,project,onClose}) {
   const i=modal.item,live=!!modal.readOnlyReason;

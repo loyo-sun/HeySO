@@ -5,5 +5,5 @@ export default defineConfig({
   define: { __HEYSO_COMMIT__: JSON.stringify(sourceRevision()) },
   plugins: [react()],
   server: { host: "127.0.0.1" },
-  build: { outDir: "dist" },
+  build: { outDir: "dist", rollupOptions: {input:{app:"index.html",hostShell:"examples/host-shell/index.html"}} },
 });

@@ -1,0 +1,178 @@
+{
+  "contractVersion": "1.0.0",
+  "publicImportPath": "src/extensions/index.jsx",
+  "typeDeclarations": "src/extensions/index.d.ts",
+  "registration": "mountHeySO(element, { extensions }) or <HeySOApplication extensions={...} />; immutable for one mount",
+  "slots": [
+    {
+      "id": "header.brand",
+      "modes": [
+        "replace",
+        "hide"
+      ],
+      "componentLocation": "ShellHeader：左侧品牌",
+      "default": "HeySO Logo 与名称，点击进入项目线路",
+      "parameters": "ShellContext",
+      "registrationKey": "slots"
+    },
+    {
+      "id": "header.navigation",
+      "modes": [
+        "append",
+        "replace",
+        "hide"
+      ],
+      "componentLocation": "ShellHeader：品牌右侧主导航",
+      "default": "空；不显示仪表盘/项目默认菜单",
+      "parameters": "ShellContext",
+      "registrationKey": "slots"
+    },
+    {
+      "id": "header.project-entry",
+      "modes": [
+        "append",
+        "replace",
+        "hide"
+      ],
+      "componentLocation": "ShellHeader：主菜单后、右侧工具前",
+      "default": "仅旧仪表盘视图显示进入项目按钮，其余视图不占位",
+      "parameters": "ShellContext",
+      "registrationKey": "slots"
+    },
+    {
+      "id": "project.selector-actions",
+      "modes": [
+        "append",
+        "replace",
+        "hide"
+      ],
+      "componentLocation": "ProjectSelector：侧栏项目选择器右侧",
+      "default": "空；项目选择器自身始终保留",
+      "parameters": "ShellContext",
+      "registrationKey": "slots"
+    },
+    {
+      "id": "project.title-actions",
+      "modes": [
+        "append",
+        "replace",
+        "hide"
+      ],
+      "componentLocation": "ProjectIdentity：常规设置的项目标题卡片右侧",
+      "default": "空；不影响项目标题及选择器",
+      "parameters": "ShellContext",
+      "registrationKey": "slots"
+    },
+    {
+      "id": "header.right",
+      "modes": [
+        "append",
+        "replace",
+        "hide"
+      ],
+      "componentLocation": "ShellHeader：最右侧工具区",
+      "default": "复制链接、帮助、清单搜索",
+      "parameters": "ShellContext",
+      "registrationKey": "slots"
+    },
+    {
+      "id": "settings.pages",
+      "modes": [
+        "append",
+        "replace",
+        "hide"
+      ],
+      "componentLocation": "项目设置侧栏及 HostSettingsPage 内容区",
+      "default": "内置设置页面",
+      "parameters": "SettingsContext",
+      "registrationKey": "settingsPages"
+    }
+  ],
+  "contexts": {
+    "ShellContext": {
+      "projectId": "string|null",
+      "project": "ProjectSummary|null; allowlist: id,name,code,goal,longTerm",
+      "projects": "readonly ProjectSummary[]",
+      "route": "page,projectId,view,settingsSection,selected,tab,releaseId",
+      "capabilities": "busy,online,readOnly,canCreateProject; display hints only",
+      "navigate": "validated, guarded NavigationTarget -> void",
+      "requestHostNavigation": "trusted callback after unsaved guard -> void",
+      "openHelp": "open core help -> void"
+    },
+    "SettingsContext": {
+      "extends": "ShellContext",
+      "setDirty": "report unsaved draft immediately; cleared on unmount"
+    }
+  },
+  "ordering": "ascending numeric order, ties by ASCII id; defaults first, append entries after defaults/replacement",
+  "duplicateIds": "throw before mount across all registrations; at most one replace/hide controller per visual slot",
+  "settingsRouting": "additions need unique ids; replace/hide target built-in ids; hidden/unknown deep link falls back to general or first visible settings page; built-in shortcuts to hidden settings pages are omitted",
+  "themes": {
+    "colors": [
+      "accent",
+      "background",
+      "text",
+      "border",
+      "muted"
+    ],
+    "format": "#RRGGBB only",
+    "cssScope": ".heyso-root; native @scope required",
+    "popupRoot": "useOverlayContainer(); never document.body",
+    "headerZIndex": 20,
+    "overlayRootZIndex": 20000,
+    "cssVariables": [
+      "--heyso-accent",
+      "--heyso-background",
+      "--heyso-text",
+      "--heyso-border",
+      "--heyso-muted"
+    ]
+  },
+  "deprecated": [
+    {
+      "name": "top-level fixed dashboard/projects menu",
+      "replacement": "header.navigation; explicit dashboard links remain supported"
+    },
+    {
+      "name": "source-string/JSX replacement or CSS-selector injection",
+      "replacement": "registered slots/settings pages"
+    }
+  ],
+  "compatibility": {
+    "dataMigration": "none",
+    "storageAdapters": "unchanged",
+    "MCP": "unchanged",
+    "breakingPolicy": "major version bump plus migration guide",
+    "limits": [
+      "one application per document/history",
+      "trusted compiled React extensions only; no remote loader",
+      "CSS @scope capable browsers",
+      "startup registration; remount for another registry"
+    ]
+  },
+  "builtinSettingsIds": [
+    "general",
+    "members",
+    "roles",
+    "types",
+    "states",
+    "workflow",
+    "integrations",
+    "memory",
+    "data",
+    "about"
+  ],
+  "navigationViews": [
+    "roadmap",
+    "backlog",
+    "board",
+    "list",
+    "releases",
+    "reports",
+    "ai",
+    "overview",
+    "settings",
+    "work",
+    "sprints"
+  ]
+}
