@@ -1,3 +1,4 @@
+import {useOverlayContainer} from './extensions/OverlayContext.jsx';
 import {ReplicaButton} from './ReplicaControls.jsx';
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -5,6 +6,7 @@ import { fitChildSchedules } from '../shared/schedule.mjs';
 import { dragRoadmapDates, roadmapBar } from './roadmap-model.mjs';
 
 export default function RoadmapBar({ item, items, project, window, progress, color, overdue, title, status, compact=false, summary=false, busy, onOpen, onSchedule }) {
+ const overlayContainer=useOverlayContainer();
   const [preview, setPreview] = useState(null), [saving, setSaving] = useState(false);
   const gesture = useRef(null), suppressClick = useRef(false), latest = useRef(null);
   latest.current = { item, items, project, busy };
@@ -62,6 +64,6 @@ export default function RoadmapBar({ item, items, project, window, progress, col
       {!item.readOnly && !position.clippedStart && <ReplicaButton className="roadmap-resize roadmap-resize-start" {...events('start')} disabled={blocked} onClick={e => e.stopPropagation()} aria-label={'调整开始日期：' + item.title} title="拖动调整开始日期"/>}
       {!item.readOnly && !position.clippedEnd && <ReplicaButton className="roadmap-resize roadmap-resize-end" {...events('end')} disabled={blocked} onClick={e => e.stopPropagation()} aria-label={'调整结束日期：' + item.title} title="拖动调整结束日期"/>}
     </div>
-    {preview && !saving && createPortal(<div className="roadmap-drag-tooltip" role="status" style={{ left: Math.max(8, Math.min(preview.x - 120, globalThis.innerWidth - 270)), top: Math.max(8, preview.y - 65) }}><strong>{preview.startDate} → {preview.endDate}</strong><span>{preview.limited ? boundary : affected ? `将同步调整 ${affected} 个子项 · 松开保存 · Esc 取消` : '松开保存 · Esc 取消'}</span></div>, document.body)}
+    {preview && !saving && createPortal(<div className="roadmap-drag-tooltip" role="status" style={{ left: Math.max(8, Math.min(preview.x - 120, globalThis.innerWidth - 270)), top: Math.max(8, preview.y - 65) }}><strong>{preview.startDate} → {preview.endDate}</strong><span>{preview.limited ? boundary : affected ? `将同步调整 ${affected} 个子项 · 松开保存 · Esc 取消` : '松开保存 · Esc 取消'}</span></div>, overlayContainer())}
   </>;
 }

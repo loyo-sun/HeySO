@@ -1,0 +1,12 @@
+/* Deliberately broad host CSS: core styles stay scoped; demo-specific rules are namespaced. */
+button{font-size:19px;color:#662f91}
+#host-outside{position:fixed;bottom:8px;right:8px;z-index:30;padding:6px;background:#f5ecfb}
+#host-outside button{border:1px solid #662f91}
+.demo-brand{display:flex;align-items:center;gap:6px}
+.demo-brand img{width:24px;height:24px}
+.demo-notes{display:grid;gap:16px;max-width:500px}
+.demo-notes label{display:grid;gap:8px}
+@media(max-width:700px){.demo-brand span,.demo-project-label{display:none}}
+
+/* The host owns this field; keep the internal combobox input from covering its label. */
+.demo-preference input{border:0;padding:0;background:transparent;opacity:0}

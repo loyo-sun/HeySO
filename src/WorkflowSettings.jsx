@@ -1,3 +1,4 @@
+import {useOverlayContainer} from './extensions/OverlayContext.jsx';
 import {ReplicaField,ReplicaButton,ReplicaInput} from './ReplicaControls.jsx';
 import {AntAlert,AntSegments,AntConfirm,AntEmpty,AntFullscreen,AntTabs,AntDisclosure,AntHtmlTable} from './AntStructures.jsx';
 import { createPortal } from "react-dom";
@@ -80,6 +81,7 @@ function WorkflowEditor({project,items,config,setConfig,migration,setMigration,b
 }
 
 export default function WorkflowSettings({project,items,config,setConfig,migration,setMigration,busy,onSave}) {
+ const overlayContainer=useOverlayContainer();
   const [tab,setTab]=useState("flows"),[query,setQuery]=useState(""),[editor,setEditor]=useState(null),[editorConfig,setEditorConfig]=useState(null),[editorMigration,setEditorMigration]=useState({}),[saving,setSaving]=useState(false),[error,setError]=useState(""),[confirmClose,setConfirmClose]=useState(false),[deleting,setDeleting]=useState(null),[rulesPage,setRulesPage]=useState(false);
   const baseline=useRef(null),dialog=useRef(null),returnFocus=useRef(null);
   useEffect(()=>{if(editor)setError("");},[editorConfig,editorMigration]);
@@ -140,7 +142,7 @@ export default function WorkflowSettings({project,items,config,setConfig,migrati
       </div>
       </div>
       {confirmClose&&<AntConfirm className="wf-close-overlay"><section role="alertdialog" aria-modal="true" aria-labelledby="wf-close-title" aria-describedby="wf-close-description"><h2 id="wf-close-title">保存工作流修改？</h2><p id="wf-close-description">此工作流还有未保存的修改。可以保存后返回，或放弃本次编辑。</p><div><ReplicaButton type="button" onClick={()=>setConfirmClose(false)}>继续编辑</ReplicaButton><ReplicaButton type="button" onClick={close}>放弃修改</ReplicaButton><ReplicaButton type="button" className="primary" onClick={saveEditor}>保存并返回</ReplicaButton></div></section></AntConfirm>}
-    </AntFullscreen>,document.body)}
+    </AntFullscreen>,overlayContainer())}
     {deleting&&<AntConfirm className="wf-close-overlay" role="alertdialog" aria-modal="true" aria-label="删除工作流"><section><h2>删除「{deleting.name}」？</h2><p>此工作流没有关联工作类型，删除不会移除工作项。</p>{error&&<p className="settings-error">{error}</p>}<div><ReplicaButton type="button" disabled={working} onClick={()=>setDeleting(null)}>取消</ReplicaButton><ReplicaButton type="button" disabled={working} onClick={async()=>{setSaving(true);try{const next=structuredClone(config);next.workflows=next.workflows.filter(w=>w.id!==deleting.id);await onSave(next,migration);setDeleting(null);}catch(e){setError(e.message);}finally{setSaving(false);}}}>删除工作流</ReplicaButton></div></section></AntConfirm>}
   </>;
 }

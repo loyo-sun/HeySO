@@ -2,7 +2,6 @@ import {ReplicaForm,ReplicaInput,ReplicaButton} from './ReplicaControls.jsx';
 import {AntAlert,AntCard} from './AntStructures.jsx';
 import React,{createContext,useContext,useEffect,useRef,useState} from 'react';
 import logo from './assets/heyso-icon.svg';
-import './entry.css';
 import SetupWizard from './SetupWizard.jsx';
 
 const Hosting=createContext({hosted:false});

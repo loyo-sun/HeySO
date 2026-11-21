@@ -1,3 +1,4 @@
+import {useOverlayContainer} from './extensions/OverlayContext.jsx';
 import {ReplicaInput,ReplicaButton,ReplicaModal,ReplicaForm,ReplicaField} from './ReplicaControls.jsx';
 import {AntHtmlTable} from './AntStructures.jsx';
 import React, { useState } from 'react';
@@ -11,6 +12,7 @@ const availability = type => !type.enabled ? 'disabled' : type.hidden ? 'archive
 const availabilityNames = {active:'展示中', archived:'已归档', disabled:'已停用'};
 
 export default function TypeList({ config, setConfig, items, busy }) {
+ const overlayContainer=useOverlayContainer();
   const [draft, setDraft] = useState(null), [error, setError] = useState('');
   const types = config.types.filter(t => !(t.retiredBuiltin && ['theme','feature'].includes(t.id)));
   const open = type => { if (busy) return; setError(''); setDraft(type ? {...type} : {name:'', icon:'task', color:typePalette[config.types.length % typePalette.length][0], level:0, enabled:true, hidden:false}); };
@@ -44,6 +46,6 @@ export default function TypeList({ config, setConfig, items, busy }) {
         {error && <p className="type-edit-error" role="alert">{error}</p>}
       </div>
       <footer><span>确认后保存项目配置以生效</span><ReplicaButton type="button" disabled={busy} onClick={() => setDraft(null)}>取消</ReplicaButton><ReplicaButton type="submit" className="primary" disabled={busy}>确定</ReplicaButton></footer>
-    </ReplicaForm></ReplicaModal></div>, document.body)}
+    </ReplicaForm></ReplicaModal></div>, overlayContainer())}
   </section>;
 }

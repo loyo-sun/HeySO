@@ -158,3 +158,14 @@ npm test
 ```
 
 开发服务默认使用 `4179` 端口，可通过 `PORT` 修改；可通过 `HEYSO_DATA_DIR` 指定独立数据目录。测试 AI 协作时，建议使用专门的测试项目。
+
+## 作为宿主应用的项目核心
+
+应用外壳协议 **1.0.0** 提供品牌、主菜单、项目入口、项目旁操作、Header 右侧及设置页扩展。独立版默认进入项目，通过侧栏选择/创建/切换项目；顶部不再固定显示「仪表盘」「项目」菜单，旧链接和业务视图继续兼容。
+
+- [正式协议与扩展位置](docs/extensions/app-shell.md)
+- [机器可读 contract](docs/extensions/contract.json)
+- [迁移说明](docs/extensions/migration.md)
+- [可运行的公开宿主示例](examples/host-shell/README.md)
+
+统一入口为 `src/extensions/index.jsx`，类型位于相邻的 `index.d.ts`。扩展在启动时显式注册，导航共用未保存保护。核心不承载组织、租户、套餐或平台后台；存储、项目文件和 MCP 协议无迁移。

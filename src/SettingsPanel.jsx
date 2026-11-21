@@ -1,6 +1,7 @@
 import {ReplicaUpload,ReplicaField,ReplicaForm,ReplicaButton,ReplicaInput,ReplicaTextArea} from './ReplicaControls.jsx';
 import {AntAlert,AntAvatar,AntHtmlTable} from './AntStructures.jsx';
 import { memberRole, rolesForMembers, defaultMemberRole } from "../shared/member-roles.mjs";
+import {ExtensionSlot} from './extensions/ShellProvider.jsx';
 import React, { useState, useEffect, useRef } from "react";
 import { useHosting } from './AccessGate.jsx';
 import { Settings, Users, ListChecks, Plug, Database, Download, Upload, Plus, X, ArrowUpRight, Trash2, RefreshCw, CheckCircle2, AlertCircle, Layers, GitBranch, Rows3, BookOpen, Info } from "lucide-react";
@@ -210,7 +211,7 @@ export default function SettingsPanel({
     {section === "about" && <section className="settings-section settings-about"><h2>合序 HeySO</h2><p className="section-description">Hey, Shared Outcomes.</p><dl><div><dt>软件版本</dt><dd>{softwareVersion}</dd></div><div><dt>仓库版本</dt><dd>{typeof __HEYSO_COMMIT__ !== "undefined" && __HEYSO_COMMIT__ ? <a href={repositoryUrl+"/commit/"+__HEYSO_COMMIT__} target="_blank" rel="noopener noreferrer">{__HEYSO_COMMIT__.slice(0,7)}</a> : "未记录"}</dd></div><div><dt>GitHub</dt><dd><a href={repositoryUrl} target="_blank" rel="noopener noreferrer">loyo-sun/HeySO</a></dd></div><div><dt>保存方式</dt><dd>{project.cloud?"LoyoCloud 在线项目":hosting.hosted?"在线保存":"本地保存"}</dd></div><div><dt>当前项目</dt><dd>{project.name}</dd></div></dl>{hosting.hosted&&<div className="inline">{hosting.configure&&<ReplicaButton onClick={hosting.configure}>云端存储设置</ReplicaButton>}<ReplicaButton onClick={hosting.logout}>退出工作空间</ReplicaButton></div>}</section>}
     {section === "memory" && memoryPanel}
     {section === "general" && <>
-      <div className="project-identity"><span className="project-glyph">{project.name.slice(0, 1)}</span><div><h2>{project.name}</h2><span>{project.cloud ? "在线项目" : "本地项目"} · {project.code}</span></div></div>
+      <div className="project-identity" data-heyso-component="ProjectIdentity"><span className="project-glyph">{project.name.slice(0, 1)}</span><div><h2>{project.name}</h2><span>{project.cloud ? "在线项目" : "本地项目"} · {project.code}</span></div><div className="heyso-project-title-actions" data-heyso-slot="project.title-actions"><ExtensionSlot id="project.title-actions"/></div></div>
       <ReplicaForm className="settings-section" onSubmit={(e) => { e.preventDefault(); save("general"); }}>
         <Field label="项目 ID"><ReplicaInput value={project.code} readOnly/><small>工作项编号：{project.code}-序号，项目 ID 创建后固定。</small></Field><Field label="项目名称"><ReplicaInput {...field("name")} maxLength={120} placeholder="项目名称" required disabled={busy}/></Field>
         <Field label="背景与说明"><ReplicaTextArea {...field("description")} placeholder="补充项目背景、受众和工作范围" disabled={busy}/></Field>

@@ -1,10 +1,10 @@
 export function readWorkspaceRoute(url, { views, sections, fallbackProject = '' }) {
   const params = new URL(url).searchParams;
   const cloud = params.has('cloudFile');
-  const page = params.get('tab') === 'dashboard' ? 'dashboard'
-    : params.get('tab') === 'projects' || params.has('view') || params.has('project') || params.has('item') || cloud ? 'projects' : 'dashboard';
+  const page = params.get('tab') === 'dashboard' ? 'dashboard' : 'projects';
   const requested = params.get('view');
-  const legacyMemory = requested === 'memory' && sections.includes('memory');
+  const legacyMemory = requested === 'memory';
+  const requestedSection=cloud?'integrations':legacyMemory?'memory':params.get('section');
   const aliases = {hierarchy:'list',work:'backlog',sprints:'backlog'};
   const normalized = views.includes(aliases[requested]) ? aliases[requested] : requested;
   const fallbackView = views.includes('roadmap') ? 'roadmap' : 'overview';
@@ -13,7 +13,7 @@ export function readWorkspaceRoute(url, { views, sections, fallbackProject = '' 
     projectId: params.get('project') || fallbackProject,
     ...(requested === 'releases' && params.get('release') ? {releaseId:params.get('release')} : {}),
     view: cloud || legacyMemory ? 'settings' : views.includes(normalized) ? normalized : fallbackView,
-    settingsSection: cloud ? 'integrations' : legacyMemory ? 'memory' : sections.includes(params.get('section')) ? params.get('section') : 'general',
+    settingsSection: sections.includes(requestedSection) ? requestedSection : sections.includes('general') ? 'general' : sections[0] || 'general',
     selected: params.get('item') || null,
     tab: ['detail', 'children', 'runs', 'history'].includes(params.get('detail')) ? params.get('detail') : 'detail',
   };

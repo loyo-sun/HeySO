@@ -1,9 +1,11 @@
+import {useOverlayContainer} from './extensions/OverlayContext.jsx';
 import React,{useEffect,useLayoutEffect,useRef,useState} from 'react';
 import {createPortal} from 'react-dom';
 import {Input,Menu} from 'antd';
 import {Check,ChevronRight} from 'lucide-react';
 
 export default function ContextMenu({menu,entries,onClose}){
+ const overlayContainer=useOverlayContainer();
  const root=useRef(null),[queries,setQueries]=useState({}),actions=useRef(new Map());actions.current.clear();
  const getNode=()=>root.current?.menu?.list||root.current?.list;
  useLayoutEffect(()=>{const el=getNode();if(!el)return;const rect=el.getBoundingClientRect();el.style.left=Math.max(8,Math.min(menu.x,innerWidth-rect.width-8))+'px';el.style.top=Math.max(8,Math.min(menu.y,innerHeight-rect.height-8))+'px';el.querySelector('[role=menuitem]')?.focus();},[menu]);
@@ -11,5 +13,5 @@ export default function ContextMenu({menu,entries,onClose}){
  const make=(options,path='root')=>options.flatMap((entry,index)=>{const key=path+':'+index;actions.current.set(key,entry);const children=entry.children;const item={key,disabled:!!entry.disabled,title:entry.reason||entry.label,className:entry.danger?'danger':undefined,icon:<span className="work-context-check">{entry.checked&&<Check size={14}/>}</span>,label:<span>{entry.label}{entry.disabled&&entry.reason&&<small>{entry.reason}</small>}</span>};
  if(children){const query=queries[key]||'',filtered=children.filter(c=>c.label.toLowerCase().includes(query.toLowerCase()));item.popupClassName='heyso-context-submenu';item.children=[{type:'group',key:key+':heading',label:<div className="work-context-heading"><span>{entry.label}</span></div>},...((entry.searchable||children.length>8)?[{type:'group',key:key+':search',label:<Input autoFocus aria-label="搜索菜单选项" placeholder="搜索选项…" value={query} onClick={e=>e.stopPropagation()} onKeyDown={e=>{if(!['ArrowDown','ArrowUp','Escape'].includes(e.key))e.stopPropagation();}} onChange={e=>setQueries(q=>({...q,[key]:e.target.value}))}/>}]:[]),...make(filtered,key)];}
  return [...(entry.separator?[{type:'divider',key:key+':divider'}]:[]),item];});
- return createPortal(<Menu ref={root} mode="vertical" className="heyso-context-menu work-context-menu" style={{position:'fixed',left:menu.x,top:menu.y,zIndex:3000}} selectable={false} subMenuOpenDelay={.14} subMenuCloseDelay={.14} expandIcon={<ChevronRight size={14}/>} items={[{type:'group',key:'heading',label:<div className="work-context-heading"><span>{menu.title||'工作项操作'}</span></div>},...make(entries)]} onClick={({key})=>{const entry=actions.current.get(key);if(entry&&!entry.children&&!entry.disabled){onClose();entry.run?.();}}} onContextMenu={e=>e.preventDefault()}/>,document.body);
+ return createPortal(<Menu ref={root} mode="vertical" className="heyso-context-menu work-context-menu" style={{position:'fixed',left:menu.x,top:menu.y,zIndex:3000}} selectable={false} subMenuOpenDelay={.14} subMenuCloseDelay={.14} expandIcon={<ChevronRight size={14}/>} items={[{type:'group',key:'heading',label:<div className="work-context-heading"><span>{menu.title||'工作项操作'}</span></div>},...make(entries)]} onClick={({key})=>{const entry=actions.current.get(key);if(entry&&!entry.children&&!entry.disabled){onClose();entry.run?.();}}} onContextMenu={e=>e.preventDefault()}/>,overlayContainer());
 }

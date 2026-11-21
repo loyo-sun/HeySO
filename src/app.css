@@ -1,3 +1,4 @@
+@scope (.heyso-root) {
 
 :where(.heyso-menu,.heyso-menu .ant-menu-item,.heyso-menu .ant-menu-title-content,.heyso-tabs,.heyso-tabs .ant-tabs-nav,.heyso-tabs .ant-tabs-tab,.heyso-tabs .ant-tabs-tab-btn,.heyso-table .ant-table-wrapper,.heyso-table .ant-table,.heyso-table .ant-table-container,.heyso-table .ant-table-content,.heyso-table .ant-table-cell,.heyso-card,.heyso-card .ant-card-body,.heyso-avatar,.heyso-tag,.heyso-alert,.heyso-empty,.heyso-disclosure,.heyso-disclosure .ant-collapse-header,.heyso-disclosure .ant-collapse-content,.heyso-disclosure .ant-collapse-body) {all:revert;}
 /* Ant components supply behavior; the original HeySO CSS supplies appearance.
@@ -836,7 +837,7 @@
 @media (max-width: 600px) { .setup-card { padding: 24px 18px; } .setup-heading { align-items: flex-start; flex-direction: column; } .setup-steps { gap: 12px; } .setup-steps li { gap: 5px; font-size: 12px; } .setup-providers { grid-template-columns: 1fr; } .setup-providers button { min-height: auto; padding: 14px; gap: 6px; } .setup-footer { align-items: flex-start; flex-direction: column; } }
 
 /* Original style.css */
-:root {
+:scope {
   font-family:
     Inter,
     -apple-system,
@@ -857,7 +858,7 @@
 * {
   box-sizing: border-box;
 }
-body {
+:scope {
   margin: 0;
 }
 button,
@@ -3086,7 +3087,7 @@ main {
 /* Original plane.css */
 /* HeySO's interface theme: compact neutral surfaces and restrained motion,
    informed by the locally reviewed Plane screens. Original implementation. */
-:root {
+:scope {
   color: #252525;
   background: #f0f2f3;
   font-size: 13px;
@@ -3100,7 +3101,7 @@ main {
   --enter: 300ms;
   --exit: 200ms;
 }
-body {
+:scope {
   background: #f0f2f3;
 }
 h1 {
@@ -6045,7 +6046,7 @@ main {
 
 /* Original brand.css */
 /* HeySO palette, shared with the approved BaizeFig project overview. */
-:root {
+:scope {
   --accent: #f5642e;
   --accent-hover: #e45420;
   --accent-pressed: #cd4517;
@@ -7906,3 +7907,20 @@ body .roadmap-plan-popover .roadmap-search {padding:8px 11px;}
 
 .backlog-load-more{position:sticky;left:0;display:flex;align-items:center;justify-content:center;gap:12px;padding:14px 18px;min-height:54px;box-sizing:border-box;font-size:12px;color:var(--muted);background:#fff;border-top:1px solid var(--border);white-space:nowrap}
 .backlog-load-more .replica-button{font-size:12px;padding:4px 10px}
+
+.heyso-overlay-root{position:relative;z-index:20000}
+:scope{display:block;min-width:0;min-height:100dvh;font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;color:var(--heyso-text);background:var(--heyso-background);--accent:var(--heyso-accent);--accent-text:var(--heyso-accent);--border:var(--heyso-border);--muted:var(--heyso-muted);font-size:13px;line-height:normal;text-align:left}
+.appbar{z-index:20;gap:14px}
+[data-heyso-slot]:empty{display:none}
+.appbar-actions{margin-left:auto}
+.heyso-shell-menu{display:flex;align-items:center;gap:4px;max-width:100%;overflow-x:auto}
+.heyso-shell-menu button{white-space:nowrap;border:0;background:transparent;min-height:36px;padding:7px 12px}
+.heyso-shell-menu button[aria-current=page]{color:var(--accent);background:#fff3ed;border-radius:5px}
+.heyso-shell-brand{flex:none}
+.workspace{display:flex;align-items:center;gap:6px}
+.workspace>.select-control{flex:1;min-width:0}
+.heyso-project-selector-actions,.heyso-project-title-actions{display:flex;align-items:center;gap:4px}
+.heyso-project-title-actions{margin-left:auto}
+@media(max-width:700px){.appbar{gap:5px}.app-brand>span{display:none}.heyso-shell-menu button{padding:6px}.appbar>[data-heyso-slot="header.navigation"]{min-width:0;flex:1}.heyso-project-selector-actions{flex-direction:column}.sidebar-compact .workspace{flex-direction:column}.appbar-actions{gap:2px}}
+
+}
