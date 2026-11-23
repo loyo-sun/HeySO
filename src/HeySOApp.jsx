@@ -22,6 +22,7 @@ import {WorkspaceSync,watchWorkspaceUpdates} from './workspace-sync.mjs';
 import {DurableWorkspaceSync,guardPending} from './durable-workspace-sync.mjs';
 import LiveSyncSettings from './LiveSyncSettings.jsx';
 import React, { useState, useEffect, useRef } from "react";
+import {recoverableLazy} from './recoverableLazy.jsx';
 import { useHosting } from './AccessGate.jsx';
 import {
   Layers,
@@ -111,8 +112,8 @@ const statusNames = {
   done: "已完成",
   cancelled: "已取消",
 };
-const Reports = React.lazy(() => import('./Reports.jsx'));
-const Roadmap = React.lazy(() => import('./Roadmap.jsx'));
+const Reports = recoverableLazy(() => import('./Reports.jsx'),'报告');
+const Roadmap = recoverableLazy(() => import('./Roadmap.jsx'),'路线图');
 const kinds = {
   theme: "战略主题",
   epic: "史诗",

@@ -122,6 +122,7 @@ if (process.argv.includes("--dev")) {
   app.use(vite.middlewares);
 } else {
   app.use(express.static(path.join(root, "dist")));
+  app.use('/assets', (_, res) => res.status(404).type('text/plain').send('Asset not found'));
   app.get("/{*path}", (_, res) =>
     res.sendFile(path.join(root, "dist", "index.html")),
   );

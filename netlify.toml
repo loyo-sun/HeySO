@@ -10,9 +10,19 @@
   node_bundler = "esbuild"
 
 [[redirects]]
+  from = "/assets/*"
+  to = "/404.html"
+  status = 404
+
+[[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
 
 [template.environment]
   HEYSO_SETUP_KEY = "设置至少 32 位的部署初始化密钥，首次打开页面时使用"
