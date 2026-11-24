@@ -5813,7 +5813,7 @@ main {
 .wf-row-actions { display:flex; gap:5px; white-space:nowrap; }
 .wf-row-actions button { padding:6px; font-size:12px; border:0; background:transparent; }
 .wf-directory-empty { padding:35px; text-align:center; font-size:12px; color:var(--muted); }
-.wf-fullscreen { position:fixed; inset:0; z-index:1000; background:#f8f9fb; color:#45516a; --accent:#df8950; --accent-text:#b96c36; --border:#e2e7ee; --muted:#8b96a7; --ink:#43516a; }
+.wf-fullscreen { position:fixed; inset:0; z-index:1000; background:#f8f9fb; color:#45516a; --border:#e2e7ee; --muted:#8b96a7; --ink:#43516a; }
 .wf-fullscreen-content { height:100%; display:flex; flex-direction:column; }
 .wf-fullscreen-header { display:flex; align-items:center; gap:16px; padding:15px 24px; background:white; border-bottom:1px solid #e3e7ed; flex-shrink:0; }
 .wf-fullscreen-header > button:first-child { display:grid; place-items:center; border:0; background:transparent; padding:8px; }

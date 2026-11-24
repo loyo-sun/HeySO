@@ -16,7 +16,7 @@ Validation on a clean public main base `1e3a65ba625baec381b35266de9f6e98c7598e40
 - `npm run build`: passed (existing bundle-size notice retained).
 - Strict TypeScript check of `tests/app-shell-types.fixture.tsx`: passed.
 - `tests/app-shell-browser.mjs`: standalone and host examples, explicit host theme, navigation, read-only/mobile/overlay flows passed.
-- `tests/theme-browser.mjs`: real default normal/hover/active/focus/disabled button states and selected navigation passed.
+- `tests/theme-browser.mjs`: real default normal/hover/active/focus/disabled button states, selected navigation and the full-screen workflow editor passed.
 - `git diff --check`: passed.
 
 Run browser scripts against the built app and an isolated local server (`PORT=4192 HEYSO_DATA_DIR=/tmp/isolated-heyso node server/index.mjs`); supply `HEYSO_PLAYWRIGHT_MODULE`. The scripts mock workspace state using the public seed. No external customer data or private repository content is used.
