@@ -58,5 +58,15 @@
     "outlineStyle": "none",
     "cursor": "not-allowed",
     "contrast": 4.924636473568183
+  },
+  {
+    "state": "workflow-primary",
+    "foreground": "rgb(255, 255, 255)",
+    "background": "rgb(196, 71, 27)",
+    "border": "rgb(196, 71, 27)",
+    "outline": "rgb(255, 255, 255)",
+    "outlineStyle": "none",
+    "cursor": "pointer",
+    "contrast": 4.924636473568183
   }
 ]
