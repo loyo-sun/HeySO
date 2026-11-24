@@ -5,6 +5,7 @@ import ReplicaTheme from '../ReplicaTheme.jsx';
 import AccessGate from '../AccessGate.jsx';
 import {createShellExtensions} from './contract.mjs';
 import {ShellProvider} from './ShellProvider.jsx';
+export {brandPalette} from '../theme-tokens.mjs';
 export {contractVersion,slotDefinitions,createShellExtensions} from './contract.mjs';
 export {ShellProvider,ExtensionSlot,ShellMenu,useShellContext} from './ShellProvider.jsx';
 export {useOverlayContainer} from './OverlayContext.jsx';

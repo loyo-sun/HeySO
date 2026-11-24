@@ -35,3 +35,5 @@ export function useOverlayContainer():()=>HTMLElement;
 export interface ShellMenuItem {id:string;label:ReactNode;icon?:ReactNode;order?:number;when?:(context:ShellContext)=>boolean;active?:(context:ShellContext)=>boolean;disabled?:(context:ShellContext)=>boolean;onSelect(context:ShellContext):void}
 export function ShellMenu(props:{items:readonly ShellMenuItem[];label?:string}):ReactNode;
 export const slotDefinitions:Readonly<Record<SlotId,readonly ExtensionMode[]>>;
+
+export const brandPalette: Readonly<{accent:string;hover:string;active:string;onAccent:string;accentText:string;soft:string}>;

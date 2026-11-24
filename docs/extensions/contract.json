@@ -126,7 +126,17 @@
       "--heyso-text",
       "--heyso-border",
       "--heyso-muted"
-    ]
+    ],
+    "defaultPalette": {
+      "accent": "#c4471b",
+      "hover": "#ad3c16",
+      "active": "#92320f",
+      "onAccent": "#ffffff",
+      "accentText": "#b43c15",
+      "soft": "#fff0e9"
+    },
+    "paletteExport": "brandPalette",
+    "paletteModule": "src/theme-tokens.mjs"
   },
   "deprecated": [
     {

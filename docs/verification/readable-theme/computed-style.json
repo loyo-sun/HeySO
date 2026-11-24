@@ -1,0 +1,62 @@
+[
+  {
+    "state": "normal",
+    "foreground": "rgb(255, 255, 255)",
+    "background": "rgb(196, 71, 27)",
+    "border": "rgb(196, 71, 27)",
+    "outline": "rgb(255, 255, 255)",
+    "outlineStyle": "none",
+    "cursor": "pointer",
+    "contrast": 4.924636473568183
+  },
+  {
+    "state": "hover",
+    "foreground": "rgb(255, 255, 255)",
+    "background": "rgb(173, 60, 22)",
+    "border": "rgb(173, 60, 22)",
+    "outline": "rgb(255, 255, 255)",
+    "outlineStyle": "none",
+    "cursor": "pointer",
+    "contrast": 6.11393531673143
+  },
+  {
+    "state": "active",
+    "foreground": "rgb(255, 255, 255)",
+    "background": "rgb(146, 50, 15)",
+    "border": "rgb(146, 50, 15)",
+    "outline": "rgb(255, 255, 255)",
+    "outlineStyle": "none",
+    "cursor": "pointer",
+    "contrast": 7.820246874113816
+  },
+  {
+    "state": "focus",
+    "foreground": "rgb(255, 255, 255)",
+    "background": "rgb(196, 71, 27)",
+    "border": "rgb(196, 71, 27)",
+    "outline": "rgb(196, 71, 27)",
+    "outlineStyle": "solid",
+    "cursor": "pointer",
+    "contrast": 4.924636473568183
+  },
+  {
+    "state": "navigation",
+    "foreground": "rgb(180, 60, 21)",
+    "background": "rgb(255, 240, 233)",
+    "border": "rgb(180, 60, 21)",
+    "outline": "rgb(180, 60, 21)",
+    "outlineStyle": "none",
+    "cursor": "pointer",
+    "contrast": 5.251127647613857
+  },
+  {
+    "state": "disabled",
+    "foreground": "rgb(255, 255, 255)",
+    "background": "rgb(196, 71, 27)",
+    "border": "rgb(196, 71, 27)",
+    "outline": "rgb(255, 255, 255)",
+    "outlineStyle": "none",
+    "cursor": "not-allowed",
+    "contrast": 4.924636473568183
+  }
+]
