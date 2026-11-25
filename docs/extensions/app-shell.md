@@ -36,19 +36,19 @@ const application = mountHeySO(document.getElementById('root'), {extensions});
 | 稳定 ID | 组件 / 精确位置 | 模式 | 缺省行为 |
 | --- | --- | --- | --- |
 | `header.brand` | `ShellHeader` 左侧品牌 | replace、hide | HeySO Logo、名称，点击通过保护进入项目线路 |
-| `header.navigation` | `ShellHeader` 品牌后主菜单区 | append、replace、hide | 空，不显示写死的仪表盘/项目菜单 |
+| `header.navigation` | `ShellHeader` 项目选择器后主菜单区 | append、replace、hide | 空，不显示写死的仪表盘/项目菜单 |
 | `header.project-entry` | `ShellHeader` 主菜单之后、右侧工具之前 | append、replace、hide | 旧仪表盘页面显示“进入项目”；其他页面为空 |
-| `project.selector-actions` | `ProjectSelector`，**侧栏项目选择器右侧** | append、replace、hide | 空；选择器本身不被替换或隐藏 |
-| `project.title-actions` | `ProjectIdentity`，**项目设置 → 常规中的项目标题卡片右侧** | append、replace、hide | 空；不是 Header、也不是侧栏选择器 |
-| `header.right` | `ShellHeader` 最右侧工具区 | append、replace、hide | 复制链接、帮助、清单搜索 |
+| `project.selector-actions` | `ProjectSelector`，**Header 中 Logo 右侧、主菜单左侧的项目选择器右侧** | append、replace、hide | 空；选择器本身不被替换或隐藏 |
+| `project.title-actions` | `ProjectIdentity`，**项目设置 → 常规中的项目标题卡片右侧** | append、replace、hide | 空；不是 Header、也不是顶部项目选择器 |
+| `header.right` | `ShellHeader` 最右侧工具区 | append、replace、hide | 帮助中心（复制链接与全局搜索图标已移除） |
 | `settings.pages` | 设置侧栏菜单及 `HostSettingsPage` 正文 | append、replace、hide | 保留内置设置页 |
 
 三种项目位置不可互换。`data-heyso-component` / `data-heyso-slot` 用于截图与诊断，**不是让宿主通过 DOM/CSS 选择器注入内容的接口**。
 
 截图对应位置：
 
-- [独立版桌面](screenshots/standalone-desktop.png)：默认无主菜单，侧栏提供完整项目选择与切换。
-- [宿主桌面](screenshots/host-desktop.png)：示例工作台为 `header.brand`；协作台/项目空间为 `header.navigation`；进入研发为 `header.project-entry`；侧栏选择器旁齿轮为 `project.selector-actions`；账号/帮助为 `header.right`。
+- [独立版桌面](screenshots/standalone-desktop.png)：默认无主菜单，Logo 右侧提供完整项目选择与切换。
+- [宿主桌面](screenshots/host-desktop.png)：示例工作台为 `header.brand`；协作台/项目空间为 `header.navigation`；进入研发为 `header.project-entry`；顶部项目选择器旁齿轮为 `project.selector-actions`；账号/帮助为 `header.right`。
 - [项目标题操作](screenshots/project-title-actions.png)：常规设置项目卡片右侧“项目说明”按钮为 `project.title-actions`。
 - [嵌套弹层](screenshots/nested-popup.png)、[宿主手机](screenshots/host-mobile.png)、[手机弹层](screenshots/host-mobile-popup.png)、[独立版手机](screenshots/standalone-mobile.png)。
 
@@ -119,3 +119,5 @@ const extensions = createShellExtensions({settingsPages:[
 宿主可从统一入口导入 `brandPalette`；需要在无 React 的工具或主题适配层读取时，纯模块 `src/theme-tokens.mjs` 也公开该不可变对象。不要向核心 `.primary` 追加全局覆盖。`theme.accent` 等原有显式配置继续保留；自定义色不自动得到默认方案的对比度保证，需由宿主验证。悬停/按下为该自定义色与黑色混合，不再退回默认橙色。
 
 原默认 `#f5642e` 白字对比度约 3.11，更新后的默认样式有意改变该色值以改善正文按钮可读性；不是对所有页面或所有自定义主题的 WCAG 合规声明。数据、权限、存储及协议版本不变。
+
+当前 Header 顺序为品牌 → 项目选择器（包含 `project.selector-actions`）→ `header.navigation` → `header.project-entry` → `header.right`。选择器不再位于侧栏；原有扩展位 ID、参数、导航保护和模式保持兼容。核心搜索输入统一复用 `src/SearchField.jsx`，宿主无需覆盖核心搜索框的类名或样式。

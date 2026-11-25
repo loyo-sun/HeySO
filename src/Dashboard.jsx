@@ -1,7 +1,8 @@
+import SearchField from './SearchField.jsx';
 import {ReplicaButton,ReplicaInput} from './ReplicaControls.jsx';
 import {AntList,AntTag,AntEmpty,AntCard,AntStatistic} from './AntStructures.jsx';
 import React, { useState } from 'react';
-import { LayoutDashboard, ListChecks, AlertCircle, Calendar, Clock, Search, ArrowUpRight, FolderKanban, Plus, RefreshCw, ArrowRight, CheckCircle2 } from 'lucide-react';
+import { LayoutDashboard, ListChecks, AlertCircle, Calendar, Clock, ArrowUpRight, FolderKanban, Plus, RefreshCw, ArrowRight, CheckCircle2 } from 'lucide-react';
 import { dashboardTodos, matchesTodoScope, localDay, relativeDueDate, dashboardSprints } from './dashboard.mjs';
 import { WorkConfigContext } from './WorkConfigContext.jsx';
 import { statusNamesFor, progressCategory } from '../shared/work-config.mjs';
@@ -46,7 +47,7 @@ export default function Dashboard({ data, onOpen, onProject, onRefresh, onCreate
       <AntCard className="panel dashboard-todos" aria-label="项目待办">
         <div className="panel-title"><h3><ListChecks size={18}/> 项目待办 <span className="count">{visible.length}</span></h3><span className="muted">逾期优先 · 按截止日期排序</span></div>
         <div className="dashboard-filters">
-          <div className="dashboard-search"><Search size={15}/><ReplicaInput aria-label="搜索所有项目待办" placeholder="搜索标题、编号或项目" value={query} onChange={e => setQuery(e.target.value)}/></div>
+          <SearchField className="dashboard-search" aria-label="搜索所有项目待办" placeholder="搜索标题、编号或项目" value={query} onChange={e => setQuery(e.target.value)} onClear={()=>setQuery('')}/>
           <Select aria-label="筛选项目" value={projectId} onChange={e => setProjectId(e.target.value)}><option value="all">全部项目</option>{data.projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</Select>
           <Select aria-label="筛选待办负责人" value={owner} onChange={e => setOwner(e.target.value)}><option value="all">全部负责人</option>{owners.map(name => <option key={name} value={name}>{name || '未分配'}</option>)}</Select>
         </div>

@@ -1,0 +1,10 @@
+{
+  "height": 34,
+  "border": "1px solid rgb(233, 233, 235)",
+  "borderRadius": "6px",
+  "background": "rgb(255, 255, 255)",
+  "font": "12px",
+  "padding": "0px",
+  "inputBorder": "0px",
+  "icons": 1
+}

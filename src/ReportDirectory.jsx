@@ -1,9 +1,10 @@
+import SearchField from './SearchField.jsx';
 import useViewPreferences from './useViewPreferences.jsx';
 import {ReplicaButton,ReplicaInput} from './ReplicaControls.jsx';
 import {AntCard,AntTabs,AntEmpty,AntStatistic} from './AntStructures.jsx';
 import React,{useState} from 'react';
 import PageTitle from './PageTitle.jsx';
-import {TrendingDown,TrendingUp,Layers,Clock,PlusCircle,PieChart,Users,Flag,ListFilter,Search,ArrowRight,CalendarDays,Target,TriangleAlert,Bot,Star,X} from 'lucide-react';
+import {TrendingDown,TrendingUp,Layers,Clock,PlusCircle,PieChart,Users,Flag,ListFilter,ArrowRight,CalendarDays,Target,TriangleAlert,Bot,Star,X} from 'lucide-react';
 export const reportCategories=[
  ['敏捷与冲刺','冲刺的承诺是否兑现，下一轮可以承接多少工作？'],
  ['流程与效率','工作在哪里积压，从开始到交付需要多久？'],
@@ -48,7 +49,7 @@ export default function ReportDirectory({onSelect,project,insights}){
   <div className="report-hub-metrics">{metrics.map(([label,value,suffix,note,id])=><AntCard key={label} className="report-hub-metric"><span>{label}</span><AntStatistic>{value}<small>{suffix}</small></AntStatistic><div><small>{note}</small><ReplicaButton className="text-btn" aria-label={{distribution:'查看工作项分布',risks:'查看交付风险',collaboration:'查看当前 AI 待验收'}[id]} onClick={()=>onSelect(id,id==='collaboration'?'pending':undefined)}><ArrowRight size={14}/></ReplicaButton></div></AntCard>)}</div>
   <div className="report-hub-shortcuts"><div><strong>开始一次复盘</strong><span>先看范围与风险，再追踪交付效率。</span></div><ReplicaButton onClick={()=>onSelect('sprint')}>冲刺复盘 <ArrowRight size={13}/></ReplicaButton><ReplicaButton onClick={()=>onSelect('risks')}>检查交付风险 <ArrowRight size={13}/></ReplicaButton><ReplicaButton onClick={()=>onSelect('collaboration')}>查看 AI 验收 <ArrowRight size={13}/></ReplicaButton></div>
   {recent.length>0&&<div className="report-hub-recent"><span>最近查看</span>{recent.map(id=><ReplicaButton key={id} className="text-btn" onClick={()=>onSelect(id)}>{reportCatalog.find(c=>c[0]===id)?.[1]}</ReplicaButton>)}</div>}
-  <div className="report-hub-toolbar"><AntTabs className="report-hub-tabs" aria-label="报告分类">{['全部','常用报告',...reportCategories.map(c=>c[0])].map(c=><ReplicaButton key={c} aria-selected={c===category} onClick={()=>setCategory(c)}>{c}</ReplicaButton>)}</AntTabs><label className="report-hub-search"><Search size={15}/><ReplicaInput aria-label="搜索报告" placeholder="搜索报告或分析目的" value={query} onChange={e=>setQuery(e.target.value)}/>{query&&<ReplicaButton aria-label="清空报告搜索" className="text-btn" onClick={()=>setQuery('')}><X size={13}/></ReplicaButton>}</label></div>
+  <div className="report-hub-toolbar"><AntTabs className="report-hub-tabs" aria-label="报告分类">{['全部','常用报告',...reportCategories.map(c=>c[0])].map(c=><ReplicaButton key={c} aria-selected={c===category} onClick={()=>setCategory(c)}>{c}</ReplicaButton>)}</AntTabs><SearchField className="report-hub-search" aria-label="搜索报告" placeholder="搜索报告或分析目的" value={query} onChange={e=>setQuery(e.target.value)} clearLabel="清空报告搜索" onClear={()=>setQuery('')}/></div>
   {reportCategories.filter(([c])=>matching.some(r=>r[4]===c)).map(([c,question])=><section className="report-hub-section" key={c}><header><h2>{c}<small>{matching.filter(r=>r[4]===c).length}</small></h2><p>{question}</p></header><div className="report-hub-grid">{matching.filter(r=>r[4]===c).map(([id,title,Icon,description,,source])=><AntCard className="report-hub-card" key={id}><ReplicaButton className="report-hub-entry" onClick={()=>onSelect(id)}><span className="report-hub-icon"><Icon size={21}/></span><span className="report-hub-copy"><strong>{title}</strong><span>{description}</span><small>{source}</small></span><ArrowRight size={15}/></ReplicaButton><ReplicaButton className={'report-favorite text-btn'+(favorites.includes(id)?' is-favorite':'')} aria-label={(favorites.includes(id)?'取消常用：':'设为常用：')+title} aria-pressed={favorites.includes(id)} onClick={()=>toggle(id)}><Star size={15}/></ReplicaButton></AntCard>)}</div></section>)}
   {!matching.length&&<AntEmpty className="report-empty">{category==='常用报告'?'还没有常用报告，点击报告旁的星标即可添加。':'没有匹配报告，请尝试其他关键词。'}</AntEmpty>}
   <p className="report-hub-footnote">执行统计不重复计入规划层和子任务；AI 报告按执行记录统计，包含子任务交付。缺少历史记录时明确展示数据不足。</p>
