@@ -20,7 +20,7 @@ try{
  await page.goto(base+'/?project=p_heyso&view=list');const list=await style('搜索清单工作项');assert.equal(list.height,34);assert.equal(list.icons,1);assert.equal(list.inputBorder,'0px');
  const header=page.locator('[data-heyso-component="ShellHeader"]');
  assert.equal(await header.getByRole('button',{name:'复制当前页面链接'}).count(),0);assert.equal(await header.getByRole('button',{name:'搜索工作项',exact:true}).count(),0);
- assert.equal(await header.locator('[data-heyso-component="ProjectSelector"]').count(),1);assert.equal(await header.locator('.project-switcher .select-project-icon,.project-switcher .sidebar-project-switch-icon,.project-switcher small').count(),0);assert.equal(await header.locator('.project-switcher .select-value').innerText(),'HeySO 产品研发');assert.equal(await page.locator('.sidebar [data-heyso-component="ProjectSelector"]').count(),0);
+ assert.equal(await header.locator('[data-heyso-component="ProjectSelector"]').count(),1);assert.equal(await header.locator('.project-switcher svg,.project-switcher small').count(),0);assert.equal(await header.locator('.project-switcher .select-value').innerText(),'HeySO 产品研发');assert.equal(await page.locator('.sidebar [data-heyso-component="ProjectSelector"]').count(),0);
  await page.getByLabel('切换项目',{exact:true}).click();assert.equal(await page.locator('.ant-select-dropdown:visible .select-option-label small').count(),0);await page.getByLabel('搜索项目',{exact:true}).fill('第二');await page.locator('.ant-select-dropdown:visible').getByText('第二个项目',{exact:true}).click();
  await page.waitForURL(/project=second/);await page.goBack();await page.waitForURL(/project=p_heyso/);
  await page.getByLabel('搜索清单工作项').fill('没有这样的工作项');await page.locator('.backlog-empty').waitFor();

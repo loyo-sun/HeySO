@@ -199,11 +199,11 @@ export default function Select({children,value,defaultValue,onChange,name,requir
       className="select-trigger heyso-select" data-sidebar-tooltip={sidebarTooltip} data-sidebar-description={sidebarDescription}
       open={open} onOpenChange={next=>{setOpen(next);if(!next)setQuery('');}}
       options={options} virtual={false} showSearch={false} labelRender={()=>renderLabel(selected)}
-      suffix={className.includes('detail-status-picker')?null:<ChevronDown size={13} className="select-chevron"/>} listHeight={280}
+      suffix={kind==='project'||className.includes('detail-status-picker')?null:<ChevronDown size={13} className="select-chevron"/>} listHeight={280}
       popupMatchSelectWidth={false} placement="bottomLeft" notFoundContent={<div className="select-empty">没有匹配的{kind==='project'?'项目':'选项'}</div>}
       classNames={{popup:{root:`heyso-select-popup select-popover-${kind}`}}}
       styles={{popup:{root:{width:popupWidth??(kind==='project'?320:240),maxWidth:'calc(100vw - 16px)'}}}}
-      optionFilterProp="label" optionRender={({data:option})=><>{kind!=='project'&&<OptionIcon kind={kind} option={option}/>}<span className="select-option-label"><span>{option.label}</span></span>{option.value===current&&<Check size={14} className="select-check"/>}</>}
+      optionFilterProp="label" optionRender={({data:option})=><>{kind!=='project'&&<OptionIcon kind={kind} option={option}/>}<span className="select-option-label"><span>{option.label}</span></span>{kind!=='project'&&option.value===current&&<Check size={14} className="select-check"/>}</>}
       menuItemSelectedIcon={null}
       popupRender={menu=><>{kind==='project'&&<div className="select-heading">切换项目 <span>{options.length}</span></div>}{canSearch&&<SearchField className="select-search" ref={focusSearch} aria-label={`搜索${kind==='project'?'项目':'选项'}`} placeholder={kind==='project'?'搜索项目名称或标识…':'搜索选项…'} value={query} onChange={e=>setQuery(e.target.value)} onKeyDown={e=>{if(e.key==='Escape')setOpen(false);if(['ArrowDown','ArrowUp'].includes(e.key)){e.preventDefault();select.current?.focus();}}} clearLabel="清空搜索" onClear={()=>setQuery('')}/>}{menu}{onCreate&&<div className="select-footer"><ReplicaButton type="button" onClick={()=>{setOpen(false);onCreate();}}><Plus size={15}/>创建新项目</ReplicaButton></div>}</>}
       filterOption={false} {...(query?{options:options.filter(o=>`${o.label} ${o.code||''}`.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()))}:{})}/>
