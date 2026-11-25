@@ -122,4 +122,6 @@ const extensions = createShellExtensions({settingsPages:[
 
 当前 Header 顺序为品牌 → `header.navigation` → `header.project-entry` → 右侧工具组（项目选择器及 `project.selector-actions` → `header.right`）。默认项目切换器紧邻帮助按钮左侧。选择器不再位于侧栏；原有扩展位 ID、参数、导航保护和模式保持兼容。核心搜索输入统一复用 `src/SearchField.jsx`，宿主无需覆盖核心搜索框的类名或样式。
 
-默认品牌保留 Logo、HeySO 和合序文字，项目切换放在 Header 右上角的帮助入口左侧。切换控件在桌面及手机均固定为 120px，保留下拉箭头；选中项只显示项目名称，下拉选项显示项目名称及灰色的真实项目 ID（`project.id`，不是项目编号前缀 `code`），并支持按名称、编号前缀或 ID 搜索。`project.selector-actions` 是 120px 控件之外的独立操作区，不占用或压缩控件宽度。宿主可继续用 `header.brand` 自定义品牌内容。
+默认品牌保留 Logo、HeySO 和合序文字，项目切换放在 Header 右上角的帮助入口左侧。切换控件在桌面及手机均固定为 120px，保留下拉箭头；选中项只显示项目名称，下拉选项显示项目名称及灰色的客户手动填写的项目 ID（`project.code`，例如 `HS1`），并支持按名称或项目 ID 搜索；内部 `project.id` 仅用于路由和关联，不在此列表展示，缺少 `code` 时不回退展示内部 ID。`project.selector-actions` 是 120px 控件之外的独立操作区，不占用或压缩控件宽度。宿主可继续用 `header.brand` 自定义品牌内容。
+
+[项目下拉名称与手动项目 ID 示例](../verification/project-code-label/dropdown.png)：灰色 HS1 来自客户填写的 `project.code`，不是内部路由标识。
