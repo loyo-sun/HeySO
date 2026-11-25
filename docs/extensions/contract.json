@@ -11,7 +11,7 @@
         "hide"
       ],
       "componentLocation": "ShellHeader：左侧品牌",
-      "default": "HeySO Logo 与名称，点击进入项目线路",
+      "default": "HeySO Logo 图标，点击进入项目线路",
       "parameters": "ShellContext",
       "registrationKey": "slots"
     },

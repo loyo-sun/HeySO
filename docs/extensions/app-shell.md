@@ -35,7 +35,7 @@ const application = mountHeySO(document.getElementById('root'), {extensions});
 
 | 稳定 ID | 组件 / 精确位置 | 模式 | 缺省行为 |
 | --- | --- | --- | --- |
-| `header.brand` | `ShellHeader` 左侧品牌 | replace、hide | HeySO Logo、名称，点击通过保护进入项目线路 |
+| `header.brand` | `ShellHeader` 左侧品牌 | replace、hide | HeySO Logo 图标，点击通过保护进入项目线路 |
 | `header.navigation` | `ShellHeader` 项目选择器后主菜单区 | append、replace、hide | 空，不显示写死的仪表盘/项目菜单 |
 | `header.project-entry` | `ShellHeader` 主菜单之后、右侧工具之前 | append、replace、hide | 旧仪表盘页面显示“进入项目”；其他页面为空 |
 | `project.selector-actions` | `ProjectSelector`，**Header 中 Logo 右侧、主菜单左侧的项目选择器右侧** | append、replace、hide | 空；选择器本身不被替换或隐藏 |
@@ -121,3 +121,5 @@ const extensions = createShellExtensions({settingsPages:[
 原默认 `#f5642e` 白字对比度约 3.11，更新后的默认样式有意改变该色值以改善正文按钮可读性；不是对所有页面或所有自定义主题的 WCAG 合规声明。数据、权限、存储及协议版本不变。
 
 当前 Header 顺序为品牌 → 项目选择器（包含 `project.selector-actions`）→ `header.navigation` → `header.project-entry` → `header.right`。选择器不再位于侧栏；原有扩展位 ID、参数、导航保护和模式保持兼容。核心搜索输入统一复用 `src/SearchField.jsx`，宿主无需覆盖核心搜索框的类名或样式。
+
+默认品牌仅显示 Logo 图标，项目切换紧邻其右侧。切换控件在桌面及手机均固定为 120px，保留下拉箭头；选中项只显示项目名称，下拉选项显示项目名称及灰色的真实项目 ID（`project.id`，不是项目编号前缀 `code`），并支持按名称、编号前缀或 ID 搜索。`project.selector-actions` 是 120px 控件之外的独立操作区，不占用或压缩控件宽度。宿主可继续用 `header.brand` 自定义品牌内容。
