@@ -5,7 +5,7 @@ import {ReplicaNativeSelect,ReplicaButton,ReplicaInput} from './ReplicaControls.
 import {AntCard,AntSegments,AntDisclosure,AntEmpty} from './AntStructures.jsx';
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import {createPortal} from 'react-dom';
-import { Calendar, ChevronLeft, ChevronRight, ChevronDown, Flag, X, ChevronsDownUp, ChevronsUpDown, SlidersHorizontal, Columns3, Download, Link2, Check, Settings2, Plus } from 'lucide-react';
+import { Calendar, ChevronLeft, ChevronRight, ChevronDown, Flag, X, ChevronsDownUp, ChevronsUpDown, SlidersHorizontal, Columns3, Link2, Check, Settings2, Plus } from 'lucide-react';
 import { TypeIcon, workTypeColor } from './WorkType.jsx';
 import { configFor, typeFor, terminal, statusNamesFor } from '../shared/work-config.mjs';
 import { dayNumber, localDay, itemRange, shiftRoadmap, roadmapBar, roadmapPoint, roadmapProgress, roadmapPlanWindow, roadmapPlanRows } from './roadmap-model.mjs';
@@ -150,7 +150,7 @@ export default function Roadmap({ project, items, releases, onOpen, onCreate, on
   const grid = <div className="roadmap-grid" aria-hidden="true">{window.ticks.map(t => <span key={t.date} style={{ left: `${t.left}%` }}/>)}</div>;
   const nowLine = todayX !== null && <span className="roadmap-today-line" style={{ left: `${todayX}%` }} aria-hidden="true"/>;
   return <>
-    <div className="page-heading roadmap-page-heading"><div><PageTitle view="roadmap"/></div><div className="roadmap-plan-actions"><ReplicaButton onClick={()=>{const quote=v=>'"'+String(v??'').replaceAll('"','""')+'"';const text='\ufeff'+[['ID','标题',...shownFields.map(c=>c.label)],...rows.map(({item:i})=>[project.code+'-'+i.number,i.title,...shownFields.map(c=>fieldValue(i,c.id))])].map(r=>r.map(v=>quote(/^[\s]*[=+@-]/.test(String(v))?"'"+v:v)).join(',')).join('\r\n');const a=document.createElement('a'),url=URL.createObjectURL(new Blob([text],{type:'text/csv;charset=utf-8'}));a.href=url;a.download=project.code+'-线路计划.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}}><Download size={14}/>导出</ReplicaButton></div></div>
+    <div className="page-heading roadmap-page-heading"><div><PageTitle view="roadmap"/></div></div>
     {notice&&<div className="roadmap-copy-notice" role="status">{notice}<ReplicaButton aria-label="关闭提示" onClick={()=>setNotice('')}><X size={13}/></ReplicaButton></div>}
     <AntCard className="panel roadmap-panel roadmap-plan" ref={panel} aria-label="产品路线图" style={{ '--roadmap-label-width': `${labelWidth}px`, '--roadmap-axis-width': `${axisWidth}px`,'--roadmap-fields-width':fieldsWidth+'px','--roadmap-field-columns':shownFields.map(c=>c.width+'px').join(' ') }}>
       <div className="roadmap-sticky-header">

@@ -7938,8 +7938,11 @@ select:focus {
 
  .appbar .app-brand b,.appbar .app-brand>span{display:none;}
  .appbar .heyso-project-selector-actions{flex-direction:row;}
- .backlog-page-header .backlog-active-filters{grid-template-columns:minmax(0,1fr) auto;}
- .backlog-page-header .backlog-heading-filters:not(:empty){grid-row:2;grid-column:1 / -1;}
+ .backlog-page-header .backlog-active-filters{grid-template-columns:minmax(0,1fr);}
+ .backlog-page-header .backlog-search{grid-row:1;grid-column:1;}
+ .backlog-page-header .backlog-list-actions{grid-row:2;grid-column:1;width:100%;margin-left:0;justify-content:flex-end;}
+ .backlog-page-header .backlog-heading-filters:empty{display:none;}
+ .backlog-page-header .backlog-heading-filters:not(:empty){grid-row:3;grid-column:1;}
  .sprint-plan-toolbar>.heyso-search-field,.version-list-toolbar>.heyso-search-field{width:100%;}
 }
 
