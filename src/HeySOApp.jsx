@@ -1,3 +1,4 @@
+import SearchField from './SearchField.jsx';
 import {LiveWorkspaceSync,watchLiveUpdates} from './live-workspace-sync.mjs';
 import useViewPreferences,{ViewPreferencesNotice} from './useViewPreferences.jsx';
 import {ReplicaField,ReplicaForm,ReplicaModal,ReplicaDrawer,ReplicaButton,ReplicaInput,ReplicaTextArea} from './ReplicaControls.jsx';
@@ -34,7 +35,6 @@ import {
   Bot,
   Settings,
   Plus,
-  Search,
   ChevronDown,
   ChevronsUpDown,
   ChevronsDownUp,
@@ -576,15 +576,10 @@ export default function App() {
   );
   const toolbar = (
     <div className="toolbar">
-      <div className="search">
-        <Search size={16} />
-        <ReplicaInput
-          aria-label="搜索工作项"
+      <SearchField aria-label="搜索工作项"
           placeholder="搜索工作项标题或编号…"
           value={query}
-          onChange={(e) => setQuery(e.target.value)}
-        />
-      </div>
+          onChange={(e) => setQuery(e.target.value)} onClear={()=>setQuery('')}/>
       <Select
         aria-label="状态筛选"
         value={filter}
@@ -902,10 +897,32 @@ export default function App() {
     <ShellRuntimeProvider value={shellContext}><WorkConfigContext.Provider value={project}><WorkspaceLinksProvider project={project} items={items} onOpen={item=>{if(modal){const url=new URL(window.location.href);url.searchParams.set("item",item.id);url.searchParams.set("project",project.id);window.open(url.href,"_blank","noopener,noreferrer");}else open(item);}}>
     <>
     <div inert={helpOpen ? true : undefined} className={`app${sidebarCompact ? " sidebar-compact" : ""}`}>
-      <ShellHeader right={<>
-        <ReplicaButton className="help-entry" aria-label="复制当前页面链接" title="复制当前页面链接" onClick={() => copy(window.location.href)}><Link size={18}/></ReplicaButton>
+      <ShellHeader projectSelector={<div className="workspace" data-heyso-component="ProjectSelector">
+          <Select
+            kind="project"
+            aria-label="切换项目"
+            value={project.id}
+            onCreate={() => requestSettingsNavigation(() => {
+              settingsDirtyRef.current = false;
+              setView("roadmap");
+              setModal({ type: "project" });
+            })}
+            onChange={(e) => switchProject(e.target.value)}
+          >
+            {data.projects.map((p) => (
+              <option
+                key={p.id}
+                value={p.id}
+                data-code={p.code}
+                data-description={p.description}
+              >
+                {p.name}
+              </option>
+            ))}
+          </Select>
+          <div className="heyso-project-selector-actions" data-heyso-slot="project.selector-actions"><ExtensionSlot id="project.selector-actions"/></div>
+        </div>} right={<>
         <ReplicaButton className="help-entry" aria-label="帮助中心" title="帮助中心" onClick={() => setHelpOpen(true)}><CircleHelp size={19}/></ReplicaButton>
-        <ReplicaButton className="global-search" aria-label="搜索工作项" title="搜索工作项" onClick={() => navigateShell({view:'list'})}><Search size={18}/></ReplicaButton>
       </>}/>
       {page === "dashboard" && <main className="dashboard-main" id="panel-dashboard" aria-label="仪表盘">
         {!online && <AntAlert className="offline-banner">服务连接已断开，云端修改将在恢复连接后重试。</AntAlert>}
@@ -934,33 +951,7 @@ export default function App() {
             </ReplicaButton>
           </div>
         )}
-        <div className="workspace" data-heyso-component="ProjectSelector">
-          <Select
-            kind="project"
-            aria-label="切换项目"
-            sidebarTooltip={sidebarCompact ? "切换项目" : undefined}
-            sidebarDescription={`当前项目：${project.name}。点击切换或创建项目。`}
-            value={project.id}
-            onCreate={() => requestSettingsNavigation(() => {
-              settingsDirtyRef.current = false;
-              setView("roadmap");
-              setModal({ type: "project" });
-            })}
-            onChange={(e) => switchProject(e.target.value)}
-          >
-            {data.projects.map((p) => (
-              <option
-                key={p.id}
-                value={p.id}
-                data-code={p.code}
-                data-description={p.description}
-              >
-                {p.name}
-              </option>
-            ))}
-          </Select>
-          <div className="heyso-project-selector-actions" data-heyso-slot="project.selector-actions"><ExtensionSlot id="project.selector-actions"/></div>
-        </div>
+
         {view !== "settings" && (
           <ReplicaButton
             className="sidebar-create primary"

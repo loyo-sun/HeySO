@@ -22,7 +22,7 @@
         "replace",
         "hide"
       ],
-      "componentLocation": "ShellHeader：品牌右侧主导航",
+      "componentLocation": "ShellHeader：项目选择器右侧主导航",
       "default": "空；不显示仪表盘/项目默认菜单",
       "parameters": "ShellContext",
       "registrationKey": "slots"
@@ -46,7 +46,7 @@
         "replace",
         "hide"
       ],
-      "componentLocation": "ProjectSelector：侧栏项目选择器右侧",
+      "componentLocation": "ProjectSelector：Header 中 Logo 右侧、主菜单左侧的项目选择器右侧",
       "default": "空；项目选择器自身始终保留",
       "parameters": "ShellContext",
       "registrationKey": "slots"
@@ -71,7 +71,7 @@
         "hide"
       ],
       "componentLocation": "ShellHeader：最右侧工具区",
-      "default": "复制链接、帮助、清单搜索",
+      "default": "帮助中心（复制链接与全局搜索图标已移除）",
       "parameters": "ShellContext",
       "registrationKey": "slots"
     },
