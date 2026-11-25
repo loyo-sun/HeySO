@@ -7946,4 +7946,9 @@ select:focus {
  .sprint-plan-toolbar>.heyso-search-field,.version-list-toolbar>.heyso-search-field{width:100%;}
 }
 
+/* Project options stay on one line; other option layouts are unchanged. */
+.select-option-label.project-option-label{flex-direction:row;align-items:center;gap:0;}
+.project-option-label>span{flex:0 1 auto;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.project-option-label>small{flex:none;max-width:50%;white-space:pre;}
+
 }
