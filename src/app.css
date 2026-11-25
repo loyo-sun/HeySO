@@ -7924,16 +7924,16 @@ select:focus {
 .backlog-page-header .backlog-active-filters{display:grid;grid-template-columns:minmax(180px,320px) minmax(0,1fr) auto;align-items:center;gap:10px 16px;}
 .backlog-page-header .backlog-search{width:100%;min-width:0;}
 .backlog-page-header .backlog-heading-filters{min-width:0;}
-.appbar>.workspace{flex-direction:row;flex:0 1 240px;width:240px;min-width:140px;height:34px;min-height:0;margin:0;padding:0;border:0;background:transparent;}
+.appbar>.workspace{flex-direction:row;flex:none;width:auto;min-width:0;height:34px;min-height:0;margin:0;padding:0;border:0;background:transparent;}
 .appbar .workspace .select-value>small{display:none;}
 .appbar .workspace .select-value>span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .appbar .workspace .ant-select-content{height:30px;align-items:center;}
-.appbar .workspace .project-switcher{width:100%;}
+.appbar .workspace .project-switcher{flex:0 0 120px;width:120px;min-width:120px;max-width:120px;}
 .appbar .workspace .select-trigger{height:34px;min-height:34px;}
 .appbar>[data-heyso-slot="header.navigation"]{min-width:0;overflow:auto;}
 .sidebar>.sidebar-create{margin-top:14px;}
 @media(max-width:700px){
- .appbar>.workspace{flex:0 1 180px;min-width:100px;width:180px;}
+
  .appbar .app-brand b,.appbar .app-brand>span{display:none;}
  .appbar .heyso-project-selector-actions{flex-direction:row;}
  .backlog-page-header .backlog-active-filters{grid-template-columns:minmax(0,1fr) auto;}
